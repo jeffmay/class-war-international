@@ -47,7 +47,8 @@ function createPlayerState(socialClass: SocialClass, random: () => number): Play
  * Setup function - initializes the game state
  */
 export function setup(ctx: any): GameState {
-  const random = ctx.random?.() ?? Math.random;
+  // Use Math.random by default, or ctx.random if available
+  const random = ctx.random ? () => ctx.random.Number() : Math.random;
 
   // Initialize workplaces (3 slots: 2 default + 1 empty)
   const workplaces: WorkplaceInPlay[] = [
@@ -110,6 +111,9 @@ export function setup(ctx: any): GameState {
 export const ClassWarGame: Game<GameState> = {
   name: 'class-war-international',
 
+  minPlayers: 2,
+  maxPlayers: 2,
+
   setup,
 
   playerView: ({ G, playerID }) => {
@@ -123,24 +127,78 @@ export const ClassWarGame: Game<GameState> = {
       const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
       G.players[currentClass].playedWorkplaceThisTurn = false;
     },
-
-    stages: {
-      // Production Phase
-      production: {
-        moves: {},
-      },
-      // Action Phase
-      action: {
-        moves: {},
-      },
-      // Reproduction Phase
-      reproduction: {
-        moves: {},
-      },
-    },
   },
 
-  moves: {},
+  moves: {
+    /**
+     * Production Phase: Collect wages/profits and unexhaust figures
+     */
+    collectProduction: ({ G, ctx, playerID }) => {
+      if (G.turnPhase !== TurnPhase.Production) {
+        return; // Can only collect during production phase
+      }
+
+      // Determine current player's class
+      const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+      const player = G.players[currentClass];
+
+      // Collect wages (Working Class) or profits (Capitalist Class) from all workplaces
+      let totalIncome = 0;
+      G.workplaces.forEach((workplace) => {
+        if (workplace.id.startsWith('empty_slot')) {
+          return; // Skip empty slots
+        }
+        if (currentClass === SocialClass.WorkingClass) {
+          totalIncome += workplace.wages;
+        } else {
+          totalIncome += workplace.profits;
+        }
+      });
+
+      player.wealth += totalIncome;
+
+      // Unexhaust all figures for this player
+      player.figures.forEach((figure) => {
+        figure.exhausted = false;
+      });
+
+      // Unexhaust all state figures
+      G.politicalOffices.forEach((office) => {
+        office.exhausted = false;
+      });
+
+      // Transition to Action phase
+      G.turnPhase = TurnPhase.Action;
+    },
+
+    /**
+     * End Action Phase and move to Reproduction
+     */
+    endActionPhase: ({ G, ctx }) => {
+      if (G.turnPhase !== TurnPhase.Action) {
+        return;
+      }
+      G.turnPhase = TurnPhase.Reproduction;
+    },
+
+    /**
+     * End Reproduction Phase and move to next player's Production
+     */
+    endReproductionPhase: ({ G, ctx, events }) => {
+      if (G.turnPhase !== TurnPhase.Reproduction) {
+        return;
+      }
+
+      G.turnPhase = TurnPhase.Production;
+
+      // Increment turn number when Working Class completes their turn (about to become Capitalist's turn)
+      if (ctx.currentPlayer === '0') {
+        G.turnNumber += 1;
+      }
+
+      events?.endTurn?.();
+    },
+  },
 
   endIf: ({ G, ctx }) => {
     // Win conditions will be implemented later
