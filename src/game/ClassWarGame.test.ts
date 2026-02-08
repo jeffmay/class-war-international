@@ -10,11 +10,8 @@ describe('ClassWarGame Setup', () => {
   let gameState: GameState;
 
   beforeEach(() => {
-    // Mock random function for deterministic tests
-    const mockRandom = jest.fn(() => 0.5);
-    const mockCtx = {
-      random: () => mockRandom,
-    };
+    // Mock ctx with no random function (will use Math.random)
+    const mockCtx = {};
 
     gameState = setup(mockCtx);
   });
