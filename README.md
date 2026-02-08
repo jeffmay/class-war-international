@@ -1,46 +1,211 @@
-# Getting Started with Create React App
+# Class War: International - boardgame.io Edition
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A 2-player asymmetric strategy card game built with boardgame.io and React + TypeScript.
 
-## Available Scripts
+## Project Status
 
-In the project directory, you can run:
+✅ **Completed:**
+- boardgame.io project setup
+- Core game state structure
+- Card type definitions and data models
+- Initial card database (subset for testing)
+- Game initialization with deck shuffling
+- Production Phase implementation
+- Comprehensive test suite (15 tests passing)
 
-### `npm start`
+🚧 **In Progress:**
+- Action Phase (card playing mechanics)
+- Conflict system (Strike, Election, Legislative)
+- Reproduction Phase (Theorize/card cycling)
+- Law effects and special card abilities
+- React UI integration
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Game Overview
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+**Class War: International** is an asymmetric 2-player strategy game where:
+- **Player 0**: Working Class - Earns wages, unionizes workplaces
+- **Player 1**: Capitalist Class - Earns profits, builds enterprises
 
-### `npm test`
+### Turn Structure
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Each turn consists of three phases:
 
-### `npm run build`
+1. **Production Phase**
+   - Collect wages (Working Class) or profits (Capitalist Class)
+   - Unexhaust all figures and state figures
+   - Working Class: $2 (Corner Store) + $3 (Parts Producer) = $5
+   - Capitalist Class: $6 (Corner Store) + $9 (Parts Producer) = $15
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+2. **Action Phase**
+   - Play cards (figures, institutions, demands, workplaces)
+   - Initiate conflicts (strikes, elections, legislation)
+   - Respond to opponent's conflicts
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+3. **Reproduction Phase**
+   - Theorize (discard and redraw cards)
+   - Refill hand to max size
+   - End turn
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Tech Stack
 
-### `npm run eject`
+- **Game Engine**: [boardgame.io](https://boardgame.io/)
+- **Frontend**: React 18 with TypeScript
+- **Testing**: Jest + React Testing Library
+- **Build Tool**: Create React App
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+## Project Structure
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```
+src/
+├── game/
+│   ├── ClassWarGame.ts          # Main game definition
+│   ├── ClassWarGame.test.ts     # Setup tests (9 tests)
+│   └── ProductionPhase.test.ts  # Production Phase tests (6 tests)
+├── types/
+│   ├── cards.ts                 # Card type definitions
+│   └── game.ts                  # Game state types
+├── data/
+│   └── cards.ts                 # Card database
+├── App.tsx                      # Main React component
+└── index.tsx                    # Entry point
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+## Development
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+### Available Commands
 
-## Learn More
+```bash
+# Start development server
+npm start
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+# Run tests
+npm test
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+# Run tests without watch mode
+npm test -- --watchAll=false
+
+# Build for production
+npm run build
+```
+
+### Test Coverage
+
+- **Setup Tests**: 9 tests validating game initialization
+  - Player state initialization
+  - Workplace and political office setup
+  - Deck shuffling and card distribution
+
+- **Production Phase Tests**: 6 tests + 2 skipped
+  - Wage/profit collection
+  - Phase transitions
+  - Turn cycling
+  - Income calculation
+
+## Game State
+
+### Player State
+```typescript
+{
+  wealth: number;           // Currency for playing cards
+  hand: CardId[];           // Current hand (4 cards)
+  deck: CardId[];           // Draw pile
+  dustbin: CardId[];        // Discard pile
+  institutions: [...];      // 2 institution slots
+  demands: [...];           // 2 demand slots
+  figures: [...];           // Active character cards
+  maxHandSize: 4;           // Can be increased by institutions
+}
+```
+
+### Shared Board State
+```typescript
+{
+  workplaces: WorkplaceInPlay[];        // 3 workplace slots
+  politicalOffices: StateFigureInPlay[]; // 3 political offices
+  laws: DemandId[];                      // Passed legislation
+  turnPhase: TurnPhase;                  // Current phase
+  turnNumber: number;                    // Increments each round
+}
+```
+
+## Card Types
+
+1. **Figure Cards** - Characters with dice values for conflicts
+2. **Demand Cards** - Legislation that becomes laws
+3. **Institution Cards** - Permanent effects
+4. **Workplace Cards** - Generate wages/profits
+5. **Tactic Cards** - One-time use in conflicts
+
+## Current Cards
+
+### Working Class
+- **Figures**: Cashier, Activist, Rosa Luxembear (hero)
+- **Demands**: Wealth Tax, Free Health Care
+- **Institutions**: Political Education Group
+- **Tactics**: Propagandize
+
+### Capitalist Class
+- **Figures**: Manager, Consultant, Steve Amphibannon (hero)
+- **Demands**: Tax Breaks, Deregulation
+- **Institutions**: Think Tank
+- **Workplaces**: Fast Food Chain, Superstore
+- **Tactics**: Union Busting
+
+## Next Steps
+
+### Immediate Priorities
+
+1. **Action Phase Implementation**
+   - Play figure cards from hand
+   - Play institution/demand cards
+   - Build workplaces
+   - Validate costs and slot availability
+
+2. **Conflict System**
+   - Strike conflicts (labor disputes)
+   - Election conflicts (running for office)
+   - Legislative conflicts (passing laws)
+   - Dice rolling and power calculation
+
+3. **Reproduction Phase**
+   - Theorize (discard/redraw)
+   - Card cycling mechanics
+   - Hand refilling
+
+4. **React UI**
+   - Board display
+   - Hand visualization
+   - Drag-and-drop card playing
+   - Conflict resolution interface
+
+### Future Enhancements
+
+- Complete card database (70+ more cards)
+- Law effect implementation
+- Special card abilities
+- Win condition system
+- Multiplayer support
+- Saved game states
+
+## Testing Philosophy
+
+All game logic is tested before UI implementation:
+- Unit tests for moves and phase transitions
+- Integration tests for complete turn cycles
+- Test-driven development for new features
+
+## Contributing
+
+When adding new features:
+1. Write tests first
+2. Implement the feature
+3. Verify all tests pass
+4. Commit with descriptive message
+
+## License
+
+Based on the Class War board game by Jacobin.
+
+---
+
+**Status**: Early development, core mechanics functional, UI pending
