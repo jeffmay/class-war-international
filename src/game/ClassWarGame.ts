@@ -2,10 +2,10 @@
  * Class War: International - boardgame.io game definition
  */
 
-import { Game } from 'boardgame.io';
+import { Game, INVALID_MOVE } from 'boardgame.io';
 import { GameState, TurnPhase, PlayerState } from '../types/game';
-import { SocialClass, StateFigureInPlay, WorkplaceInPlay } from '../types/cards';
-import { defaultWorkplaces, defaultStateFigures, buildDeck } from '../data/cards';
+import { SocialClass, StateFigureInPlay, WorkplaceInPlay, CardType, FigureCardInPlay } from '../types/cards';
+import { defaultWorkplaces, defaultStateFigures, buildDeck, getCardData } from '../data/cards';
 
 /**
  * Shuffle an array in place using Fisher-Yates algorithm
@@ -17,6 +17,18 @@ function shuffleArray<T>(array: T[], random: () => number): T[] {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
+}
+
+/**
+ * Draw cards from deck to fill hand up to max hand size
+ */
+function drawCards(player: PlayerState): void {
+  while (player.hand.length < player.maxHandSize && player.deck.length > 0) {
+    const card = player.deck.shift();
+    if (card) {
+      player.hand.push(card);
+    }
+  }
 }
 
 /**
@@ -131,6 +143,53 @@ export const ClassWarGame: Game<GameState> = {
 
   moves: {
     /**
+     * Play a figure card from hand
+     */
+    playFigure: ({ G, ctx, playerID }, cardId: string) => {
+      if (G.turnPhase !== TurnPhase.Action) {
+        return INVALID_MOVE;
+      }
+
+      const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+      const player = G.players[currentClass];
+
+      // Check if card is in hand
+      const cardIndex = player.hand.indexOf(cardId);
+      if (cardIndex === -1) {
+        return INVALID_MOVE;
+      }
+
+      // Get card data
+      const cardData = getCardData(cardId);
+      if (cardData.card_type !== CardType.Figure) {
+        return INVALID_MOVE;
+      }
+
+      // Check if player can afford the card
+      if (player.wealth < cardData.cost) {
+        return INVALID_MOVE;
+      }
+
+      // Pay cost
+      player.wealth -= cardData.cost;
+
+      // Remove from hand
+      player.hand.splice(cardIndex, 1);
+
+      // Add to figures in play (in training initially)
+      const figureInPlay: FigureCardInPlay = {
+        id: cardId,
+        card_type: CardType.Figure,
+        exhausted: false,
+        in_training: true,
+      };
+      player.figures.push(figureInPlay);
+
+      // Draw a card to replace
+      drawCards(player);
+    },
+
+    /**
      * Production Phase: Collect wages/profits and unexhaust figures
      */
     collectProduction: ({ G, ctx, playerID }) => {
@@ -188,6 +247,17 @@ export const ClassWarGame: Game<GameState> = {
       if (G.turnPhase !== TurnPhase.Reproduction) {
         return;
       }
+
+      const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+      const player = G.players[currentClass];
+
+      // Remove in_training status from all figures
+      player.figures.forEach(figure => {
+        figure.in_training = false;
+      });
+
+      // Draw cards to fill hand
+      drawCards(player);
 
       G.turnPhase = TurnPhase.Production;
 
