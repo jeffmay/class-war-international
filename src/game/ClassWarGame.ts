@@ -2,10 +2,10 @@
  * Class War: International - boardgame.io game definition
  */
 
-import { Game, INVALID_MOVE } from 'boardgame.io';
+import { Game } from 'boardgame.io';
 import { GameState, TurnPhase, PlayerState } from '../types/game';
 import { SocialClass, StateFigureInPlay, WorkplaceInPlay, CardType, FigureCardInPlay } from '../types/cards';
-import { defaultWorkplaces, defaultStateFigures, buildDeck, getCardData } from '../data/cards';
+import { defaultWorkplaces, buildDeck, getCardData } from '../data/cards';
 
 /**
  * Shuffle an array in place using Fisher-Yates algorithm
@@ -147,7 +147,7 @@ export const ClassWarGame: Game<GameState> = {
      */
     playFigure: ({ G, ctx, playerID }, cardId: string) => {
       if (G.turnPhase !== TurnPhase.Action) {
-        return INVALID_MOVE;
+        return; // Invalid move - wrong phase
       }
 
       const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
@@ -156,18 +156,18 @@ export const ClassWarGame: Game<GameState> = {
       // Check if card is in hand
       const cardIndex = player.hand.indexOf(cardId);
       if (cardIndex === -1) {
-        return INVALID_MOVE;
+        return; // Invalid move - card not in hand
       }
 
       // Get card data
       const cardData = getCardData(cardId);
       if (cardData.card_type !== CardType.Figure) {
-        return INVALID_MOVE;
+        return; // Invalid move - not a figure card
       }
 
       // Check if player can afford the card
       if (player.wealth < cardData.cost) {
-        return INVALID_MOVE;
+        return; // Invalid move - cannot afford
       }
 
       // Pay cost

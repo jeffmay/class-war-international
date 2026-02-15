@@ -1,24 +1,24 @@
-import React from 'react';
-import logo from './logo.svg';
+/**
+ * Main App component - Integrates boardgame.io with React
+ */
+
+import { Client } from 'boardgame.io/react';
+import { ClassWarGame } from './game/ClassWarGame';
+import { ClassWarBoard } from './Board';
 import './App.css';
+
+// Create the boardgame.io client with our game and board
+const ClassWarClient = Client({
+  game: ClassWarGame,
+  board: ClassWarBoard,
+  numPlayers: 2,
+  debug: true, // Enable debug panel during development
+});
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <ClassWarClient />
     </div>
   );
 }
