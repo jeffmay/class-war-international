@@ -277,5 +277,5 @@ A **fully playable** 2-player card game with:
 
 ---
 
-*Migrated from class-war-international-1 (React/Redux) to class-war-international (boardgame.io)*
+*Migrated from React/Redux to boardgame.io*
 *Date: February 15, 2026*
