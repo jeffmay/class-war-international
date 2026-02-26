@@ -2,15 +2,19 @@
  * Main Board component for Class War: International
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { BoardProps } from 'boardgame.io/react';
 import { GameState, TurnPhase } from './types/game';
 import { SocialClass } from './types/cards';
 import { getCardData } from './data/cards';
+import { StartGameScreen } from './components/StartGameScreen';
+import { CardComponent } from './components/CardComponent';
 
 interface ClassWarBoardProps extends BoardProps<GameState> {}
 
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
+  const [gameStarted, setGameStarted] = useState(G.gameStarted);
+
   // Determine current class
   const isWorkingClass = ctx.currentPlayer === '0';
   const currentClass = isWorkingClass ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
@@ -19,195 +23,220 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   // Get player states
   const workingClassPlayer = G.players[SocialClass.WorkingClass];
   const capitalistPlayer = G.players[SocialClass.CapitalistClass];
-  const myPlayer = playerID === '0' ? workingClassPlayer : capitalistPlayer;
 
-  // Get current phase description
-  const getPhaseDescription = () => {
-    switch (G.turnPhase) {
-      case TurnPhase.Production:
-        return 'Production - Collect income from workplaces';
-      case TurnPhase.Action:
-        return 'Action - Play cards and initiate conflicts';
-      case TurnPhase.Reproduction:
-        return 'Reproduction - Theorize and end turn';
-      default:
-        return '';
-    }
+  const handleStartGame = () => {
+    setGameStarted(true);
   };
+
+  // Show start screen if game hasn't started
+  if (!gameStarted) {
+    return <StartGameScreen onStart={handleStartGame} />;
+  }
 
   return (
     <div className="game-board">
       {/* Top Bar */}
       <div className="game-top-controls">
         <div className="game-top-controls-left">
-          <span className="game-title">Class War: International</span>
+          <span className="game-title">Class War International</span>
+          <span className="game-phase-info">{currentClass}</span>
         </div>
         <div className="game-top-controls-right">
-          <div className="turn-info">
-            Turn {G.turnNumber + 1} | {currentClass}
-          </div>
+          <span className="game-player-info">Turn {ctx.turn}</span>
+          <button className="game-undo-button" disabled>
+            Undo
+          </button>
+          <button className="game-end-turn-button" onClick={() => {
+            if (G.turnPhase === TurnPhase.Production) moves.collectProduction();
+            else if (G.turnPhase === TurnPhase.Action) moves.endActionPhase();
+            else if (G.turnPhase === TurnPhase.Reproduction) moves.endReproductionPhase();
+          }} disabled={!isMyTurn}>
+            End Turn
+          </button>
         </div>
       </div>
 
       {/* Main Game Area */}
       <div className="game-main-area">
-        {/* Phase Info */}
-        <div className="phase-info">
-          <h3>{G.turnPhase} Phase</h3>
-          <p>{getPhaseDescription()}</p>
-          {!isMyTurn && <p className="waiting-text">Waiting for opponent...</p>}
+        {/* Player Areas Container */}
+        <div className="player-areas-container">
+          {/* Working Class Player Area */}
+          <div className="player-area-container">
+            <div className={`player-area player-area-working-class ${ctx.currentPlayer === '0' ? 'current-player' : ''}`}>
+              <div className={`player-area-title ${ctx.currentPlayer === '0' ? 'current-player' : ''}`}>
+                Working Class
+              </div>
+              <div className="player-area-wealth">
+                Wealth: ${workingClassPlayer.wealth}
+              </div>
+
+              {/* Hand Section */}
+              <div className="player-area-section">
+                <div className="player-area-section-title">
+                  Hand ({workingClassPlayer.hand.length}/{workingClassPlayer.maxHandSize})
+                </div>
+                <div className="player-area-card-row">
+                  {workingClassPlayer.hand.map((cardId, idx) => {
+                    const card = getCardData(cardId);
+                    return playerID === '0' ? (
+                      <CardComponent key={idx} card={card} />
+                    ) : (
+                      <CardComponent key={idx} card={card} showAsCardBack />
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Figures in Play */}
+              <div className="player-area-section">
+                <div className="player-area-section-title">
+                  Figures in Play ({workingClassPlayer.figures.length})
+                  <span className="player-area-section-subtitle">
+                    (Drag figure here to start training. Figures cannot participate in conflicts until the end of turn.)
+                  </span>
+                </div>
+              </div>
+
+              {/* Institutions and Demands */}
+              <div className="player-area-section-dual">
+                <div className="player-area-section-column">
+                  <div className="player-area-section-title">Institutions (2 max)</div>
+                </div>
+                <div className="player-area-section-column">
+                  <div className="player-area-section-title">Demands (2 max)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Capitalist Class Player Area */}
+          <div className="player-area-container">
+            <div className={`player-area player-area-capitalist-class ${ctx.currentPlayer === '1' ? 'current-player' : ''}`}>
+              <div className={`player-area-title ${ctx.currentPlayer === '1' ? 'current-player' : ''}`}>
+                Capitalist Class
+              </div>
+              <div className="player-area-wealth">
+                Wealth: ${capitalistPlayer.wealth}
+              </div>
+
+              {/* Hand Section */}
+              <div className="player-area-section">
+                <div className="player-area-section-title">
+                  Hand ({capitalistPlayer.hand.length}/{capitalistPlayer.maxHandSize})
+                </div>
+                <div className="player-area-card-row">
+                  {capitalistPlayer.hand.map((cardId, idx) => {
+                    const card = getCardData(cardId);
+                    return playerID === '1' ? (
+                      <CardComponent key={idx} card={card} />
+                    ) : (
+                      <CardComponent key={idx} card={card} showAsCardBack />
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Figures in Play */}
+              <div className="player-area-section">
+                <div className="player-area-section-title">
+                  Figures in Play ({capitalistPlayer.figures.length})
+                  <span className="player-area-section-subtitle">
+                    (Drag figure here to start training. Figures cannot participate in conflicts until the end of turn.)
+                  </span>
+                </div>
+              </div>
+
+              {/* Institutions and Demands */}
+              <div className="player-area-section-dual">
+                <div className="player-area-section-column">
+                  <div className="player-area-section-title">Institutions (2 max)</div>
+                </div>
+                <div className="player-area-section-column">
+                  <div className="player-area-section-title">Demands (2 max)</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Shared Board Area */}
-        <div className="shared-area">
-          <h3>Shared Board</h3>
+        <div className="shared-area-container">
+          <div className="shared-area">
+            <div className="shared-area-section-title">Class War International</div>
 
-          {/* Workplaces */}
-          <div className="workplaces-section">
-            <h4>Workplaces</h4>
-            <div className="workplaces-grid">
-              {G.workplaces.map((workplace, index) => (
-                <div key={index} className="workplace-card">
-                  <div className="workplace-name">
-                    {workplace.id.startsWith('empty') ? 'Empty Slot' : workplace.id}
-                  </div>
-                  {!workplace.id.startsWith('empty') && (
-                    <>
-                      <div>Wages: ${workplace.wages}</div>
-                      <div>Profits: ${workplace.profits}</div>
-                      <div>Power: {workplace.established_power}</div>
-                      {workplace.unionized && <div className="unionized">★ UNIONIZED</div>}
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Political Offices */}
-          <div className="offices-section">
-            <h4>Political Offices</h4>
-            <div className="offices-grid">
-              {G.politicalOffices.map((office, index) => (
-                <div key={index} className="office-card">
-                  <div className="office-name">{office.id}</div>
-                  <div>{office.exhausted ? '(Exhausted)' : '(Ready)'}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Laws */}
-          {G.laws.length > 0 && (
-            <div className="laws-section">
-              <h4>Laws in Effect ({G.laws.length})</h4>
-              <div className="laws-list">
-                {G.laws.map((lawId) => (
-                  <div key={lawId} className="law-card">
-                    {getCardData(lawId).name}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* My Player Area */}
-        <div className="player-area my-player">
-          <h3>
-            {playerID === '0' ? 'Working Class' : 'Capitalist Class'} (You)
-          </h3>
-
-          <div className="player-stats">
-            <div>Wealth: ${myPlayer.wealth}</div>
-            <div>Hand: {myPlayer.hand.length}/{myPlayer.maxHandSize}</div>
-            <div>Deck: {myPlayer.deck.length}</div>
-          </div>
-
-          {/* Hand */}
-          <div className="hand-section">
-            <h4>Hand</h4>
-            <div className="cards-grid">
-              {myPlayer.hand.map((cardId) => {
-                const card = getCardData(cardId);
-                return (
-                  <div key={cardId} className="card-component">
-                    <div className="card-header">{card.name}</div>
-                    <div className="card-type">{card.card_type}</div>
-                    <div className="card-cost">${card.cost}</div>
-                    {isMyTurn && G.turnPhase === TurnPhase.Action && (
-                      <button
-                        onClick={() => moves.playFigure(cardId)}
-                        disabled={myPlayer.wealth < card.cost || card.card_type !== 'Figure'}
-                      >
-                        Play
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Figures in Play */}
-          {myPlayer.figures.length > 0 && (
-            <div className="figures-section">
-              <h4>Figures in Play ({myPlayer.figures.length})</h4>
-              <div className="figures-grid">
-                {myPlayer.figures.map((figure) => {
-                  const card = getCardData(figure.id);
-                  return (
-                    <div key={figure.id} className="figure-card">
-                      <div>{card.name}</div>
-                      {figure.in_training && <div className="training">In Training</div>}
-                      {figure.exhausted && <div className="exhausted">Exhausted</div>}
+            <div className="shared-area-sections">
+              {/* Workplaces Section */}
+              <div className="shared-area-section">
+                <div className="shared-area-section-title">Workplaces</div>
+                <div className="workplaces-section">
+                  {G.workplaces.map((workplace, index) => (
+                    <div key={index} className="card-slot">
+                      {workplace.id.startsWith('empty') ? (
+                        <div className="card-slot-placeholder">
+                          <div className="workplace-empty-text">FOR SALE</div>
+                        </div>
+                      ) : (
+                        <div className="card-component card-color-default">
+                          <div className="card-top-left-block">
+                            <div className="card-name">{workplace.id.replace(/_/g, ' ')}</div>
+                            <div className="card-cost-icon">{workplace.established_power} ⚫️</div>
+                          </div>
+                          <div className="card-bottom-block">
+                            <div className="card-workplace-revenue-container">
+                              <div className="workplace-wages">
+                                <div>Wages: ${workplace.wages}</div>
+                              </div>
+                              <div className="workplace-profits">
+                                <div>Profits: ${workplace.profits}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Phase Actions */}
-          {isMyTurn && (
-            <div className="phase-actions">
-              {G.turnPhase === TurnPhase.Production && (
-                <button onClick={() => moves.collectProduction()}>Collect Production</button>
-              )}
-              {G.turnPhase === TurnPhase.Action && (
-                <button onClick={() => moves.endActionPhase()}>End Action Phase</button>
-              )}
-              {G.turnPhase === TurnPhase.Reproduction && (
-                <button onClick={() => moves.endReproductionPhase()}>End Turn</button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Opponent Player Area (Summary) */}
-        <div className="player-area opponent-player">
-          <h3>
-            {playerID === '0' ? 'Capitalist Class' : 'Working Class'} (Opponent)
-          </h3>
-
-          <div className="player-stats">
-            <div>
-              Wealth: $
-              {playerID === '0'
-                ? capitalistPlayer.wealth
-                : workingClassPlayer.wealth}
-            </div>
-            <div>
-              Hand:{' '}
-              {playerID === '0'
-                ? capitalistPlayer.hand.length
-                : workingClassPlayer.hand.length}
-            </div>
-            <div>
-              Figures:{' '}
-              {playerID === '0'
-                ? capitalistPlayer.figures.length
-                : workingClassPlayer.figures.length}
+              {/* Political Offices Section */}
+              <div className="shared-area-section">
+                <div className="shared-area-section-title">Political Offices</div>
+                <div className="offices-section">
+                  {G.politicalOffices.map((office, index) => (
+                    <div key={index} className="office-container">
+                      <div className="office-header">
+                        <div className="office-name">{office.id}</div>
+                        <div className="office-power">{office.exhausted ? '(Exhausted)' : '(Ready)'}</div>
+                      </div>
+                      <div className="card-slot">
+                        <div className="card-component card-color-default">
+                          <div className="card-top-left-block">
+                            <div className="card-name">
+                              {office.id === 'populist' && 'The Populist'}
+                              {office.id === 'centrist' && 'The Centrist'}
+                              {office.id === 'opportunist' && 'The Opportunist'}
+                            </div>
+                          </div>
+                          <div className="card-top-right-float power-color-established">
+                            <span>
+                              {office.id === 'populist' && '1 ⚫️'}
+                              {office.id === 'centrist' && '3 ⚫️'}
+                              {office.id === 'opportunist' && '2 ⚫️'}
+                            </span>
+                          </div>
+                          <div className="card-bottom-block">
+                            <div className="card-rules rules-color-state-figure">
+                              {office.id === 'populist' && 'Sides with the class that has more figures in play for a legislative contest'}
+                              {office.id === 'centrist' && 'Opposes all legislation from either class'}
+                              {office.id === 'opportunist' && 'Opposes all legislation, unless paid $15 to support it'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
