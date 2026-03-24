@@ -2,17 +2,17 @@
  * Tests for Action Phase mechanics - Playing cards
  */
 
-import { Client } from 'boardgame.io/client';
-import { ClassWarGame } from './ClassWarGame';
-import { GameState, TurnPhase } from '../types/game';
-import { SocialClass, CardType } from '../types/cards';
 import { getCardData } from '../data/cards';
+import { CardType, SocialClass } from '../types/cards';
+import { TurnPhase } from '../types/game';
+import { StrictClient, type StrictClientOf } from '../util/typedboardgame';
+import { ClassWarGame } from './ClassWarGame';
 
 describe('Action Phase - Playing Cards', () => {
-  let client: ReturnType<typeof Client<GameState>>;
+  let client: StrictClientOf<typeof ClassWarGame>;
 
   beforeEach(() => {
-    client = Client({ game: ClassWarGame, numPlayers: 2 });
+    client = StrictClient({ game: ClassWarGame, numPlayers: 2 });
     client.start();
 
     // Move to Action phase
@@ -65,7 +65,7 @@ describe('Action Phase - Playing Cards', () => {
 
     test('cannot play figure without enough wealth', () => {
       // Start fresh without any production income
-      const freshClient = Client({ game: ClassWarGame, numPlayers: 2 });
+      const freshClient = StrictClient({ game: ClassWarGame, numPlayers: 2 });
       freshClient.start();
 
       const state = freshClient.getState();
@@ -164,7 +164,7 @@ describe('Action Phase - Playing Cards', () => {
       // Find a figure card in hand
       let figureCardId: string | null = null;
       for (const cardId of player.hand) {
-        const cardData = require('../data/cards').getCardData(cardId);
+        const cardData = getCardData(cardId);
         if (cardData.card_type === CardType.Figure) {
           figureCardId = cardId;
           break;
@@ -215,7 +215,6 @@ describe('Action Phase - Playing Cards', () => {
       const initialFiguresCount = player.figures.length;
 
       // Find a figure card in hand
-      const { getCardData } = require('../data/cards');
       const figureCardId = player.hand.find((cardId: string) => {
         const cardData = getCardData(cardId);
         return cardData.card_type === CardType.Figure;
@@ -268,7 +267,6 @@ describe('Action Phase - Playing Cards', () => {
       expect(player.wealth).toBeGreaterThanOrEqual(10); // Should have good wealth now
 
       // Find figure cards in hand
-      const { getCardData } = require('../data/cards');
       const figureCards = player.hand.filter((cardId: string) => {
         const cardData = getCardData(cardId);
         return cardData.card_type === CardType.Figure;

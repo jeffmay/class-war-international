@@ -2,10 +2,11 @@
  * Class War: International - boardgame.io game definition
  */
 
-import { Game } from 'boardgame.io';
-import { GameState, TurnPhase, PlayerState } from '../types/game';
-import { SocialClass, StateFigureInPlay, WorkplaceInPlay, CardType, FigureCardInPlay } from '../types/cards';
-import { defaultWorkplaces, buildDeck, getCardData } from '../data/cards';
+import { type MoveMap } from 'boardgame.io';
+import { buildDeck, defaultWorkplaces, getCardData } from '../data/cards';
+import { CardType, type FigureCardInPlay, SocialClass, type StateFigureInPlay, type WorkplaceInPlay } from '../types/cards';
+import { type GameState, type PlayerState, TurnPhase } from '../types/game';
+import { type StrictGameOf } from '../util/typedboardgame';
 
 /**
  * Shuffle an array in place using Fisher-Yates algorithm
@@ -54,6 +55,138 @@ function createPlayerState(socialClass: SocialClass, random: () => number): Play
     playedWorkplaceThisTurn: false,
   };
 }
+
+export const Moves = {
+
+  /**
+   * Play a figure card from hand
+   */
+  playFigure: ({ G, ctx, playerID }, cardId: string) => {
+    if (G.turnPhase !== TurnPhase.Action) {
+      return; // Invalid move - wrong phase
+    }
+
+    const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    const player = G.players[currentClass];
+
+    // Check if card is in hand
+    const cardIndex = player.hand.indexOf(cardId);
+    if (cardIndex === -1) {
+      return; // Invalid move - card not in hand
+    }
+
+    // Get card data
+    const cardData = getCardData(cardId);
+    if (cardData.card_type !== CardType.Figure) {
+      return; // Invalid move - not a figure card
+    }
+
+    // Check if player can afford the card
+    if (player.wealth < cardData.cost) {
+      return; // Invalid move - cannot afford
+    }
+
+    // Pay cost
+    player.wealth -= cardData.cost;
+
+    // Remove from hand
+    player.hand.splice(cardIndex, 1);
+
+    // Add to figures in play (in training initially)
+    const figureInPlay: FigureCardInPlay = {
+      id: cardId,
+      card_type: CardType.Figure,
+      exhausted: false,
+      in_training: true,
+    };
+    player.figures.push(figureInPlay);
+
+    // Draw a card to replace
+    drawCards(player);
+  },
+
+  /**
+   * Production Phase: Collect wages/profits and unexhaust figures
+   */
+  collectProduction: ({ G, ctx, playerID }) => {
+    if (G.turnPhase !== TurnPhase.Production) {
+      return; // Can only collect during production phase
+    }
+
+    // Determine current player's class
+    const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    const player = G.players[currentClass];
+
+    // Collect wages (Working Class) or profits (Capitalist Class) from all workplaces
+    let totalIncome = 0;
+    G.workplaces.forEach((workplace) => {
+      if (workplace.id.startsWith('empty_slot')) {
+        return; // Skip empty slots
+      }
+      if (currentClass === SocialClass.WorkingClass) {
+        totalIncome += workplace.wages;
+      } else {
+        totalIncome += workplace.profits;
+      }
+    });
+
+    player.wealth += totalIncome;
+
+    // Unexhaust all figures for this player
+    player.figures.forEach((figure) => {
+      figure.exhausted = false;
+    });
+
+    // Unexhaust all state figures
+    G.politicalOffices.forEach((office) => {
+      office.exhausted = false;
+    });
+
+    // Transition to Action phase
+    G.turnPhase = TurnPhase.Action;
+  },
+
+  /**
+   * End Action Phase and move to Reproduction
+   */
+  endActionPhase: ({ G, ctx }) => {
+    if (G.turnPhase !== TurnPhase.Action) {
+      return;
+    }
+    G.turnPhase = TurnPhase.Reproduction;
+  },
+
+  /**
+   * End Reproduction Phase and move to next player's Production
+   */
+  endReproductionPhase: ({ G, ctx, events }) => {
+    if (G.turnPhase !== TurnPhase.Reproduction) {
+      return;
+    }
+
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    const player = G.players[currentClass];
+
+    // Remove in_training status from all figures
+    player.figures.forEach(figure => {
+      figure.in_training = false;
+    });
+
+    // Draw cards to fill hand
+    drawCards(player);
+
+    G.turnPhase = TurnPhase.Production;
+
+    // Increment turn number when Working Class completes their turn (about to become Capitalist's turn)
+    if (ctx.currentPlayer === '0') {
+      G.turnNumber += 1;
+    }
+
+    events?.endTurn?.();
+  },
+} as const satisfies MoveMap<GameState, PluginAPIs>
+
+export type PluginAPIs = Record<string, unknown>
 
 /**
  * Setup function - initializes the game state
@@ -120,7 +253,7 @@ export function setup(ctx: any): GameState {
 /**
  * Class War: International game definition
  */
-export const ClassWarGame: Game<GameState> = {
+export const ClassWarGame: StrictGameOf<typeof Moves> = {
   name: 'class-war-international',
 
   minPlayers: 2,
@@ -141,134 +274,7 @@ export const ClassWarGame: Game<GameState> = {
     },
   },
 
-  moves: {
-    /**
-     * Play a figure card from hand
-     */
-    playFigure: ({ G, ctx, playerID }, cardId: string) => {
-      if (G.turnPhase !== TurnPhase.Action) {
-        return; // Invalid move - wrong phase
-      }
-
-      const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
-      const player = G.players[currentClass];
-
-      // Check if card is in hand
-      const cardIndex = player.hand.indexOf(cardId);
-      if (cardIndex === -1) {
-        return; // Invalid move - card not in hand
-      }
-
-      // Get card data
-      const cardData = getCardData(cardId);
-      if (cardData.card_type !== CardType.Figure) {
-        return; // Invalid move - not a figure card
-      }
-
-      // Check if player can afford the card
-      if (player.wealth < cardData.cost) {
-        return; // Invalid move - cannot afford
-      }
-
-      // Pay cost
-      player.wealth -= cardData.cost;
-
-      // Remove from hand
-      player.hand.splice(cardIndex, 1);
-
-      // Add to figures in play (in training initially)
-      const figureInPlay: FigureCardInPlay = {
-        id: cardId,
-        card_type: CardType.Figure,
-        exhausted: false,
-        in_training: true,
-      };
-      player.figures.push(figureInPlay);
-
-      // Draw a card to replace
-      drawCards(player);
-    },
-
-    /**
-     * Production Phase: Collect wages/profits and unexhaust figures
-     */
-    collectProduction: ({ G, ctx, playerID }) => {
-      if (G.turnPhase !== TurnPhase.Production) {
-        return; // Can only collect during production phase
-      }
-
-      // Determine current player's class
-      const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
-      const player = G.players[currentClass];
-
-      // Collect wages (Working Class) or profits (Capitalist Class) from all workplaces
-      let totalIncome = 0;
-      G.workplaces.forEach((workplace) => {
-        if (workplace.id.startsWith('empty_slot')) {
-          return; // Skip empty slots
-        }
-        if (currentClass === SocialClass.WorkingClass) {
-          totalIncome += workplace.wages;
-        } else {
-          totalIncome += workplace.profits;
-        }
-      });
-
-      player.wealth += totalIncome;
-
-      // Unexhaust all figures for this player
-      player.figures.forEach((figure) => {
-        figure.exhausted = false;
-      });
-
-      // Unexhaust all state figures
-      G.politicalOffices.forEach((office) => {
-        office.exhausted = false;
-      });
-
-      // Transition to Action phase
-      G.turnPhase = TurnPhase.Action;
-    },
-
-    /**
-     * End Action Phase and move to Reproduction
-     */
-    endActionPhase: ({ G, ctx }) => {
-      if (G.turnPhase !== TurnPhase.Action) {
-        return;
-      }
-      G.turnPhase = TurnPhase.Reproduction;
-    },
-
-    /**
-     * End Reproduction Phase and move to next player's Production
-     */
-    endReproductionPhase: ({ G, ctx, events }) => {
-      if (G.turnPhase !== TurnPhase.Reproduction) {
-        return;
-      }
-
-      const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
-      const player = G.players[currentClass];
-
-      // Remove in_training status from all figures
-      player.figures.forEach(figure => {
-        figure.in_training = false;
-      });
-
-      // Draw cards to fill hand
-      drawCards(player);
-
-      G.turnPhase = TurnPhase.Production;
-
-      // Increment turn number when Working Class completes their turn (about to become Capitalist's turn)
-      if (ctx.currentPlayer === '0') {
-        G.turnNumber += 1;
-      }
-
-      events?.endTurn?.();
-    },
-  },
+  moves: Moves,
 
   endIf: ({ G, ctx }) => {
     // Win conditions will be implemented later
