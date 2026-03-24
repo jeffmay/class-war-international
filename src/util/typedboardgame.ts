@@ -1,6 +1,7 @@
 import type { Game, LongFormMove, Move, MoveFn, MoveMap, PlayerID } from "boardgame.io";
 import { Client } from 'boardgame.io/client';
-import type { _ClientImpl, ClientOpts } from "boardgame.io/dist/types/src/client/client";
+import type { _ClientImpl, ClientOpts, ClientState } from "boardgame.io/dist/types/src/client/client";
+import { assertDefined } from "./assertions";
 
 
 export type StrictGame<G, PluginAPIs extends Record<string, unknown>, M extends MoveMap<G, PluginAPIs>> = Omit<Game<G, PluginAPIs>, 'moves'> & {
@@ -14,20 +15,27 @@ export type StrictClientOpts<G, PluginAPIs extends Record<string, unknown>, M ex
     game: StrictGame<G, PluginAPIs, M>
   }
 
-export function StrictClient<
-  G,
-  PluginAPIs extends Record<string, unknown>,
-  M extends MoveMap<G, PluginAPIs>,
->(opts: StrictClientOpts<G, PluginAPIs, M>) {
-  return Client(opts) as unknown as StrictClient<G, PluginAPIs, M>
-}
-
 export type StrictClient<
   G,
   PluginAPIs extends Record<string, unknown>,
   M extends MoveMap<G, PluginAPIs>,
 > = Omit<_ClientImpl<G, PluginAPIs>, 'moves'> & {
   moves: StrictMoveMap<M>
+  getStateOrThrow: () => ClientState<G> & {}
+}
+
+export function StrictClient<
+  G,
+  PluginAPIs extends Record<string, unknown>,
+  M extends MoveMap<G, PluginAPIs>,
+>(opts: StrictClientOpts<G, PluginAPIs, M>) {
+  const client = Client(opts) as unknown as StrictClient<G, PluginAPIs, M>
+  client.getStateOrThrow = () => {
+    const state = client.getState()
+    assertDefined(state, 'StrictClient.getStateOrThrow()');
+    return state
+  }
+  return client
 }
 
 export type StrictClientOf<Game> = Game extends StrictGame<infer G, infer PluginAPIs, infer M> ? StrictClient<G, PluginAPIs, M> : never

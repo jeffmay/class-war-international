@@ -4,6 +4,7 @@
 
 import { SocialClass } from '../types/cards';
 import { TurnPhase } from '../types/game';
+import { assertDefined } from '../util/assertions';
 import { StrictClient, type StrictClientOf } from '../util/typedboardgame';
 import { ClassWarGame } from './ClassWarGame';
 
@@ -17,8 +18,8 @@ describe('Production Phase', () => {
   });
 
   test('Working Class collects wages from workplaces', () => {
-    const state = client.getState();
-    const initialWealth = state?.G.players[SocialClass.WorkingClass].wealth;
+    const state = client.getStateOrThrow();
+    const initialWealth = state.G.players[SocialClass.WorkingClass].wealth;
 
     expect(state?.G.turnPhase).toBe(TurnPhase.Production);
     expect(state?.ctx.currentPlayer).toBe('0'); // Working Class starts
@@ -26,7 +27,7 @@ describe('Production Phase', () => {
 
     // Collect production
     client.moves.collectProduction();
-    const newState = client.getState();
+    const newState = client.getStateOrThrow();
 
     // Should collect wages: Corner Store (2) + Parts Producer (3) = 5
     expect(newState?.G.players[SocialClass.WorkingClass].wealth).toBe(5);
@@ -40,20 +41,20 @@ describe('Production Phase', () => {
     client.moves.endReproductionPhase();
 
     // Now it should be Capitalist's turn
-    const state = client.getState();
-    expect(state?.G.turnPhase).toBe(TurnPhase.Production);
-    expect(state?.ctx.currentPlayer).toBe('1');
+    const state = client.getStateOrThrow();
+    expect(state.G.turnPhase).toBe(TurnPhase.Production);
+    expect(state.ctx.currentPlayer).toBe('1');
 
-    const initialWealth = state?.G.players[SocialClass.CapitalistClass].wealth;
+    const initialWealth = state.G.players[SocialClass.CapitalistClass].wealth;
     expect(initialWealth).toBe(0);
 
     // Collect production as Capitalist (player 1)
     client.moves.collectProduction('1'); // Specify playerID
-    const newState = client.getState();
+    const newState = client.getStateOrThrow();
 
     // Should collect profits: Corner Store (6) + Parts Producer (9) = 15
-    expect(newState?.G.players[SocialClass.CapitalistClass].wealth).toBe(15);
-    expect(newState?.G.turnPhase).toBe(TurnPhase.Action);
+    expect(newState.G.players[SocialClass.CapitalistClass].wealth).toBe(15);
+    expect(newState.G.turnPhase).toBe(TurnPhase.Action);
   });
 
   // Skipping exhaustion tests - will implement when we add card playing
@@ -63,40 +64,40 @@ describe('Production Phase', () => {
   test('cannot collect production outside Production phase', () => {
     // Move to Action phase
     client.moves.collectProduction();
-    const actionState = client.getState();
-    expect(actionState?.G.turnPhase).toBe(TurnPhase.Action);
+    const actionState = client.getStateOrThrow();
+    expect(actionState.G.turnPhase).toBe(TurnPhase.Action);
 
     const wealthAfterProduction = actionState?.G.players[SocialClass.WorkingClass].wealth;
 
     // Try to collect again
     client.moves.collectProduction();
-    const afterSecondAttempt = client.getState();
+    const afterSecondAttempt = client.getStateOrThrow();
 
     // Wealth should not change
-    expect(afterSecondAttempt?.G.players[SocialClass.WorkingClass].wealth).toBe(wealthAfterProduction);
+    expect(afterSecondAttempt.G.players[SocialClass.WorkingClass].wealth).toBe(wealthAfterProduction);
   });
 
   test('complete turn cycle updates phase correctly', () => {
     // Start in Production
-    expect(client.getState()?.G.turnPhase).toBe(TurnPhase.Production);
+    expect(client.getStateOrThrow().G.turnPhase).toBe(TurnPhase.Production);
 
     // Move through phases
     client.moves.collectProduction();
-    expect(client.getState()?.G.turnPhase).toBe(TurnPhase.Action);
+    expect(client.getStateOrThrow().G.turnPhase).toBe(TurnPhase.Action);
 
     client.moves.endActionPhase();
-    expect(client.getState()?.G.turnPhase).toBe(TurnPhase.Reproduction);
+    expect(client.getStateOrThrow().G.turnPhase).toBe(TurnPhase.Reproduction);
 
     client.moves.endReproductionPhase();
 
     // Should be back to Production (but now Capitalist's turn)
-    const finalState = client.getState();
-    expect(finalState?.G.turnPhase).toBe(TurnPhase.Production);
-    expect(finalState?.ctx.currentPlayer).toBe('1'); // Capitalist's turn
+    const finalState = client.getStateOrThrow();
+    expect(finalState.G.turnPhase).toBe(TurnPhase.Production);
+    expect(finalState.ctx.currentPlayer).toBe('1'); // Capitalist's turn
   });
 
   test('turn number increments after Working Class completes their turn', () => {
-    const initialTurn = client.getState()?.G.turnNumber;
+    const initialTurn = client.getStateOrThrow().G.turnNumber;
     expect(initialTurn).toBe(0);
 
     // Complete Working Class turn
@@ -105,9 +106,9 @@ describe('Production Phase', () => {
     client.moves.endReproductionPhase();
 
     // Turn number should increment when Working Class ends their turn
-    const afterFirstTurn = client.getState();
-    expect(afterFirstTurn?.G.turnNumber).toBe(1);
-    expect(afterFirstTurn?.ctx.currentPlayer).toBe('1'); // Now Capitalist's turn
+    const afterFirstTurn = client.getStateOrThrow();
+    expect(afterFirstTurn.G.turnNumber).toBe(1);
+    expect(afterFirstTurn.ctx.currentPlayer).toBe('1'); // Now Capitalist's turn
 
     // Complete Capitalist turn
     client.moves.collectProduction('1');
@@ -115,26 +116,23 @@ describe('Production Phase', () => {
     client.moves.endReproductionPhase('1');
 
     // Turn number should stay 1 (Capitalist doesn't increment)
-    const afterSecondTurn = client.getState();
-    expect(afterSecondTurn?.G.turnNumber).toBe(1);
-    expect(afterSecondTurn?.ctx.currentPlayer).toBe('0'); // Back to Working Class
+    const afterSecondTurn = client.getStateOrThrow();
+    expect(afterSecondTurn.G.turnNumber).toBe(1);
+    expect(afterSecondTurn.ctx.currentPlayer).toBe('0'); // Back to Working Class
   });
 
   test('empty workplace slots do not generate income', () => {
-    const state = client.getState();
-    if (!state) return;
-
+    const state = client.getStateOrThrow();
     // Verify there's an empty slot
     const emptySlot = state.G.workplaces.find(w => w.id.startsWith('empty_slot'));
-    expect(emptySlot).toBeDefined();
-    expect(emptySlot?.wages).toBe(0);
-    expect(emptySlot?.profits).toBe(0);
+    assertDefined(emptySlot);
+    expect(emptySlot.wages).toBe(0);
+    expect(emptySlot.profits).toBe(0);
 
     // Collect production
     client.moves.collectProduction();
-    const newState = client.getState();
-
+    const newState = client.getStateOrThrow();
     // Should only collect from non-empty workplaces (2 + 3 = 5)
-    expect(newState?.G.players[SocialClass.WorkingClass].wealth).toBe(5);
+    expect(newState.G.players[SocialClass.WorkingClass].wealth).toBe(5);
   });
 });

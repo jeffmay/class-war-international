@@ -29,9 +29,7 @@ describe('Action Phase - Playing Cards', () => {
       const G = makeActionPhaseState({ wealth: 10, hand, deck });
       const client = clientFromFixture(G);
 
-      const state = client.getState();
-      if (!state) return;
-
+      const state = client.getStateOrThrow();
       const player = state.G.players[SocialClass.WorkingClass];
       const initialHandSize = player.hand.length;
       const initialWealth = player.wealth;
@@ -41,9 +39,7 @@ describe('Action Phase - Playing Cards', () => {
       expect(initialWealth).toBeGreaterThanOrEqual(getCardData('cashier').cost);
 
       client.moves.playFigure('cashier');
-      const newState = client.getState();
-      if (!newState) return;
-
+      const newState = client.getStateOrThrow();
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
       // Drew a replacement – hand size is unchanged
@@ -68,17 +64,13 @@ describe('Action Phase - Playing Cards', () => {
       const G = makeActionPhaseState({ wealth: cashierCost - 1, hand, deck });
       const client = clientFromFixture(G);
 
-      const state = client.getState();
-      if (!state) return;
-
+      const state = client.getStateOrThrow();
       const player = state.G.players[SocialClass.WorkingClass];
       expect(player.hand[0]).toBe('cashier');
       expect(player.wealth).toBe(cashierCost - 1);
 
       client.moves.playFigure('cashier');
-      const newState = client.getState();
-      if (!newState) return;
-
+      const newState = client.getStateOrThrow();
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
       // Move was rejected – nothing changed
@@ -92,16 +84,12 @@ describe('Action Phase - Playing Cards', () => {
       const G = makeActionPhaseState({ wealth: 10 });
       const client = clientFromFixture(G);
 
-      const state = client.getState();
-      if (!state) return;
-
+      const state = client.getStateOrThrow();
       const player = state.G.players[SocialClass.WorkingClass];
       const initialHandSize = player.hand.length;
 
       client.moves.playFigure('nonexistent_card_id');
-      const newState = client.getState();
-      if (!newState) return;
-
+      const newState = client.getStateOrThrow();
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
       // Nothing changed
@@ -118,16 +106,12 @@ describe('Action Phase - Playing Cards', () => {
 
       client.moves.endActionPhase();
 
-      const state = client.getState();
-      if (!state) return;
-
+      const state = client.getStateOrThrow();
       expect(state.G.turnPhase).toBe(TurnPhase.Reproduction);
       const initialFigures = state.G.players[SocialClass.WorkingClass].figures.length;
 
       client.moves.playFigure('cashier');
-      const newState = client.getState();
-      if (!newState) return;
-
+      const newState = client.getStateOrThrow();
       // Move was rejected – figure count unchanged
       expect(newState.G.players[SocialClass.WorkingClass].figures.length).toBe(initialFigures);
     });
@@ -147,9 +131,7 @@ describe('Action Phase - Playing Cards', () => {
       const G = makeActionPhaseState({ figures: [figureInPlay], hand, deck });
       const client = clientFromFixture(G);
 
-      const state = client.getState();
-      if (!state) return;
-
+      const state = client.getStateOrThrow();
       const initialFigure = state.G.players[SocialClass.WorkingClass].figures.find(
         f => f.id === 'cashier',
       );
@@ -166,9 +148,7 @@ describe('Action Phase - Playing Cards', () => {
       client.moves.endReproductionPhase('1');
 
       // Back to Working Class – in_training should be cleared
-      const finalState = client.getState();
-      if (!finalState) return;
-
+      const finalState = client.getStateOrThrow();
       const finalFigure = finalState.G.players[SocialClass.WorkingClass].figures.find(
         f => f.id === 'cashier',
       );
@@ -184,9 +164,7 @@ describe('Action Phase - Playing Cards', () => {
       const G = makeActionPhaseState({ wealth: 10, hand, deck });
       const client = clientFromFixture(G);
 
-      const state = client.getState();
-      if (!state) return;
-
+      const state = client.getStateOrThrow();
       const player = state.G.players[SocialClass.WorkingClass];
       const initialHandSize = player.hand.length;
       const initialDeckSize = player.deck.length;
@@ -194,9 +172,7 @@ describe('Action Phase - Playing Cards', () => {
       expect(player.hand[0]).toBe('cashier');
 
       client.moves.playFigure('cashier');
-      const newState = client.getState();
-      if (!newState) return;
-
+      const newState = client.getStateOrThrow();
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
       // Hand size is maintained (one card drawn to replace)
@@ -215,23 +191,19 @@ describe('Action Phase - Playing Cards', () => {
       const G = makeActionPhaseState({ wealth: 10, hand, deck });
       const client = clientFromFixture(G);
 
-      const state = client.getState();
-      if (!state) return;
-
+      const state = client.getStateOrThrow();
       const player = state.G.players[SocialClass.WorkingClass];
       expect(player.hand[0]).toBe('cashier');
       expect(player.hand[1]).toBe('cashier');
 
       // Play first cashier
       client.moves.playFigure('cashier');
-      let currentState = client.getState();
-      if (!currentState) return;
+      let currentState = client.getStateOrThrow();
       expect(currentState.G.players[SocialClass.WorkingClass].figures.length).toBe(1);
 
       // Play second cashier
       client.moves.playFigure('cashier');
-      currentState = client.getState();
-      if (!currentState) return;
+      currentState = client.getStateOrThrow();
       expect(currentState.G.players[SocialClass.WorkingClass].figures.length).toBe(2);
     });
   });
