@@ -23,13 +23,14 @@ npm run lint          # Run the linter on all files
 The app is running at http://localhost:3000, and you can use the Playwright MCP to access it.
 
 ## Important Notes
-- MUST always run `npm run typecheck`, then `npm test`, and then `npm run lint` for all files before commiting code changes.
-- MUST always commit all completed work with a comprehensive git commit message using [gitmoji](https://gitmoji.dev/) where applicable.
-- MUST always keep the Project Structure in README.md up-to-date changes to the directory structure or top-level config files and instructions on how to build, test, and deploy the code.
-- MUST always write unit tests for all significant game logic changes.
-- MUST always write component tests for all view changes.
-- MUST never use the `as` keyword to cast a type without validating every field in the type.
-- MUST never use the `any` type.
-- MUST always use responsive design to ensure that the elements never require horizontal scrolling, while maximizing use of horizontal space for mobile device, tablet, laptop, and wide screens.
-- MUST always use CSS over JavaScript for styling elements.
-- MUST always use `vw` units unless the element is a horizontal line or when creating a font-size that is relative to a sibling or parent element, in which case, `em` is fine.
+- MUST ALWAYS run `npm run typecheck`, then `npm test`, and then `npm run lint` for all files before commiting code changes.
+- MUST ALWAYS commit all completed work with a comprehensive git commit message using [gitmoji](https://gitmoji.dev/) where applicable.
+- MUST ALWAYS keep PROJECT_SUMMARY.md up-to-date with any changes to completed features, testing architecture, file structure, and future development goals.
+- MUST ALWAYS write unit tests for all significant game logic changes.
+- MUST NEVER skip unit tests based on the generated values. Instead, ALWAYS provide a test fixture with values that meet the test pre-conditions when initializing the game state.
+- MUST ALWAYS write component tests for all view changes.
+- MUST NEVER use the `as` keyword to cast a type without validating every field in the type.
+- MUST NEVER use the `any` type. Instead, try your best to define a strict generic type. If you are adding type information to something that does not allow passing the type information along (such as deserialization or APIs that return untyped data), then use a specific function to validate and cast the object as the expected / provided type. Or, as a last resort, use the `unknown` type instead.
+- MUST ALWAYS use responsive design to ensure that the elements never require horizontal scrolling, while maximizing use of horizontal space for mobile device, tablet, laptop, and wide screens.
+- MUST ALWAYS use CSS over JavaScript for styling elements.
+- MUST ALWAYS use `vw` units unless the element is a horizontal line or when creating a font-size that is relative to a sibling or parent element, in which case, `em` is fine.

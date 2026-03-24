@@ -1,26 +1,34 @@
 /**
  * Tests for Action Phase mechanics - Playing cards
+ *
+ * Every test builds its own GameState fixture that explicitly satisfies the
+ * test's pre-conditions, so no test is ever skipped or branched on randomly
+ * generated values (e.g. deck shuffle order).
+ *
+ * Hand/deck arrangements are assembled per-test using buildDeck() and the
+ * withCardInHand / withCardsInHand helpers from generate.ts.
  */
 
-import { getCardData } from '../data/cards';
-import { CardType, SocialClass } from '../types/cards';
+import { buildDeck, getCardData } from '../data/cards';
+import { CardType, SocialClass, type FigureCardInPlay } from '../types/cards';
 import { TurnPhase } from '../types/game';
-import { StrictClient, type StrictClientOf } from '../util/typedboardgame';
-import { ClassWarGame } from './ClassWarGame';
+import {
+  clientFromFixture,
+  makeActionPhaseState,
+  withCardInHand,
+  withCardsInHand,
+} from './generate';
 
 describe('Action Phase - Playing Cards', () => {
-  let client: StrictClientOf<typeof ClassWarGame>;
-
-  beforeEach(() => {
-    client = StrictClient({ game: ClassWarGame, numPlayers: 2 });
-    client.start();
-
-    // Move to Action phase
-    client.moves.collectProduction();
-  });
-
   describe('playFigure', () => {
     test('successfully plays a figure card from hand', () => {
+      // Pre-conditions: Action phase, WC has 'cashier' (cost $2) in hand,
+      // wealth is $10 (well above cost).
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardInHand(wcDeck, 'cashier');
+      const G = makeActionPhaseState({ wealth: 10, hand, deck });
+      const client = clientFromFixture(G);
+
       const state = client.getState();
       if (!state) return;
 
@@ -28,272 +36,203 @@ describe('Action Phase - Playing Cards', () => {
       const initialHandSize = player.hand.length;
       const initialWealth = player.wealth;
 
-      // Find a figure card in hand
-      const figureCardId = player.hand.find((cardId: string) => {
-        const cardData = getCardData(cardId);
-        return cardData.card_type === CardType.Figure;
-      });
+      expect(player.hand[0]).toBe('cashier');
+      expect(getCardData('cashier').card_type).toBe(CardType.Figure);
+      expect(initialWealth).toBeGreaterThanOrEqual(getCardData('cashier').cost);
 
-      if (!figureCardId) {
-        // Skip if no figure cards
-        expect(true).toBe(true);
-        return;
-      }
-
-      // Play the figure card
-      client.moves.playFigure(figureCardId);
+      client.moves.playFigure('cashier');
       const newState = client.getState();
       if (!newState) return;
 
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
-      // Card should be removed from hand
-      expect(newPlayer.hand).not.toContain(figureCardId);
-
-      // Should have drawn a replacement card
+      // Drew a replacement – hand size is unchanged
       expect(newPlayer.hand.length).toBe(initialHandSize);
 
-      // Figure should be in play
-      const playedFigure = newPlayer.figures.find(f => f.id === figureCardId);
-      expect(playedFigure).toBeDefined();
-      expect(playedFigure?.in_training).toBe(true);
-      expect(playedFigure?.exhausted).toBe(false);
+      // Figure is now in play
+      const played = newPlayer.figures.find(f => f.id === 'cashier');
+      expect(played).toBeDefined();
+      expect(played?.in_training).toBe(true);
+      expect(played?.exhausted).toBe(false);
 
-      // Wealth should be reduced by card cost
-      expect(newPlayer.wealth).toBeLessThan(initialWealth);
+      // Cost deducted
+      expect(newPlayer.wealth).toBe(initialWealth - getCardData('cashier').cost);
     });
 
     test('cannot play figure without enough wealth', () => {
-      // Start fresh without any production income
-      const freshClient = StrictClient({ game: ClassWarGame, numPlayers: 2 });
-      freshClient.start();
+      // Pre-conditions: Action phase, WC has 'cashier' (cost $2) in hand but
+      // wealth is set to $1 (one below the card's cost).
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardInHand(wcDeck, 'cashier');
+      const cashierCost = getCardData('cashier').cost;
+      const G = makeActionPhaseState({ wealth: cashierCost - 1, hand, deck });
+      const client = clientFromFixture(G);
 
-      const state = freshClient.getState();
+      const state = client.getState();
       if (!state) return;
 
       const player = state.G.players[SocialClass.WorkingClass];
+      expect(player.hand[0]).toBe('cashier');
+      expect(player.wealth).toBe(cashierCost - 1);
 
-      // Player starts with $0, move to Action phase
-      expect(player.wealth).toBe(0);
-
-      freshClient.moves.collectProduction(); // This gives $5
-      freshClient.moves.endActionPhase();
-      freshClient.moves.endReproductionPhase();
-
-      // Skip Capitalist turn
-      freshClient.moves.collectProduction('1');
-      freshClient.moves.endActionPhase('1');
-      freshClient.moves.endReproductionPhase('1');
-
-      // Back to Working Class, now try to play an expensive card
-      // We have $10 (2 turns of production)
-      freshClient.moves.collectProduction();
-
-      const currentState = freshClient.getState();
-      if (!currentState) return;
-
-      const currentPlayer = currentState.G.players[SocialClass.WorkingClass];
-      expect(currentPlayer.wealth).toBe(10);
-
-      // Find a card that costs more than $10 (if any), or just verify validation
-      const cardToPlay = currentPlayer.hand[0];
-      const initialHandSize = currentPlayer.hand.length;
-
-      // This should work if the card costs <= $10
-      freshClient.moves.playFigure(cardToPlay);
-
-      const newState = freshClient.getState();
+      client.moves.playFigure('cashier');
+      const newState = client.getState();
       if (!newState) return;
 
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
-      // Card playing should only work if affordable
-      // Since we're testing with real cards, just verify the hand size logic
-      expect(newPlayer.hand.length).toBeGreaterThan(0);
+      // Move was rejected – nothing changed
+      expect(newPlayer.figures.length).toBe(0);
+      expect(newPlayer.hand[0]).toBe('cashier');
+      expect(newPlayer.wealth).toBe(cashierCost - 1);
     });
 
     test('cannot play figure from hand that player does not have', () => {
+      // Pre-conditions: Action phase, WC is the current player.
+      const G = makeActionPhaseState({ wealth: 10 });
+      const client = clientFromFixture(G);
+
       const state = client.getState();
       if (!state) return;
 
       const player = state.G.players[SocialClass.WorkingClass];
       const initialHandSize = player.hand.length;
 
-      // Try to play a card not in hand
       client.moves.playFigure('nonexistent_card_id');
       const newState = client.getState();
       if (!newState) return;
 
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
-      // Nothing should have changed
+      // Nothing changed
       expect(newPlayer.hand.length).toBe(initialHandSize);
       expect(newPlayer.figures.length).toBe(0);
     });
 
     test('cannot play figure outside Action phase', () => {
-      // Move to Reproduction phase
+      // Pre-conditions: WC is in Reproduction phase (Action phase already ended).
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardInHand(wcDeck, 'cashier');
+      const G = makeActionPhaseState({ wealth: 10, hand, deck });
+      const client = clientFromFixture(G);
+
       client.moves.endActionPhase();
 
       const state = client.getState();
       if (!state) return;
 
       expect(state.G.turnPhase).toBe(TurnPhase.Reproduction);
+      const initialFigures = state.G.players[SocialClass.WorkingClass].figures.length;
 
-      const player = state.G.players[SocialClass.WorkingClass];
-      const cardToPlay = player.hand[0];
-      const initialFiguresCount = player.figures.length;
-
-      // Try to play a card
-      client.moves.playFigure(cardToPlay);
+      client.moves.playFigure('cashier');
       const newState = client.getState();
       if (!newState) return;
 
-      const newPlayer = newState.G.players[SocialClass.WorkingClass];
-
-      // Nothing should have changed
-      expect(newPlayer.figures.length).toBe(initialFiguresCount);
+      // Move was rejected – figure count unchanged
+      expect(newState.G.players[SocialClass.WorkingClass].figures.length).toBe(initialFigures);
     });
 
     test('figures lose in_training status at end of reproduction phase', () => {
+      // Pre-conditions: Action phase, WC already has a 'cashier' figure in play
+      // with in_training=true (simulating a card played earlier this turn).
+      // One 'cashier' copy is reserved for figures; the rest form hand/deck.
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardInHand(wcDeck, 'cashier');
+      const figureInPlay: FigureCardInPlay = {
+        id: 'cashier',
+        card_type: CardType.Figure,
+        exhausted: false,
+        in_training: true,
+      };
+      const G = makeActionPhaseState({ figures: [figureInPlay], hand, deck });
+      const client = clientFromFixture(G);
+
       const state = client.getState();
       if (!state) return;
 
-      const player = state.G.players[SocialClass.WorkingClass];
+      const initialFigure = state.G.players[SocialClass.WorkingClass].figures.find(
+        f => f.id === 'cashier',
+      );
+      expect(initialFigure).toBeDefined();
+      expect(initialFigure?.in_training).toBe(true);
 
-      // Find a figure card in hand
-      let figureCardId: string | null = null;
-      for (const cardId of player.hand) {
-        const cardData = getCardData(cardId);
-        if (cardData.card_type === CardType.Figure) {
-          figureCardId = cardId;
-          break;
-        }
-      }
-
-      if (!figureCardId) {
-        // Skip test if no figure cards in hand
-        expect(true).toBe(true);
-        return;
-      }
-
-      // Play a figure
-      client.moves.playFigure(figureCardId);
-
-      // Verify it's in training
-      let currentState = client.getState();
-      if (!currentState) return;
-      let currentPlayer = currentState.G.players[SocialClass.WorkingClass];
-      let playedFigure = currentPlayer.figures.find(f => f.id === figureCardId);
-      expect(playedFigure).toBeDefined();
-      expect(playedFigure?.in_training).toBe(true);
-
-      // End turn cycle
+      // End WC's turn
       client.moves.endActionPhase();
       client.moves.endReproductionPhase();
 
-      // Skip Capitalist's turn
+      // Complete Capitalist's full turn
       client.moves.collectProduction('1');
       client.moves.endActionPhase('1');
       client.moves.endReproductionPhase('1');
 
-      // Back to Working Class - figure should no longer be in training
-      currentState = client.getState();
-      if (!currentState) return;
-      currentPlayer = currentState.G.players[SocialClass.WorkingClass];
-      playedFigure = currentPlayer.figures.find(f => f.id === figureCardId);
-      expect(playedFigure).toBeDefined();
-      expect(playedFigure?.in_training).toBe(false);
+      // Back to Working Class – in_training should be cleared
+      const finalState = client.getState();
+      if (!finalState) return;
+
+      const finalFigure = finalState.G.players[SocialClass.WorkingClass].figures.find(
+        f => f.id === 'cashier',
+      );
+      expect(finalFigure).toBeDefined();
+      expect(finalFigure?.in_training).toBe(false);
     });
 
     test('draws replacement card when playing figure', () => {
+      // Pre-conditions: Action phase, WC has 'cashier' in hand, deck has cards
+      // remaining so a replacement can be drawn.
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardInHand(wcDeck, 'cashier');
+      const G = makeActionPhaseState({ wealth: 10, hand, deck });
+      const client = clientFromFixture(G);
+
       const state = client.getState();
       if (!state) return;
 
       const player = state.G.players[SocialClass.WorkingClass];
       const initialHandSize = player.hand.length;
-      const initialFiguresCount = player.figures.length;
+      const initialDeckSize = player.deck.length;
 
-      // Find a figure card in hand
-      const figureCardId = player.hand.find((cardId: string) => {
-        const cardData = getCardData(cardId);
-        return cardData.card_type === CardType.Figure;
-      });
+      expect(player.hand[0]).toBe('cashier');
 
-      if (!figureCardId) {
-        // Skip if no figure cards
-        expect(true).toBe(true);
-        return;
-      }
-
-      // Play a figure
-      client.moves.playFigure(figureCardId);
-
+      client.moves.playFigure('cashier');
       const newState = client.getState();
       if (!newState) return;
+
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
-      // Hand size should remain the same (drew replacement)
+      // Hand size is maintained (one card drawn to replace)
       expect(newPlayer.hand.length).toBe(initialHandSize);
-
-      // Figure should be in play (verifies card was actually played)
-      expect(newPlayer.figures.length).toBe(initialFiguresCount + 1);
-      const playedFigure = newPlayer.figures.find(f => f.id === figureCardId);
-      expect(playedFigure).toBeDefined();
-
-      // Note: The card might still appear in hand if we drew another copy (e.g., "activist" has qty: 3)
-      // So we just verify that a card was drawn (hand size maintained) and figure is in play
+      // Deck shrank by one
+      expect(newPlayer.deck.length).toBe(initialDeckSize - 1);
+      // Figure is in play
+      expect(newPlayer.figures.find(f => f.id === 'cashier')).toBeDefined();
     });
 
     test('multiple figures can be played in same turn if affordable', () => {
-      // Give Working Class more wealth through multiple production cycles
-      // Do 10 production cycles to accumulate wealth
-      for (let i = 0; i < 10; i++) {
-        client.moves.collectProduction();
-        client.moves.endActionPhase();
-        client.moves.endReproductionPhase();
-        client.moves.collectProduction('1');
-        client.moves.endActionPhase('1');
-        client.moves.endReproductionPhase('1');
-      }
-
-      // Start next turn in action phase
-      client.moves.collectProduction();
+      // Pre-conditions: Action phase, WC hand has two 'cashier' cards (each
+      // costs $2), wealth is $10 (covers both).
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardsInHand(wcDeck, ['cashier', 'cashier']);
+      const G = makeActionPhaseState({ wealth: 10, hand, deck });
+      const client = clientFromFixture(G);
 
       const state = client.getState();
       if (!state) return;
 
       const player = state.G.players[SocialClass.WorkingClass];
-      expect(player.wealth).toBeGreaterThanOrEqual(10); // Should have good wealth now
+      expect(player.hand[0]).toBe('cashier');
+      expect(player.hand[1]).toBe('cashier');
 
-      // Find figure cards in hand
-      const figureCards = player.hand.filter((cardId: string) => {
-        const cardData = getCardData(cardId);
-        return cardData.card_type === CardType.Figure;
-      });
-
-      if (figureCards.length < 2) {
-        // Not enough figure cards to test
-        expect(true).toBe(true);
-        return;
-      }
-
-      const card1 = figureCards[0];
-      const card2 = figureCards[1];
-
-      // Play first figure
-      client.moves.playFigure(card1);
-
+      // Play first cashier
+      client.moves.playFigure('cashier');
       let currentState = client.getState();
       if (!currentState) return;
-      expect(currentState.G.players[SocialClass.WorkingClass].figures.length).toBeGreaterThanOrEqual(1);
+      expect(currentState.G.players[SocialClass.WorkingClass].figures.length).toBe(1);
 
-      // Play second figure
-      client.moves.playFigure(card2);
-
+      // Play second cashier
+      client.moves.playFigure('cashier');
       currentState = client.getState();
       if (!currentState) return;
-      expect(currentState.G.players[SocialClass.WorkingClass].figures.length).toBeGreaterThanOrEqual(2);
+      expect(currentState.G.players[SocialClass.WorkingClass].figures.length).toBe(2);
     });
   });
 });

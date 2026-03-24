@@ -68,7 +68,16 @@ Successfully migrated **Class War: International** from a React/Redux local-only
 
 **Total: 22 tests passing + 2 skipped = 24 tests**
 
-Note: Minor test flakiness when running all tests together due to deck randomization, but core functionality verified.
+### Testing Architecture
+
+Action-phase tests use explicit per-test fixtures generated via **`src/game/generate.ts`**:
+- `makePlayerState(class, overrides?)` — builds a PlayerState from the real unshuffled deck
+- `makeActionPhaseState(wcOverrides?, ccOverrides?)` — builds a full GameState in Action phase
+- `withCardInHand(deck, cardId)` — returns a hand/deck split guaranteeing a specific card is at hand[0]
+- `withCardsInHand(deck, cardIds)` — same for multiple cards
+- `clientFromFixture(G)` — creates a StrictClient starting from the provided GameState
+
+Every test explicitly sets its pre-conditions (hand contents, wealth, figures in play) so no test ever skips or branches on randomly generated values.
 
 ---
 
@@ -86,6 +95,7 @@ Note: Minor test flakiness when running all tests together due to deck randomiza
 src/
 ├── game/
 │   ├── ClassWarGame.ts          # Main game definition
+│   ├── generate.ts              # Test fixture generators (makePlayerState, clientFromFixture, etc.)
 │   ├── ClassWarGame.test.ts     # Setup tests
 │   ├── ProductionPhase.test.ts  # Production tests
 │   └── ActionPhase.test.ts      # Action phase tests
