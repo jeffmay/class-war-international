@@ -2,17 +2,17 @@
  * Tests for Production Phase mechanics
  */
 
-import { Client } from 'boardgame.io/client';
+import { SocialClass } from '../types/cards';
+import { TurnPhase } from '../types/game';
+import { StrictClient, type StrictClientOf } from '../util/typedboardgame';
 import { ClassWarGame } from './ClassWarGame';
-import { GameState, TurnPhase } from '../types/game';
-import { SocialClass, CardType } from '../types/cards';
 
 describe('Production Phase', () => {
-  let client: ReturnType<typeof Client<GameState>>;
+  let client: StrictClientOf<typeof ClassWarGame>;
 
   beforeEach(() => {
     // Create a client - we'll test from player 0's perspective
-    client = Client({ game: ClassWarGame, numPlayers: 2 });
+    client = StrictClient({ game: ClassWarGame, numPlayers: 2 });
     client.start();
   });
 
@@ -57,8 +57,8 @@ describe('Production Phase', () => {
   });
 
   // Skipping exhaustion tests - will implement when we add card playing
-  test.skip('collectProduction unexhausts all figures', () => {});
-  test.skip('collectProduction unexhausts state figures', () => {});
+  test.skip('collectProduction unexhausts all figures', () => { });
+  test.skip('collectProduction unexhausts state figures', () => { });
 
   test('cannot collect production outside Production phase', () => {
     // Move to Action phase
