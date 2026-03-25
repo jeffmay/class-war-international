@@ -32,6 +32,7 @@ export function makePlayerState(
     demands: [null, null],
     figures: [],
     maxHandSize: 4,
+    theorizeLimit: 1,
     playedWorkplaceThisTurn: false,
     ...overrides,
   };

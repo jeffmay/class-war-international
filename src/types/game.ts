@@ -20,6 +20,7 @@ export interface PlayerState {
   demands: (DemandCardInPlay | null)[]; // 2 slots for demand cards
   figures: FigureCardInPlay[];
   maxHandSize: number; // Base 4, can be increased by institutions
+  theorizeLimit: number;
   playedWorkplaceThisTurn: boolean;
 }
 

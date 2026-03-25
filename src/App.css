@@ -434,6 +434,22 @@ body {
   cursor: not-allowed;
 }
 
+.game-finish-theorizing-button {
+  padding: 8px 16px;
+  background-color: #744210;
+  border: 2px solid #d69e2e;
+  border-radius: 4px;
+  color: #fefcbf;
+  font-family: Arial;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.game-finish-theorizing-button:hover {
+  background-color: #975a16;
+}
+
 /* Bottom Bar for Small Screens */
 .game-bottom-bar {
   position: fixed;
@@ -983,6 +999,12 @@ body {
   line-height: 1;
 }
 
+.card-theorize-selected {
+  outline: 3px solid #d69e2e;
+  box-shadow: 0 0 12px rgba(214, 158, 46, 0.6);
+  transform: scale(1.03);
+}
+
 .card-slot-drop-validity-icon {
   position: absolute;
   top: 50%;
@@ -1301,6 +1323,14 @@ body {
 .start-game-button:hover {
   transform: scale(1.1);
   background-color: #2f855a;
+}
+
+.start-game-title-wc {
+  color: #fc8181;
+}
+
+.start-game-title-cc {
+  color: #63b3ed;
 }
 
 /* Interstitial Screen */

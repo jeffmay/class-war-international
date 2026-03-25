@@ -69,6 +69,7 @@ function createPlayerState(socialClass: SocialClass, random: () => number): Play
     demands: [null, null], // 2 demand slots
     figures: [],
     maxHandSize: 4,
+    theorizeLimit: 1,
     playedWorkplaceThisTurn: false,
   };
 }
@@ -302,13 +303,20 @@ export const Moves = {
   /**
    * End Reproduction Phase and move to next player's Production
    */
-  endReproductionPhase: ({ G, ctx, events }) => {
-    if (G.turnPhase !== TurnPhase.Reproduction) {
-      return;
-    }
+  endReproductionPhase: ({ G, ctx, events }, cardIdsToTheorize?: string[]) => {
+    if (G.turnPhase !== TurnPhase.Reproduction) return;
 
     const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
     const player = G.players[currentClass];
+
+    // Theorize: move selected cards from hand to dustbin
+    for (const cardId of (cardIdsToTheorize ?? [])) {
+      const idx = player.hand.indexOf(cardId);
+      if (idx !== -1) {
+        player.hand.splice(idx, 1);
+        player.dustbin.push(cardId);
+      }
+    }
 
     // Remove in_training status from all figures
     player.figures.forEach(figure => {
@@ -320,7 +328,6 @@ export const Moves = {
 
     G.turnPhase = TurnPhase.Production;
 
-    // Increment turn number when Working Class completes their turn (about to become Capitalist's turn)
     if (ctx.currentPlayer === '0') {
       G.turnNumber += 1;
     }

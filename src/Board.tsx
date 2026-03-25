@@ -3,18 +3,17 @@
  */
 
 import React, { useState } from 'react';
+import { BoardProps } from 'boardgame.io/react';
+import { GameState, TurnPhase } from './types/game';
+import { CardType, FigureCardInPlay, SocialClass } from './types/cards';
+import { ConflictType } from './types/conflicts';
+import { getCardData } from './data/cards';
+import { TurnStartModal } from './components/StartGameScreen';
 import { CardComponent } from './components/CardComponent';
 import { CardInspectorMenuBar, MenuOption } from './components/CardInspectorMenuBar';
 import { ConflictTargetMenuBar } from './components/ConflictTargetMenuBar';
-import { StartGameScreen } from './components/StartGameScreen';
-import { getCardData } from './data/cards';
-import { type Moves } from './game/ClassWarGame';
-import { CardType, FigureCardInPlay, SocialClass } from './types/cards';
-import { ConflictType } from './types/conflicts';
-import { GameState, TurnPhase } from './types/game';
-import { type StrictBoardProps } from './util/typedboardgame';
 
-type ClassWarBoardProps = StrictBoardProps<GameState, typeof Moves>
+interface ClassWarBoardProps extends BoardProps<GameState> {}
 
 type BoardState =
   | { mode: 'normal'; selectedSlotId: string | null }
@@ -28,8 +27,8 @@ interface SlotData {
 }
 
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
-  const [gameStarted, setGameStarted] = useState(G.gameStarted);
   const [boardState, setBoardState] = useState<BoardState>({ mode: 'normal', selectedSlotId: null });
+  const [theorizeSelectedIds, setTheorizeSelectedIds] = useState<string[]>([]);
 
   // Determine current class
   const isWorkingClass = ctx.currentPlayer === '0';
@@ -48,10 +47,6 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   // Get player states
   const myPlayer = G.players[myClass];
   const myClassKey = myClass === SocialClass.WorkingClass ? 'wc' : 'cc';
-
-  const handleStartGame = () => {
-    setGameStarted(true);
-  };
 
   const handleCloseInspector = () => setBoardState({ mode: 'normal', selectedSlotId: null });
 
@@ -77,37 +72,36 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     setBoardState({ mode: 'normal', selectedSlotId: null });
   };
 
+  // Finish theorizing: discard selected cards and end reproduction phase
+  const handleFinishTheorizing = () => {
+    moves.endReproductionPhase(theorizeSelectedIds);
+    setTheorizeSelectedIds([]);
+    setBoardState({ mode: 'normal', selectedSlotId: null });
+  };
+
   // --- Pre-compute slot data ---
   const slotData = new Map<string, SlotData>();
 
-  // End turn option
-  const endTurnHandler = () => {
-    if (G.turnPhase === TurnPhase.Production) moves.collectProduction();
-    else if (G.turnPhase === TurnPhase.Action) moves.endActionPhase();
-    else if (G.turnPhase === TurnPhase.Reproduction) moves.endReproductionPhase();
-  };
-  slotData.set('end-turn', { options: [['End Turn', isMyTurn ? endTurnHandler : undefined]] });
+  if (G.turnPhase === TurnPhase.Action && isMyTurn) {
+    // Hand cards: Train option
+    myPlayer.hand.forEach((cardId, idx) => {
+      const card = getCardData(cardId);
+      const slotId = `hand-${myClassKey}-${idx}`;
+      const options: MenuOption[] = [];
+      if (card.card_type === CardType.Figure) {
+        const canAfford = myPlayer.wealth >= card.cost;
+        options.push([
+          `Train ($${card.cost})`,
+          canAfford ? () => { moves.playFigure(cardId); handleCloseInspector(); } : undefined,
+        ]);
+      }
+      slotData.set(slotId, { cardId, options });
+    });
 
-  // My hand cards
-  myPlayer.hand.forEach((cardId, idx) => {
-    const card = getCardData(cardId);
-    const slotId = `hand-${myClassKey}-${idx}`;
-    const options: MenuOption[] = [];
-    if (isMyTurn && G.turnPhase === TurnPhase.Action && card.card_type === CardType.Figure) {
-      const canAfford = myPlayer.wealth >= card.cost;
-      options.push([
-        `Train ($${card.cost})`,
-        canAfford ? () => { moves.playFigure(cardId); handleCloseInspector(); } : undefined,
-      ]);
-    }
-    slotData.set(slotId, { cardId, options });
-  });
-
-  // My figures in play
-  myPlayer.figures.forEach((figure, idx) => {
-    const slotId = `figures-${myClassKey}-${idx}`;
-    const options: MenuOption[] = [];
-    if (isMyTurn && G.turnPhase === TurnPhase.Action) {
+    // Figures in play: conflict actions
+    myPlayer.figures.forEach((figure, idx) => {
+      const slotId = `figures-${myClassKey}-${idx}`;
+      const options: MenuOption[] = [];
       if (figure.exhausted) {
         options.push(['Figure is exhausted', undefined]);
       } else if (figure.in_training) {
@@ -118,9 +112,22 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         }
         options.push(['Run for Office', () => setBoardState({ mode: 'selectOfficeTarget', figure })]);
       }
-    }
-    slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options });
-  });
+      slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options });
+    });
+  }
+
+  if (G.turnPhase === TurnPhase.Reproduction && isMyTurn) {
+    // Hand cards: Theorize option
+    myPlayer.hand.forEach((cardId, idx) => {
+      const slotId = `hand-${myClassKey}-${idx}`;
+      const isSelected = theorizeSelectedIds.includes(cardId);
+      const canAdd = !isSelected && theorizeSelectedIds.length < myPlayer.theorizeLimit;
+      const options: MenuOption[] = isSelected
+        ? [['Remove from Theorize', () => { setTheorizeSelectedIds(ids => ids.filter(id => id !== cardId)); handleCloseInspector(); }]]
+        : [['Theorize', canAdd ? () => { setTheorizeSelectedIds(ids => [...ids, cardId]); handleCloseInspector(); } : undefined]];
+      slotData.set(slotId, { cardId, options });
+    });
+  }
 
   // Derive active menu content from selected slot
   const selectedSlot =
@@ -128,9 +135,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       ? slotData.get(boardState.selectedSlotId)
       : undefined;
 
-  const activeOptions: MenuOption[] =
-    selectedSlot?.options ?? (isMyTurn ? (slotData.get('end-turn')?.options ?? []) : []);
-
+  const activeOptions: MenuOption[] = selectedSlot?.options ?? [];
   const activeCard = selectedSlot?.cardId ? getCardData(selectedSlot.cardId) : undefined;
 
   // Undo label
@@ -143,11 +148,6 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
   // Player area ordering: current player first
   const wcFirst = ctx.currentPlayer === '0';
-
-  // Show start screen if game hasn't started
-  if (!gameStarted) {
-    return <StartGameScreen onStart={handleStartGame} />;
-  }
 
   const renderPlayerArea = (
     socialClass: SocialClass,
@@ -177,11 +177,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               {player.hand.map((cardId, idx) => {
                 const card = getCardData(cardId);
                 const slotId = `hand-${classKey}-${idx}`;
+                const isTheorizeSelected = isMe && G.turnPhase === TurnPhase.Reproduction && theorizeSelectedIds.includes(cardId);
                 return isMe ? (
                   <CardComponent
                     key={idx}
                     card={card}
                     onClick={() => handleSelectSlot(slotId)}
+                    className={isTheorizeSelected ? 'card-theorize-selected' : undefined}
                   />
                 ) : (
                   <CardComponent key={idx} card={card} showAsCardBack />
@@ -203,7 +205,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                   <CardComponent
                     key={idx}
                     card={card}
-                    onClick={isMe ? () => handleSelectSlot(slotId) : undefined}
+                    onClick={isMe && G.turnPhase === TurnPhase.Action ? () => handleSelectSlot(slotId) : undefined}
                   />
                 );
               })}
@@ -245,7 +247,16 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
   return (
     <div className="game-board">
-      {/* Card Inspector Menu Bar - always visible during normal play */}
+      {/* Turn Start Modal - shown during Production phase */}
+      {G.turnPhase === TurnPhase.Production && (
+        <TurnStartModal
+          turnNumber={G.turnNumber}
+          currentClass={currentClass}
+          onStart={() => moves.collectProduction()}
+        />
+      )}
+
+      {/* Card Inspector Menu Bar - shown during normal play when a card is selected */}
       {boardState.mode === 'normal' && (activeOptions.length > 0 || activeCard) && (
         <CardInspectorMenuBar
           card={activeCard}
@@ -292,6 +303,23 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           <button className="game-undo-button" disabled={!canUndo}>
             {undoLabel}
           </button>
+          {isMyTurn && G.turnPhase === TurnPhase.Action && (
+            <button
+              className="game-end-turn-button"
+              onClick={() => moves.endActionPhase()}
+            >
+              🔄 End Turn
+            </button>
+          )}
+          {isMyTurn && G.turnPhase === TurnPhase.Reproduction && (
+            <button
+              className="game-finish-theorizing-button"
+              onClick={handleFinishTheorizing}
+            >
+              Finish Theorizing
+              {theorizeSelectedIds.length > 0 && ` (${theorizeSelectedIds.length})`}
+            </button>
+          )}
         </div>
         <div className="game-player-controls-center">
           <span className="game-phase-info">{currentClass}</span>
