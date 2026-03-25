@@ -86,9 +86,9 @@
     padding: 0 1vw;
   }
 
-  .game-player-controls-left {
+  /* .game-player-controls-left {
     gap: 1vw;
-  }
+  } */
 
   .game-player-controls-center {
     gap: 1vw;
@@ -350,14 +350,14 @@ body {
   border-bottom: 2px solid #4a5568;
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  /* padding: 0 20px; */
   z-index: 999;
 }
 
 .game-player-controls-left {
   flex: 1;
   display: flex;
-  gap: 20px;
+  /* gap: 20px; */
   align-items: center;
   justify-content: flex-start;
 }
@@ -381,7 +381,7 @@ body {
 
 .game-top-controls-left {
   display: flex;
-  gap: 20px;
+  /* gap: 20px; */
   align-items: center;
 }
 
