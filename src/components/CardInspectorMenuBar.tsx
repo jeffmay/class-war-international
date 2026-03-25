@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { CardData, CardType, SocialClass } from '../types/cards';
+import { CardData, CardType, FigureCardInPlay, SocialClass } from '../types/cards';
 import { TurnPhase } from '../types/game';
 import { CardComponent } from './CardComponent';
 
@@ -18,8 +18,15 @@ export interface CardInspectorMenuBarProps {
   playerWealth: number;
   isMyTurn: boolean;
   cardLocation: 'hand' | 'figures';
+  /** Provided when cardLocation === 'figures' to reflect exhausted/in_training state */
+  figureInPlay?: FigureCardInPlay;
   onClose: () => void;
-  onPlayFigure?: (cardId: string) => void;
+  /** Called when the player clicks Train on a figure card in hand */
+  onTrainFigure?: (cardId: string) => void;
+  /** Called when the player wants to lead a strike with this figure */
+  onLeadStrike?: () => void;
+  /** Called when the player wants to run for office with this figure */
+  onRunForOffice?: () => void;
 }
 
 export const CardInspectorMenuBar: React.FC<CardInspectorMenuBarProps> = ({
@@ -29,18 +36,30 @@ export const CardInspectorMenuBar: React.FC<CardInspectorMenuBarProps> = ({
   playerWealth,
   isMyTurn,
   cardLocation,
+  figureInPlay,
   onClose,
-  onPlayFigure,
+  onTrainFigure,
+  onLeadStrike,
+  onRunForOffice,
 }) => {
   const classModifier = playerClass === SocialClass.WorkingClass ? 'working' : 'capitalist';
+  const isFigureCard = card.card_type === CardType.Figure;
 
-  const canPlayFigure =
-    card.card_type === CardType.Figure &&
-    cardLocation === 'hand' &&
+  // --- Actions for figures in hand ---
+  const canTrain =
+    isFigureCard && cardLocation === 'hand' && turnPhase === TurnPhase.Action && isMyTurn;
+  const canAffordTraining = canTrain && playerWealth >= card.cost;
+
+  // --- Actions for figures in play ---
+  const isExhausted = figureInPlay?.exhausted ?? false;
+  const isInTraining = figureInPlay?.in_training ?? false;
+  const canInitiateConflict =
+    isFigureCard &&
+    cardLocation === 'figures' &&
     turnPhase === TurnPhase.Action &&
-    isMyTurn;
-
-  const canAffordFigure = canPlayFigure && playerWealth >= card.cost;
+    isMyTurn &&
+    !isExhausted &&
+    !isInTraining;
 
   return (
     <div className={`menu-bar menu-bar-${classModifier}`} role="region" aria-label="Card inspector">
@@ -53,15 +72,43 @@ export const CardInspectorMenuBar: React.FC<CardInspectorMenuBarProps> = ({
       <div className="menu-bar-card-display">
         <CardComponent card={card} />
       </div>
-      {canPlayFigure && (
+
+      {/* Figure in hand: Train action */}
+      {canTrain && (
         <div className="menu-bar-actions">
           <button
             className="menu-bar-action-button"
-            disabled={!canAffordFigure}
-            onClick={() => onPlayFigure?.(card.id)}
+            disabled={!canAffordTraining}
+            onClick={() => onTrainFigure?.(card.id)}
           >
-            Play Figure (${card.cost})
+            Train (${card.cost})
           </button>
+        </div>
+      )}
+
+      {/* Figure in play: conflict actions or disabled status */}
+      {isFigureCard && cardLocation === 'figures' && (
+        <div className="menu-bar-actions">
+          {isExhausted && (
+            <button className="menu-bar-action-button" disabled>
+              Figure is exhausted
+            </button>
+          )}
+          {!isExhausted && isInTraining && (
+            <button className="menu-bar-action-button" disabled>
+              Figure is in training
+            </button>
+          )}
+          {canInitiateConflict && playerClass === SocialClass.WorkingClass && (
+            <button className="menu-bar-action-button" onClick={onLeadStrike}>
+              Lead Strike
+            </button>
+          )}
+          {canInitiateConflict && (
+            <button className="menu-bar-action-button" onClick={onRunForOffice}>
+              Run for Office
+            </button>
+          )}
         </div>
       )}
     </div>

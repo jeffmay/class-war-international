@@ -3,6 +3,7 @@
  */
 
 import { CardId, DemandId, FigureCardInPlay, InstitutionCardInPlay, DemandCardInPlay, WorkplaceInPlay, StateFigureInPlay, SocialClass } from './cards';
+import { ConflictOutcome, ConflictState } from './conflicts';
 
 export enum TurnPhase {
   Production = 'Production',
@@ -38,8 +39,10 @@ export interface GameState {
   politicalOffices: StateFigureInPlay[]; // 3 political offices
   laws: DemandId[]; // Passed legislation
 
-  // Conflict state (will be added later)
-  activeConflict?: any;
+  // Conflict state
+  activeConflict?: ConflictState;
+  conflictOutcome?: ConflictOutcome;
+  errorMessage?: string;
 
   // Game state
   gameStarted: boolean;

@@ -5,41 +5,38 @@
 import React, { useState } from 'react';
 import { BoardProps } from 'boardgame.io/react';
 import { GameState, TurnPhase } from './types/game';
-import { SocialClass } from './types/cards';
+import { FigureCardInPlay, SocialClass } from './types/cards';
+import { ConflictType } from './types/conflicts';
 import { getCardData } from './data/cards';
 import { StartGameScreen } from './components/StartGameScreen';
 import { CardComponent } from './components/CardComponent';
 import { CardInspectorMenuBar } from './components/CardInspectorMenuBar';
+import { ConflictTargetMenuBar } from './components/ConflictTargetMenuBar';
 
 interface ClassWarBoardProps extends BoardProps<GameState> {}
 
+type InspectorState =
+  | null
+  | { mode: 'card'; cardId: string; location: 'hand' | 'figures'; figureInPlay?: FigureCardInPlay }
+  | { mode: 'selectStrikeTarget'; figure: FigureCardInPlay }
+  | { mode: 'selectOfficeTarget'; figure: FigureCardInPlay };
+
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
   const [gameStarted, setGameStarted] = useState(G.gameStarted);
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
-  const [selectedCardLocation, setSelectedCardLocation] = useState<'hand' | 'figures'>('hand');
+  const [inspectorState, setInspectorState] = useState<InspectorState>(null);
 
   // Determine current class
   const isWorkingClass = ctx.currentPlayer === '0';
   const currentClass = isWorkingClass ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
   const isMyTurn = playerID === ctx.currentPlayer;
 
-  const handleCardClick = (cardId: string, location: 'hand' | 'figures') => {
-    if (selectedCardId === cardId && selectedCardLocation === location) {
-      setSelectedCardId(null);
-    } else {
-      setSelectedCardId(cardId);
-      setSelectedCardLocation(location);
-    }
-  };
-
-  const handleCloseInspector = () => {
-    setSelectedCardId(null);
-  };
-
-  const handlePlayFigure = (cardId: string) => {
-    moves.playFigure(cardId);
-    setSelectedCardId(null);
-  };
+  // myClass: the class this client is playing as (falls back to currentClass in local/debug mode)
+  const myClass =
+    playerID === '0'
+      ? SocialClass.WorkingClass
+      : playerID === '1'
+        ? SocialClass.CapitalistClass
+        : currentClass;
 
   // Get player states
   const workingClassPlayer = G.players[SocialClass.WorkingClass];
@@ -49,31 +46,109 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     setGameStarted(true);
   };
 
+  // --- Card / figure click handlers ---
+
+  const handleCardClick = (cardId: string, location: 'hand' | 'figures', figureInPlay?: FigureCardInPlay) => {
+    const current = inspectorState;
+    if (
+      current?.mode === 'card' &&
+      current.cardId === cardId &&
+      current.location === location
+    ) {
+      setInspectorState(null); // Toggle off
+    } else {
+      setInspectorState({ mode: 'card', cardId, location, figureInPlay });
+    }
+  };
+
+  const handleCloseInspector = () => setInspectorState(null);
+
+  // Train (play figure from hand)
+  const handleTrainFigure = (cardId: string) => {
+    moves.playFigure(cardId);
+    setInspectorState(null);
+  };
+
+  // Lead Strike: transition to target selection
+  const handleLeadStrike = (figure: FigureCardInPlay) => {
+    setInspectorState({ mode: 'selectStrikeTarget', figure });
+  };
+
+  // Run for Office: transition to target selection
+  const handleRunForOffice = (figure: FigureCardInPlay) => {
+    setInspectorState({ mode: 'selectOfficeTarget', figure });
+  };
+
+  // Confirm strike target
+  const handleSelectStrikeTarget = (workplaceIndex: number) => {
+    if (inspectorState?.mode !== 'selectStrikeTarget') return;
+    moves.planStrike(inspectorState.figure.id, workplaceIndex);
+    setInspectorState(null);
+  };
+
+  // Confirm election target
+  const handleSelectOfficeTarget = (officeIndex: number) => {
+    if (inspectorState?.mode !== 'selectOfficeTarget') return;
+    moves.planElection(inspectorState.figure.id, officeIndex);
+    setInspectorState(null);
+  };
+
   // Show start screen if game hasn't started
   if (!gameStarted) {
     return <StartGameScreen onStart={handleStartGame} />;
   }
 
-  const selectedCard = selectedCardId ? getCardData(selectedCardId) : null;
-  const myClass = playerID === '0'
-    ? SocialClass.WorkingClass
-    : playerID === '1'
-      ? SocialClass.CapitalistClass
-      : currentClass;
+  const selectedCard =
+    inspectorState?.mode === 'card' ? getCardData(inspectorState.cardId) : null;
 
   return (
     <div className="game-board">
       {/* Card Inspector Menu Bar */}
-      {selectedCard && (
+      {inspectorState?.mode === 'card' && selectedCard && (
         <CardInspectorMenuBar
           card={selectedCard}
           playerClass={myClass}
           turnPhase={G.turnPhase}
           playerWealth={G.players[myClass].wealth}
           isMyTurn={isMyTurn}
-          cardLocation={selectedCardLocation}
+          cardLocation={inspectorState.location}
+          figureInPlay={inspectorState.figureInPlay}
           onClose={handleCloseInspector}
-          onPlayFigure={handlePlayFigure}
+          onTrainFigure={handleTrainFigure}
+          onLeadStrike={
+            inspectorState.figureInPlay
+              ? () => handleLeadStrike(inspectorState.figureInPlay!)
+              : undefined
+          }
+          onRunForOffice={
+            inspectorState.figureInPlay
+              ? () => handleRunForOffice(inspectorState.figureInPlay!)
+              : undefined
+          }
+        />
+      )}
+
+      {/* Strike Target Selector */}
+      {inspectorState?.mode === 'selectStrikeTarget' && (
+        <ConflictTargetMenuBar
+          conflictType={ConflictType.Strike}
+          figureName={getCardData(inspectorState.figure.id).name}
+          playerClass={myClass}
+          workplaces={G.workplaces}
+          onSelectTarget={handleSelectStrikeTarget}
+          onCancel={handleCloseInspector}
+        />
+      )}
+
+      {/* Office Target Selector */}
+      {inspectorState?.mode === 'selectOfficeTarget' && (
+        <ConflictTargetMenuBar
+          conflictType={ConflictType.Election}
+          figureName={getCardData(inspectorState.figure.id).name}
+          playerClass={myClass}
+          politicalOffices={G.politicalOffices}
+          onSelectTarget={handleSelectOfficeTarget}
+          onCancel={handleCloseInspector}
         />
       )}
 
@@ -145,9 +220,22 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               <div className="player-area-section">
                 <div className="player-area-section-title">
                   Figures in Play ({workingClassPlayer.figures.length})
-                  <span className="player-area-section-subtitle">
-                    (Drag figure here to start training. Figures cannot participate in conflicts until the end of turn.)
-                  </span>
+                </div>
+                <div className="player-area-card-row">
+                  {workingClassPlayer.figures.map((figure, idx) => {
+                    const card = getCardData(figure.id);
+                    return (
+                      <CardComponent
+                        key={idx}
+                        card={card}
+                        onClick={
+                          playerID === '0'
+                            ? () => handleCardClick(figure.id, 'figures', figure)
+                            : undefined
+                        }
+                      />
+                    );
+                  })}
                 </div>
               </div>
 
@@ -195,9 +283,22 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               <div className="player-area-section">
                 <div className="player-area-section-title">
                   Figures in Play ({capitalistPlayer.figures.length})
-                  <span className="player-area-section-subtitle">
-                    (Drag figure here to start training. Figures cannot participate in conflicts until the end of turn.)
-                  </span>
+                </div>
+                <div className="player-area-card-row">
+                  {capitalistPlayer.figures.map((figure, idx) => {
+                    const card = getCardData(figure.id);
+                    return (
+                      <CardComponent
+                        key={idx}
+                        card={card}
+                        onClick={
+                          playerID === '1'
+                            ? () => handleCardClick(figure.id, 'figures', figure)
+                            : undefined
+                        }
+                      />
+                    );
+                  })}
                 </div>
               </div>
 

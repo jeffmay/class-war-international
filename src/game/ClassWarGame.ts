@@ -5,8 +5,25 @@
 import { type MoveMap } from 'boardgame.io';
 import { buildDeck, defaultWorkplaces, getCardData } from '../data/cards';
 import { CardType, type FigureCardInPlay, SocialClass, type StateFigureInPlay, type WorkplaceInPlay } from '../types/cards';
+import { ConflictPhase, ConflictType, type ElectionConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
 import { type StrictGameOf } from '../util/typedboardgame';
+
+/**
+ * Compute the power contribution of a set of figure cards.
+ * Figures contribute dice; established_power from workplaces/institutions
+ * is added at resolution time.
+ */
+function powerStats(figures: FigureCardInPlay[]): PowerStats {
+  let diceCount = 0;
+  for (const figure of figures) {
+    const data = getCardData(figure.id);
+    if (data.card_type === CardType.Figure) {
+      diceCount += data.dice;
+    }
+  }
+  return { diceCount, establishedPower: 0 };
+}
 
 /**
  * Shuffle an array in place using Fisher-Yates algorithm
@@ -154,6 +171,132 @@ export const Moves = {
       return;
     }
     G.turnPhase = TurnPhase.Reproduction;
+  },
+
+  /**
+   * Plan a Strike conflict: validates the strike leader and target workplace,
+   * then creates the conflict state. The figure is removed from play and placed
+   * into the conflict. Resolution happens separately.
+   */
+  planStrike: ({ G, playerID }, figureId: string, workplaceIndex: number) => {
+    if (G.turnPhase !== TurnPhase.Action) return;
+
+    const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    if (currentClass !== SocialClass.WorkingClass) {
+      // Only Working Class can initiate strikes
+      G.errorMessage = 'Only Working Class figures can initiate strikes.';
+      return;
+    }
+
+    const player = G.players[currentClass];
+    const figureIndex = player.figures.findIndex(f => f.id === figureId);
+    if (figureIndex === -1) {
+      G.errorMessage = `Figure ${figureId} is not in play.`;
+      return;
+    }
+
+    const figure = player.figures[figureIndex];
+    if (figure.in_training) {
+      G.errorMessage = 'Strike leader must not be in training.';
+      return;
+    }
+    if (figure.exhausted) {
+      G.errorMessage = 'Strike leader must not be exhausted.';
+      return;
+    }
+
+    const figureData = getCardData(figure.id);
+    if (figureData.card_type !== CardType.Figure || figureData.social_class !== SocialClass.WorkingClass) {
+      G.errorMessage = 'Only Working Class figures can lead strikes.';
+      return;
+    }
+
+    const targetWorkplace = G.workplaces[workplaceIndex];
+    if (!targetWorkplace || targetWorkplace.id.startsWith('empty')) {
+      G.errorMessage = `No workplace at index ${workplaceIndex}.`;
+      return;
+    }
+
+    // Remove figure from player's figures — it's now in the conflict
+    player.figures.splice(figureIndex, 1);
+
+    const strikeLeader: FigureCardInPlay = { ...figure };
+    const workingClassCards = [strikeLeader];
+    const conflictState: StrikeConflictState = {
+      conflictType: ConflictType.Strike,
+      targetWorkplaceIndex: workplaceIndex,
+      targetWorkplace: { ...targetWorkplace },
+      strikeLeader,
+      workingClassCards,
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Initiating,
+      initiatingClass: SocialClass.WorkingClass,
+      workingClassPower: powerStats(workingClassCards),
+      capitalistPower: { diceCount: 0, establishedPower: 0 },
+    };
+
+    G.activeConflict = conflictState;
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * Plan an Election conflict: validates the candidate and target office,
+   * then creates the conflict state. The figure is removed from play and placed
+   * into the conflict.
+   */
+  planElection: ({ G, playerID }, figureId: string, officeIndex: number) => {
+    if (G.turnPhase !== TurnPhase.Action) return;
+
+    const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    const player = G.players[currentClass];
+
+    const figureIndex = player.figures.findIndex(f => f.id === figureId);
+    if (figureIndex === -1) {
+      G.errorMessage = `Figure ${figureId} is not in play.`;
+      return;
+    }
+
+    const figure = player.figures[figureIndex];
+    if (figure.in_training) {
+      G.errorMessage = 'Candidate must not be in training.';
+      return;
+    }
+    if (figure.exhausted) {
+      G.errorMessage = 'Candidate must not be exhausted.';
+      return;
+    }
+
+    const targetOffice = G.politicalOffices[officeIndex];
+    if (!targetOffice) {
+      G.errorMessage = `No political office at index ${officeIndex}.`;
+      return;
+    }
+
+    // Remove figure from player's figures — it's now in the conflict
+    player.figures.splice(figureIndex, 1);
+
+    const candidate: FigureCardInPlay = { ...figure };
+    const currentPlayerCards = [candidate];
+    const workingClassCards = currentClass === SocialClass.WorkingClass ? currentPlayerCards : [];
+    const capitalistCards = currentClass === SocialClass.CapitalistClass ? currentPlayerCards : [];
+
+    const conflictState: ElectionConflictState = {
+      conflictType: ConflictType.Election,
+      targetOfficeIndex: officeIndex,
+      targetIncumbent: { ...targetOffice },
+      candidate,
+      workingClassCards,
+      capitalistCards,
+      active: true,
+      phase: ConflictPhase.Initiating,
+      initiatingClass: currentClass,
+      workingClassPower: powerStats(workingClassCards),
+      capitalistPower: powerStats(capitalistCards),
+    };
+
+    G.activeConflict = conflictState;
+    G.errorMessage = undefined;
   },
 
   /**

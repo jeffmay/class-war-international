@@ -2,7 +2,7 @@
 
 ## 🎉 Project Complete!
 
-Successfully migrated **Class War: International** from a React/Redux local-only game to a fully functional **boardgame.io** project with comprehensive testing and a working UI.
+Successfully migrated **Class War: International** from a React/Redux local-only game (`../class-war-international-redux`) to a fully functional **boardgame.io** project with comprehensive testing and a working UI.
 
 ---
 
@@ -243,7 +243,7 @@ e5203a9 Fix setup tests - all tests now passing ✅
 ### boardgame.io Insights
 1. **Move Validation**: Return without action = invalid move (no INVALID_MOVE constant)
 2. **State Mutations**: Direct mutations work (Immer built-in)
-3. **Testing**: Use Client for integration tests
+3. **Testing**: Use StrictClient for integration tests
 4. **Player IDs**: String '0', '1', not numbers
 5. **Phase Management**: Manual transitions via G.turnPhase
 6. **Events**: Use events.endTurn() for turn cycling
