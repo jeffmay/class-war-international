@@ -1,14 +1,19 @@
-import type { Game, LongFormMove, Move, MoveFn, MoveMap, PlayerID } from "boardgame.io";
+import type { Game, LongFormMove, Move, MoveFn, MoveMap, PlayerID, State } from "boardgame.io";
 import { Client } from 'boardgame.io/client';
 import type { _ClientImpl, ClientOpts, ClientState } from "boardgame.io/dist/types/src/client/client";
 import { assertDefined } from "./assertions";
+import { BoardProps } from "boardgame.io/dist/types/src/client/react";
 
 
-export type StrictGame<G, PluginAPIs extends Record<string, unknown>, M extends MoveMap<G, PluginAPIs>> = Omit<Game<G, PluginAPIs>, 'moves'> & {
-  moves: M
-}
+export type StrictGame<G, PluginAPIs extends Record<string, unknown>, M extends MoveMap<G, PluginAPIs>> =
+  Omit<Game<G, PluginAPIs>, 'moves'> & {
+    moves: M
+  }
 
-export type StrictGameOf<Moves> = Moves extends MoveMap<infer G, infer PluginAPIs> ? StrictGame<G, PluginAPIs, Moves> : never
+export type StrictGameOf<Moves> =
+  Moves extends MoveMap<infer G, infer PluginAPIs>
+  ? StrictGame<G, PluginAPIs, Moves>
+  : never
 
 export type StrictClientOpts<G, PluginAPIs extends Record<string, unknown>, M extends MoveMap<G, PluginAPIs>> =
   Omit<ClientOpts<G, PluginAPIs>, 'game'> & {
@@ -58,9 +63,16 @@ export type StrictLongFormMove<LFM extends LongFormMove> = Omit<LFM, 'move'> & {
   move: StrictMoveFn<LFM['move']>
 }
 
-export type StrictMoveMap<M> =
-  M extends MoveMap
-  ? {
-    [k in keyof M]: StrictMove<M[k]>
+export type StrictMoveMap<M> = M extends MoveMap ? {
+  [k in keyof M]: StrictMove<M[k]>
+} : never
+
+export type StrictBoardProps<G, M extends MoveMap> =
+  Omit<BoardProps<G>, 'moves'> & {
+    moves: StrictMoveMap<M>
   }
+
+export type StrictBoardPropsOf<Game> =
+  Game extends StrictGame<infer G, infer _, infer M extends MoveMap>
+  ? StrictBoardProps<G, M>
   : never

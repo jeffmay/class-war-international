@@ -3,17 +3,18 @@
  */
 
 import React, { useState } from 'react';
-import { BoardProps } from 'boardgame.io/react';
-import { GameState, TurnPhase } from './types/game';
-import { CardType, FigureCardInPlay, SocialClass } from './types/cards';
-import { ConflictType } from './types/conflicts';
-import { getCardData } from './data/cards';
-import { StartGameScreen } from './components/StartGameScreen';
 import { CardComponent } from './components/CardComponent';
 import { CardInspectorMenuBar, MenuOption } from './components/CardInspectorMenuBar';
 import { ConflictTargetMenuBar } from './components/ConflictTargetMenuBar';
+import { StartGameScreen } from './components/StartGameScreen';
+import { getCardData } from './data/cards';
+import { type Moves } from './game/ClassWarGame';
+import { CardType, FigureCardInPlay, SocialClass } from './types/cards';
+import { ConflictType } from './types/conflicts';
+import { GameState, TurnPhase } from './types/game';
+import { type StrictBoardProps } from './util/typedboardgame';
 
-interface ClassWarBoardProps extends BoardProps<GameState> {}
+type ClassWarBoardProps = StrictBoardProps<GameState, typeof Moves>
 
 type BoardState =
   | { mode: 'normal'; selectedSlotId: string | null }
@@ -33,7 +34,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   // Determine current class
   const isWorkingClass = ctx.currentPlayer === '0';
   const currentClass = isWorkingClass ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
-  const isMyTurn = playerID === ctx.currentPlayer;
+  // In local/debug mode playerID is undefined — treat it as always being the current player's turn
+  const isMyTurn = !playerID || playerID === ctx.currentPlayer;
 
   // myClass: the class this client is playing as (falls back to currentClass in local/debug mode)
   const myClass =
