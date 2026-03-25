@@ -20,7 +20,7 @@ import {
 } from './generate';
 
 describe('Action Phase - Playing Cards', () => {
-  describe('playFigure', () => {
+  describe('playCardFromHand - figure cards', () => {
     test('successfully plays a figure card from hand', () => {
       // Pre-conditions: Action phase, WC has 'cashier' (cost $2) in hand,
       // wealth is $10 (well above cost).
@@ -38,7 +38,7 @@ describe('Action Phase - Playing Cards', () => {
       expect(getCardData('cashier').card_type).toBe(CardType.Figure);
       expect(initialWealth).toBeGreaterThanOrEqual(getCardData('cashier').cost);
 
-      client.moves.playFigure('cashier');
+      client.moves.playCardFromHand(0, 'figures[-1]');
       const newState = client.getStateOrThrow();
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
@@ -69,7 +69,7 @@ describe('Action Phase - Playing Cards', () => {
       expect(player.hand[0]).toBe('cashier');
       expect(player.wealth).toBe(cashierCost - 1);
 
-      client.moves.playFigure('cashier');
+      client.moves.playCardFromHand(0, 'figures[-1]');
       const newState = client.getStateOrThrow();
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
@@ -79,7 +79,7 @@ describe('Action Phase - Playing Cards', () => {
       expect(newPlayer.wealth).toBe(cashierCost - 1);
     });
 
-    test('cannot play figure from hand that player does not have', () => {
+    test('cannot play card at invalid hand index', () => {
       // Pre-conditions: Action phase, WC is the current player.
       const G = makeActionPhaseState({ wealth: 10 });
       const client = clientFromFixture(G);
@@ -88,13 +88,30 @@ describe('Action Phase - Playing Cards', () => {
       const player = state.G.players[SocialClass.WorkingClass];
       const initialHandSize = player.hand.length;
 
-      client.moves.playFigure('nonexistent_card_id');
+      client.moves.playCardFromHand(999, 'figures[-1]'); // out of bounds
       const newState = client.getStateOrThrow();
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
       // Nothing changed
       expect(newPlayer.hand.length).toBe(initialHandSize);
       expect(newPlayer.figures.length).toBe(0);
+    });
+
+    test('cannot play card with mismatched slot type', () => {
+      // Demand card played to figures slot — should be rejected
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardInHand(wcDeck, 'wealth_tax');
+      const G = makeActionPhaseState({ hand, deck });
+      const client = clientFromFixture(G);
+
+      expect(client.getStateOrThrow().G.players[SocialClass.WorkingClass].hand[0]).toBe('wealth_tax');
+
+      client.moves.playCardFromHand(0, 'figures[-1]');
+      const newState = client.getStateOrThrow();
+      const newPlayer = newState.G.players[SocialClass.WorkingClass];
+
+      expect(newPlayer.figures.length).toBe(0);
+      expect(newPlayer.hand[0]).toBe('wealth_tax');
     });
 
     test('cannot play figure outside Action phase', () => {
@@ -110,7 +127,7 @@ describe('Action Phase - Playing Cards', () => {
       expect(state.G.turnPhase).toBe(TurnPhase.Reproduction);
       const initialFigures = state.G.players[SocialClass.WorkingClass].figures.length;
 
-      client.moves.playFigure('cashier');
+      client.moves.playCardFromHand(0, 'figures[-1]');
       const newState = client.getStateOrThrow();
       // Move was rejected – figure count unchanged
       expect(newState.G.players[SocialClass.WorkingClass].figures.length).toBe(initialFigures);
@@ -169,15 +186,138 @@ describe('Action Phase - Playing Cards', () => {
       expect(player.hand[0]).toBe('cashier');
       expect(player.hand[1]).toBe('cashier');
 
-      // Play first cashier
-      client.moves.playFigure('cashier');
+      // Play first cashier (index 0)
+      client.moves.playCardFromHand(0, 'figures[-1]');
       let currentState = client.getStateOrThrow();
       expect(currentState.G.players[SocialClass.WorkingClass].figures.length).toBe(1);
 
-      // Play second cashier
-      client.moves.playFigure('cashier');
+      // Play second cashier (now at index 0 after removal)
+      client.moves.playCardFromHand(0, 'figures[-1]');
       currentState = client.getStateOrThrow();
       expect(currentState.G.players[SocialClass.WorkingClass].figures.length).toBe(2);
+    });
+  });
+
+  describe('playCardFromHand - demand cards', () => {
+    test('successfully plays a demand to slot 0 when both slots empty', () => {
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardInHand(wcDeck, 'wealth_tax');
+      const G = makeActionPhaseState({ hand, deck });
+      const client = clientFromFixture(G);
+
+      expect(client.getStateOrThrow().G.players[SocialClass.WorkingClass].hand[0]).toBe('wealth_tax');
+      expect(client.getStateOrThrow().G.players[SocialClass.WorkingClass].demands[0]).toBeNull();
+
+      client.moves.playCardFromHand(0, 'demands[0]');
+      const newState = client.getStateOrThrow();
+      const newPlayer = newState.G.players[SocialClass.WorkingClass];
+
+      expect(newPlayer.demands[0]).toEqual({ id: 'wealth_tax', card_type: CardType.Demand });
+      expect(newPlayer.hand).not.toContain('wealth_tax');
+    });
+
+    test('successfully plays a demand to slot 1', () => {
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardInHand(wcDeck, 'wealth_tax');
+      const G = makeActionPhaseState({ hand, deck });
+      const client = clientFromFixture(G);
+
+      client.moves.playCardFromHand(0, 'demands[1]');
+      const newPlayer = client.getStateOrThrow().G.players[SocialClass.WorkingClass];
+
+      expect(newPlayer.demands[1]).toEqual({ id: 'wealth_tax', card_type: CardType.Demand });
+      expect(newPlayer.demands[0]).toBeNull();
+    });
+
+    test('replaces existing demand and moves it to dustbin', () => {
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardsInHand(wcDeck, ['wealth_tax', 'free_health_care']);
+      const G = makeActionPhaseState({ hand, deck });
+      const client = clientFromFixture(G);
+
+      // Play wealth_tax to slot 0
+      client.moves.playCardFromHand(0, 'demands[0]');
+      expect(client.getStateOrThrow().G.players[SocialClass.WorkingClass].demands[0]?.id).toBe('wealth_tax');
+
+      // Play free_health_care to slot 0, replacing wealth_tax
+      client.moves.playCardFromHand(0, 'demands[0]');
+      const newPlayer = client.getStateOrThrow().G.players[SocialClass.WorkingClass];
+
+      expect(newPlayer.demands[0]).toEqual({ id: 'free_health_care', card_type: CardType.Demand });
+      expect(newPlayer.dustbin).toContain('wealth_tax');
+    });
+
+    test('cannot play demand with invalid slot index', () => {
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardInHand(wcDeck, 'wealth_tax');
+      const G = makeActionPhaseState({ hand, deck });
+      const client = clientFromFixture(G);
+
+      client.moves.playCardFromHand(0, 'demands[5]');
+      const newPlayer = client.getStateOrThrow().G.players[SocialClass.WorkingClass];
+
+      expect(newPlayer.demands[0]).toBeNull();
+      expect(newPlayer.hand).toContain('wealth_tax');
+    });
+  });
+
+  describe('playCardFromHand - institution cards', () => {
+    test('successfully plays an institution to slot 0 when both slots empty', () => {
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardInHand(wcDeck, 'political_education_group');
+      const institutionCost = getCardData('political_education_group').cost;
+      const G = makeActionPhaseState({ wealth: institutionCost, hand, deck });
+      const client = clientFromFixture(G);
+
+      const initialMaxHandSize = client.getStateOrThrow().G.players[SocialClass.WorkingClass].maxHandSize;
+
+      client.moves.playCardFromHand(0, 'institutions[0]');
+      const newPlayer = client.getStateOrThrow().G.players[SocialClass.WorkingClass];
+
+      expect(newPlayer.institutions[0]).toEqual({
+        id: 'political_education_group',
+        card_type: CardType.Institution,
+      });
+      expect(newPlayer.hand).not.toContain('political_education_group');
+      expect(newPlayer.wealth).toBe(0);
+      // "When first played" effect: max hand size increases by 1
+      expect(newPlayer.maxHandSize).toBe(initialMaxHandSize + 1);
+    });
+
+    test('cannot play institution without enough wealth', () => {
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardInHand(wcDeck, 'political_education_group');
+      const institutionCost = getCardData('political_education_group').cost;
+      const G = makeActionPhaseState({ wealth: institutionCost - 1, hand, deck });
+      const client = clientFromFixture(G);
+
+      client.moves.playCardFromHand(0, 'institutions[0]');
+      const newPlayer = client.getStateOrThrow().G.players[SocialClass.WorkingClass];
+
+      expect(newPlayer.institutions[0]).toBeNull();
+      expect(newPlayer.hand).toContain('political_education_group');
+    });
+
+    test('replaces existing institution and moves it to dustbin', () => {
+      const wcDeck = buildDeck(SocialClass.WorkingClass);
+      const { hand, deck } = withCardsInHand(wcDeck, ['political_education_group', 'political_education_group']);
+      const institutionCost = getCardData('political_education_group').cost;
+      const G = makeActionPhaseState({ wealth: institutionCost * 2, hand, deck });
+      const client = clientFromFixture(G);
+
+      // Play first to slot 0
+      client.moves.playCardFromHand(0, 'institutions[0]');
+      expect(client.getStateOrThrow().G.players[SocialClass.WorkingClass].institutions[0]?.id).toBe('political_education_group');
+
+      // Play second to slot 0, replacing the first
+      client.moves.playCardFromHand(0, 'institutions[0]');
+      const newPlayer = client.getStateOrThrow().G.players[SocialClass.WorkingClass];
+
+      expect(newPlayer.institutions[0]).toEqual({
+        id: 'political_education_group',
+        card_type: CardType.Institution,
+      });
+      expect(newPlayer.dustbin).toContain('political_education_group');
     });
   });
 });

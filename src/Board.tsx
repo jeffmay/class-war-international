@@ -10,7 +10,7 @@ import { ConflictType } from './types/conflicts';
 import { getCardData } from './data/cards';
 import { TurnStartModal } from './components/StartGameScreen';
 import { CardComponent } from './components/CardComponent';
-import { CardInspectorMenuBar, MenuOption } from './components/CardInspectorMenuBar';
+import { ActionMenuBar, MenuOption } from './components/ActionMenuBar';
 import { ConflictTargetMenuBar } from './components/ConflictTargetMenuBar';
 
 interface ClassWarBoardProps extends BoardProps<GameState> {}
@@ -24,6 +24,8 @@ interface SlotData {
   cardId?: string;
   figureInPlay?: FigureCardInPlay;
   options: MenuOption[];
+  /** If set, clicking the card calls this directly instead of opening the action menu */
+  directAction?: () => void;
 }
 
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
@@ -83,19 +85,51 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   const slotData = new Map<string, SlotData>();
 
   if (G.turnPhase === TurnPhase.Action && isMyTurn) {
-    // Hand cards: Train option
+    // Hand cards: action options
     myPlayer.hand.forEach((cardId, idx) => {
       const card = getCardData(cardId);
       const slotId = `hand-${myClassKey}-${idx}`;
       const options: MenuOption[] = [];
+      let directAction: (() => void) | undefined;
+
       if (card.card_type === CardType.Figure) {
         const canAfford = myPlayer.wealth >= card.cost;
         options.push([
           `Train ($${card.cost})`,
-          canAfford ? () => { moves.playFigure(cardId); handleCloseInspector(); } : undefined,
+          canAfford ? () => { moves.playCardFromHand(idx, 'figures[-1]'); handleCloseInspector(); } : undefined,
         ]);
+      } else if (card.card_type === CardType.Demand) {
+        const slot0 = myPlayer.demands[0];
+        const slot1 = myPlayer.demands[1];
+        if (slot0 === null && slot1 === null) {
+          directAction = () => moves.playCardFromHand(idx, 'demands[0]');
+        } else {
+          const label0 = slot0 === null ? 'Play to Slot 1 (empty)' : `Replace Slot 1 (${getCardData(slot0.id).name})`;
+          const label1 = slot1 === null ? 'Play to Slot 2 (empty)' : `Replace Slot 2 (${getCardData(slot1.id).name})`;
+          options.push([label0, () => { moves.playCardFromHand(idx, 'demands[0]'); handleCloseInspector(); }]);
+          options.push([label1, () => { moves.playCardFromHand(idx, 'demands[1]'); handleCloseInspector(); }]);
+        }
+      } else if (card.card_type === CardType.Institution) {
+        const slot0 = myPlayer.institutions[0];
+        const slot1 = myPlayer.institutions[1];
+        const canAfford = myPlayer.wealth >= card.cost;
+        if (slot0 === null && slot1 === null) {
+          if (canAfford) {
+            directAction = () => moves.playCardFromHand(idx, 'institutions[0]');
+          } else {
+            options.push([`Build ($${card.cost})`, undefined]);
+          }
+        } else {
+          const buildFn = (slot: string) =>
+            canAfford ? () => { moves.playCardFromHand(idx, slot); handleCloseInspector(); } : undefined;
+          const label0 = slot0 === null ? `Build to Slot 1 ($${card.cost}, empty)` : `Replace Slot 1 ($${card.cost}, ${getCardData(slot0.id).name})`;
+          const label1 = slot1 === null ? `Build to Slot 2 ($${card.cost}, empty)` : `Replace Slot 2 ($${card.cost}, ${getCardData(slot1.id).name})`;
+          options.push([label0, buildFn('institutions[0]')]);
+          options.push([label1, buildFn('institutions[1]')]);
+        }
       }
-      slotData.set(slotId, { cardId, options });
+
+      slotData.set(slotId, { cardId, options, directAction });
     });
 
     // Figures in play: conflict actions
@@ -178,15 +212,16 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 const card = getCardData(cardId);
                 const slotId = `hand-${classKey}-${idx}`;
                 const isTheorizeSelected = isMe && G.turnPhase === TurnPhase.Reproduction && theorizeSelectedIds.includes(cardId);
-                return isMe ? (
+                if (!isMe) return <CardComponent key={idx} card={card} showAsCardBack />;
+                const slot = slotData.get(slotId);
+                const handleClick = slot?.directAction ?? (() => handleSelectSlot(slotId));
+                return (
                   <CardComponent
                     key={idx}
                     card={card}
-                    onClick={() => handleSelectSlot(slotId)}
+                    onClick={handleClick}
                     className={isTheorizeSelected ? 'card-theorize-selected' : undefined}
                   />
-                ) : (
-                  <CardComponent key={idx} card={card} showAsCardBack />
                 );
               })}
             </div>
@@ -222,9 +257,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             <div className="player-area-section-column">
               <div className="player-area-section-title">Institutions</div>
               <div className="player-area-card-row">
-                {[0, 1].map((i) => (
+                {player.institutions.map((institution, i) => (
                   <div key={i} className="card-slot">
-                    <div className="card-slot-placeholder" />
+                    {institution ? (
+                      <CardComponent card={getCardData(institution.id)} />
+                    ) : (
+                      <div className="card-slot-placeholder" />
+                    )}
                   </div>
                 ))}
               </div>
@@ -232,9 +271,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             <div className="player-area-section-column">
               <div className="player-area-section-title">Demands</div>
               <div className="player-area-card-row">
-                {[0, 1].map((i) => (
+                {player.demands.map((demand, i) => (
                   <div key={i} className="card-slot">
-                    <div className="card-slot-placeholder" />
+                    {demand ? (
+                      <CardComponent card={getCardData(demand.id)} />
+                    ) : (
+                      <div className="card-slot-placeholder" />
+                    )}
                   </div>
                 ))}
               </div>
@@ -258,7 +301,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
       {/* Card Inspector Menu Bar - shown during normal play when a card is selected */}
       {boardState.mode === 'normal' && (activeOptions.length > 0 || activeCard) && (
-        <CardInspectorMenuBar
+        <ActionMenuBar
           card={activeCard}
           options={activeOptions}
           playerClass={myClass}

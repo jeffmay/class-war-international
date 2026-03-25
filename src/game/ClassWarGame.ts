@@ -4,7 +4,7 @@
 
 import { type MoveMap } from 'boardgame.io';
 import { buildDeck, defaultWorkplaces, getCardData } from '../data/cards';
-import { CardType, type FigureCardInPlay, SocialClass, type StateFigureInPlay, type WorkplaceInPlay } from '../types/cards';
+import { CardType, type DemandCardInPlay, type FigureCardInPlay, type InstitutionCardInPlay, SocialClass, type StateFigureInPlay, type WorkplaceInPlay } from '../types/cards';
 import { ConflictPhase, ConflictType, type ElectionConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
 import { type StrictGameOf } from '../util/typedboardgame';
@@ -77,47 +77,81 @@ function createPlayerState(socialClass: SocialClass, random: () => number): Play
 export const Moves = {
 
   /**
-   * Play a figure card from hand
+   * Play a card from hand to a target slot.
+   *
+   * @param handIndex - Index of the card in the player's hand
+   * @param targetSlot - Destination slot, e.g. "figures[-1]", "demands[0]", "institutions[1]"
+   *
+   * For figures, use index -1 to append to the figures array.
+   * For demands and institutions, use index 0 or 1 to target a specific slot;
+   * if a card already occupies that slot it is moved to the dustbin.
    */
-  playFigure: ({ G, ctx, playerID }, cardId: string) => {
-    if (G.turnPhase !== TurnPhase.Action) {
-      return; // Invalid move - wrong phase
-    }
+  playCardFromHand: ({ G, playerID }, handIndex: number, targetSlot: string) => {
+    if (G.turnPhase !== TurnPhase.Action) return;
 
     const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
     const player = G.players[currentClass];
 
-    // Check if card is in hand
-    const cardIndex = player.hand.indexOf(cardId);
-    if (cardIndex === -1) {
-      return; // Invalid move - card not in hand
-    }
+    if (handIndex < 0 || handIndex >= player.hand.length) return;
 
-    // Get card data
+    const cardId = player.hand[handIndex];
     const cardData = getCardData(cardId);
-    if (cardData.card_type !== CardType.Figure) {
-      return; // Invalid move - not a figure card
+
+    const slotMatch = targetSlot.match(/^(figures|demands|institutions)\[(-?\d+)\]$/);
+    if (!slotMatch) return;
+    const slotType = slotMatch[1] as 'figures' | 'demands' | 'institutions';
+    const slotIndex = parseInt(slotMatch[2], 10);
+
+    if (slotType === 'figures') {
+      if (cardData.card_type !== CardType.Figure) return;
+      if (player.wealth < cardData.cost) return;
+
+      player.wealth -= cardData.cost;
+      player.hand.splice(handIndex, 1);
+
+      const figureInPlay: FigureCardInPlay = {
+        id: cardId,
+        card_type: CardType.Figure,
+        exhausted: false,
+        in_training: true,
+      };
+      player.figures.push(figureInPlay);
+
+    } else if (slotType === 'demands') {
+      if (cardData.card_type !== CardType.Demand) return;
+      if (slotIndex < 0 || slotIndex > 1) return;
+
+      player.hand.splice(handIndex, 1);
+
+      const existing = player.demands[slotIndex];
+      if (existing) player.dustbin.push(existing.id);
+
+      const demandInPlay: DemandCardInPlay = {
+        id: cardId,
+        card_type: CardType.Demand,
+      };
+      player.demands[slotIndex] = demandInPlay;
+
+    } else if (slotType === 'institutions') {
+      if (cardData.card_type !== CardType.Institution) return;
+      if (slotIndex < 0 || slotIndex > 1) return;
+      if (player.wealth < cardData.cost) return;
+
+      player.wealth -= cardData.cost;
+      player.hand.splice(handIndex, 1);
+
+      const existing = player.institutions[slotIndex];
+      if (existing) player.dustbin.push(existing.id);
+
+      const institutionInPlay: InstitutionCardInPlay = {
+        id: cardId,
+        card_type: CardType.Institution,
+      };
+      player.institutions[slotIndex] = institutionInPlay;
+
+      // "When first played" effect: increase max hand size
+      player.maxHandSize += 1;
     }
-
-    // Check if player can afford the card
-    if (player.wealth < cardData.cost) {
-      return; // Invalid move - cannot afford
-    }
-
-    // Pay cost
-    player.wealth -= cardData.cost;
-
-    // Remove from hand
-    player.hand.splice(cardIndex, 1);
-
-    // Add to figures in play (in training initially)
-    const figureInPlay: FigureCardInPlay = {
-      id: cardId,
-      card_type: CardType.Figure,
-      exhausted: false,
-      in_training: true,
-    };
-    player.figures.push(figureInPlay);
   },
 
   /**

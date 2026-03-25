@@ -1,5 +1,5 @@
 /**
- * Card Inspector Menu Bar
+ * Action Menu Bar
  *
  * A fixed panel that appears below the two header bars when a card is selected or
  * when player actions are available. Accepts pre-computed options from the parent.
@@ -12,7 +12,7 @@ import { CardComponent } from './CardComponent';
 
 export type MenuOption = [label: string, handler: (() => void) | undefined];
 
-export interface CardInspectorMenuBarProps {
+export interface ActionMenuBarProps {
   /** Card to display in the inspector (optional) */
   card?: CardData;
   /** Pre-computed list of [label, handler] tuples; undefined handler = disabled */
@@ -22,7 +22,7 @@ export interface CardInspectorMenuBarProps {
   onClose?: () => void;
 }
 
-export const CardInspectorMenuBar: React.FC<CardInspectorMenuBarProps> = ({
+export const ActionMenuBar: React.FC<ActionMenuBarProps> = ({
   card,
   options,
   playerClass,
@@ -31,9 +31,9 @@ export const CardInspectorMenuBar: React.FC<CardInspectorMenuBarProps> = ({
   const classModifier = playerClass === SocialClass.WorkingClass ? 'working' : 'capitalist';
 
   return (
-    <div className={`menu-bar menu-bar-${classModifier}`} role="region" aria-label="Card inspector">
+    <div className={`menu-bar menu-bar-${classModifier}`} role="region" aria-label="Action menu">
       {onClose && (
-        <button className="menu-bar-close-float" onClick={onClose} aria-label="Close card inspector">
+        <button className="menu-bar-close-float" onClick={onClose} aria-label="Close action menu">
           ✕
         </button>
       )}
