@@ -6,6 +6,8 @@ interface CardComponentProps {
   showAsCardBack?: boolean;
   onClick?: () => void;
   className?: string;
+  /** When set, renders a status overlay banner bisecting the card */
+  statusBanner?: { line1: string; line2?: string };
 }
 
 export const CardComponent: React.FC<CardComponentProps> = ({
@@ -13,6 +15,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
   showAsCardBack = false,
   onClick,
   className = '',
+  statusBanner,
 }) => {
   const getCardColorClass = () => {
     switch (card.card_type) {
@@ -93,6 +96,15 @@ export const CardComponent: React.FC<CardComponentProps> = ({
 
   return (
     <div className={cardClasses} onClick={onClick}>
+      {/* Status Banner Overlay */}
+      {statusBanner && (
+        <div className="card-status-banner">
+          <div className="card-status-banner-line1">{statusBanner.line1}</div>
+          {statusBanner.line2 && (
+            <div className="card-status-banner-line2">{statusBanner.line2}</div>
+          )}
+        </div>
+      )}
       {/* Top-left: Name and Cost */}
       <div className="card-top-left-block">
         <div className="card-name">{card.name}</div>

@@ -2,7 +2,7 @@
  * Main Board component for Class War: International
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BoardProps } from 'boardgame.io/react';
 import { GameState, TurnPhase } from './types/game';
 import { CardType, FigureCardInPlay, SocialClass } from './types/cards';
@@ -52,6 +52,17 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
   const handleCloseInspector = () => setBoardState({ mode: 'normal', selectedSlotId: null });
 
+  // Change 1: Escape key closes ActionMenuBar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && boardState.mode === 'normal' && boardState.selectedSlotId !== null) {
+        handleCloseInspector();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [boardState]);
+
   const handleSelectSlot = (slotId: string) => {
     if (boardState.mode === 'normal' && boardState.selectedSlotId === slotId) {
       setBoardState({ mode: 'normal', selectedSlotId: null });
@@ -99,40 +110,65 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           canAfford ? () => { moves.playCardFromHand(idx, 'figures[-1]'); handleCloseInspector(); } : undefined,
         ]);
       } else if (card.card_type === CardType.Demand) {
+        // Change 3: updated demand slot logic
         const slot0 = myPlayer.demands[0];
         const slot1 = myPlayer.demands[1];
-        if (slot0 === null && slot1 === null) {
-          directAction = () => moves.playCardFromHand(idx, 'demands[0]');
+        const bothEmpty = slot0 === null && slot1 === null;
+        if (bothEmpty) {
+          // Auto-play to first empty slot
+          directAction = () => moves.playCardFromHand(idx, 'demands[-1]');
         } else {
-          const label0 = slot0 === null ? 'Play to Slot 1 (empty)' : `Replace Slot 1 (${getCardData(slot0.id).name})`;
-          const label1 = slot1 === null ? 'Play to Slot 2 (empty)' : `Replace Slot 2 (${getCardData(slot1.id).name})`;
-          options.push([label0, () => { moves.playCardFromHand(idx, 'demands[0]'); handleCloseInspector(); }]);
-          options.push([label1, () => { moves.playCardFromHand(idx, 'demands[1]'); handleCloseInspector(); }]);
+          // Show inspector with options
+          const hasEmptySlot = slot0 === null || slot1 === null;
+          if (hasEmptySlot) {
+            options.push(['Make New Demand', () => { moves.playCardFromHand(idx, 'demands[-1]'); handleCloseInspector(); }]);
+          }
+          if (slot0 !== null) {
+            options.push([`Replace ${getCardData(slot0.id).name} Demand`, () => { moves.playCardFromHand(idx, 'demands[0]'); handleCloseInspector(); }]);
+          }
+          if (slot1 !== null) {
+            options.push([`Replace ${getCardData(slot1.id).name} Demand`, () => { moves.playCardFromHand(idx, 'demands[1]'); handleCloseInspector(); }]);
+          }
         }
       } else if (card.card_type === CardType.Institution) {
+        // Change 3: updated institution slot logic
         const slot0 = myPlayer.institutions[0];
         const slot1 = myPlayer.institutions[1];
         const canAfford = myPlayer.wealth >= card.cost;
-        if (slot0 === null && slot1 === null) {
+        const bothEmpty = slot0 === null && slot1 === null;
+        if (bothEmpty) {
           if (canAfford) {
-            directAction = () => moves.playCardFromHand(idx, 'institutions[0]');
+            directAction = () => moves.playCardFromHand(idx, 'institutions[-1]');
           } else {
-            options.push([`Build ($${card.cost})`, undefined]);
+            options.push([`Build New Institution ($${card.cost})`, undefined]);
           }
         } else {
-          const buildFn = (slot: string) =>
-            canAfford ? () => { moves.playCardFromHand(idx, slot); handleCloseInspector(); } : undefined;
-          const label0 = slot0 === null ? `Build to Slot 1 ($${card.cost}, empty)` : `Replace Slot 1 ($${card.cost}, ${getCardData(slot0.id).name})`;
-          const label1 = slot1 === null ? `Build to Slot 2 ($${card.cost}, empty)` : `Replace Slot 2 ($${card.cost}, ${getCardData(slot1.id).name})`;
-          options.push([label0, buildFn('institutions[0]')]);
-          options.push([label1, buildFn('institutions[1]')]);
+          const hasEmptySlot = slot0 === null || slot1 === null;
+          if (hasEmptySlot) {
+            options.push([
+              `Build New Institution ($${card.cost})`,
+              canAfford ? () => { moves.playCardFromHand(idx, 'institutions[-1]'); handleCloseInspector(); } : undefined,
+            ]);
+          }
+          if (slot0 !== null) {
+            options.push([
+              `Replace ${getCardData(slot0.id).name} ($${card.cost})`,
+              canAfford ? () => { moves.playCardFromHand(idx, 'institutions[0]'); handleCloseInspector(); } : undefined,
+            ]);
+          }
+          if (slot1 !== null) {
+            options.push([
+              `Replace ${getCardData(slot1.id).name} ($${card.cost})`,
+              canAfford ? () => { moves.playCardFromHand(idx, 'institutions[1]'); handleCloseInspector(); } : undefined,
+            ]);
+          }
         }
       }
 
       slotData.set(slotId, { cardId, options, directAction });
     });
 
-    // Figures in play: conflict actions
+    // Activated Figures: conflict actions
     myPlayer.figures.forEach((figure, idx) => {
       const slotId = `figures-${myClassKey}-${idx}`;
       const options: MenuOption[] = [];
@@ -147,6 +183,15 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         options.push(['Run for Office', () => setBoardState({ mode: 'selectOfficeTarget', figure })]);
       }
       slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options });
+    });
+
+    // Sidebar figures for both players (inspect only)
+    Object.values(SocialClass).forEach((socialClass) => {
+      const classKey = socialClass === SocialClass.WorkingClass ? 'wc' : 'cc';
+      G.players[socialClass].figures.forEach((figure, idx) => {
+        const slotId = `sidebar-${classKey}-${idx}`;
+        slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options: [] });
+      });
     });
   }
 
@@ -180,107 +225,183 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       : `Cannot Undo: ${G.undoState.reason}`;
   const canUndo = G.undoState?.canUndo ?? false;
 
-  // Player area ordering: current player first
-  const wcFirst = ctx.currentPlayer === '0';
+  // Change 7: Status text logic
+  const statusText = (() => {
+    if (!isMyTurn) return `Waiting for ${currentClass} player...`;
+    if (G.turnPhase === TurnPhase.Action && boardState.mode === 'normal' && boardState.selectedSlotId === null) {
+      return 'Select a card to see available actions';
+    }
+    if (G.turnPhase === TurnPhase.Action && boardState.mode === 'selectStrikeTarget') {
+      return 'Select a workplace to strike';
+    }
+    if (G.turnPhase === TurnPhase.Action && boardState.mode === 'selectOfficeTarget') {
+      return 'Select an office to run for';
+    }
+    if (G.turnPhase === TurnPhase.Reproduction && theorizeSelectedIds.length === 0) {
+      return 'Select cards to send to the Dustbin';
+    }
+    if (G.turnPhase === TurnPhase.Reproduction && theorizeSelectedIds.length > 0) {
+      return `Send ${theorizeSelectedIds.length} card${theorizeSelectedIds.length > 1 ? 's' : ''} to the Dustbin`;
+    }
+    return '';
+  })();
 
-  const renderPlayerArea = (
-    socialClass: SocialClass,
-    orderClass: 'player-area-container-first' | 'player-area-container-second',
-  ) => {
-    const player = G.players[socialClass];
-    const isWC = socialClass === SocialClass.WorkingClass;
-    const classKey = isWC ? 'wc' : 'cc';
+  // Change 8: Sidebar income calculation
+  const calcIncome = (socialClass: SocialClass): number => {
+    return G.workplaces.reduce((sum, wp) => {
+      if (wp.id.startsWith('empty')) return sum;
+      return sum + (socialClass === SocialClass.WorkingClass ? wp.wages : wp.profits);
+    }, 0);
+  };
+
+  // Change 8: renderSidebar function
+  const renderSidebar = () => {
+    return (
+      <div className="game-sidebar">
+        {Object.values(SocialClass).map((socialClass) => {
+          const player = G.players[socialClass];
+          const isWC = socialClass === SocialClass.WorkingClass;
+          const classKey = isWC ? 'wc' : 'cc';
+          const income = calcIncome(socialClass);
+          const incomeLabel = isWC ? `Wages: $${income}` : `Profits: $${income}`;
+
+          return (
+            <div key={socialClass} className={`sidebar-player-section sidebar-player-section-${classKey}`}>
+              <div className="sidebar-player-section-header">
+                {isWC ? 'Working Class' : 'Capitalist Class'}
+              </div>
+              <div className="sidebar-player-stat">
+                Hand: {player.hand.length}/{player.maxHandSize} cards
+              </div>
+              <div className="sidebar-player-stat">
+                ${player.wealth} wealth
+              </div>
+              <div className="sidebar-player-stat">
+                {incomeLabel}
+              </div>
+              {player.figures.length > 0 && (
+                <div className="sidebar-figures-list">
+                  {player.figures.map((figure, idx) => {
+                    const figureCard = getCardData(figure.id);
+                    const slotId = `sidebar-${classKey}-${idx}`;
+                    return (
+                      <div
+                        key={idx}
+                        className="sidebar-figure-row"
+                        onClick={() => handleSelectSlot(slotId)}
+                      >
+                        <span className="sidebar-figure-name">{figureCard.name}</span>
+                        {figure.in_training && <span className="sidebar-figure-status"> (T)</span>}
+                        {figure.exhausted && <span className="sidebar-figure-status"> (X)</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Change 8: renderMyPlayerArea - renders only the current player's area
+  const renderMyPlayerArea = () => {
+    const player = myPlayer;
+    const isWC = myClass === SocialClass.WorkingClass;
+    const classKey = myClassKey;
     const playerId = isWC ? '0' : '1';
-    const isMe = playerID === playerId || (!playerID && socialClass === myClass);
 
     return (
-      <div key={socialClass} className={`player-area-container ${orderClass}`}>
-        <div
-          className={`player-area player-area-${isWC ? 'working-class' : 'capitalist-class'} ${ctx.currentPlayer === playerId ? 'current-player' : ''}`}
-        >
-          <div className={`player-area-title ${ctx.currentPlayer === playerId ? 'current-player' : ''}`}>
-            {isWC ? 'Working Class' : 'Capitalist Class'}
-          </div>
+      <div className={`player-area player-area-${isWC ? 'working-class' : 'capitalist-class'} ${ctx.currentPlayer === playerId ? 'current-player' : ''}`}>
+        <div className={`player-area-title ${ctx.currentPlayer === playerId ? 'current-player' : ''}`}>
+          {isWC ? 'Working Class' : 'Capitalist Class'}
+        </div>
 
-          {/* Hand Section */}
-          <div className="player-area-section">
-            <div className="player-area-section-title">
-              Hand ({player.hand.length}/{player.maxHandSize})
-            </div>
-            <div className="player-area-card-row">
-              {player.hand.map((cardId, idx) => {
-                const card = getCardData(cardId);
-                const slotId = `hand-${classKey}-${idx}`;
-                const isTheorizeSelected = isMe && G.turnPhase === TurnPhase.Reproduction && theorizeSelectedIds.includes(cardId);
-                if (!isMe) return <CardComponent key={idx} card={card} showAsCardBack />;
-                const slot = slotData.get(slotId);
-                const handleClick = slot?.directAction ?? (() => handleSelectSlot(slotId));
-                return (
-                  <CardComponent
-                    key={idx}
-                    card={card}
-                    onClick={handleClick}
-                    className={isTheorizeSelected ? 'card-theorize-selected' : undefined}
-                  />
-                );
-              })}
+        {/* Hand Section */}
+        <div className="player-area-section">
+          <div className="player-area-section-title">
+            Hand ({player.hand.length}/{player.maxHandSize})
+          </div>
+          <div className="player-area-card-row">
+            {player.hand.map((cardId, idx) => {
+              const card = getCardData(cardId);
+              const slotId = `hand-${classKey}-${idx}`;
+              const isTheorizeSelected = G.turnPhase === TurnPhase.Reproduction && theorizeSelectedIds.includes(cardId);
+              const slot = slotData.get(slotId);
+              const handleClick = slot?.directAction ?? (() => handleSelectSlot(slotId));
+              return (
+                <CardComponent
+                  key={idx}
+                  card={card}
+                  onClick={handleClick}
+                  className={isTheorizeSelected ? 'card-theorize-selected' : undefined}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Activated Figures */}
+        <div className="player-area-section">
+          <div className="player-area-section-title">
+            Activated Figures ({player.figures.length})
+          </div>
+          <div className="player-area-card-row">
+            {player.figures.map((figure, idx) => {
+              const card = getCardData(figure.id);
+              const slotId = `figures-${classKey}-${idx}`;
+              // Change 4 & 5: status banner for in_training and exhausted figures
+              const statusBanner = figure.in_training
+                ? { line1: 'In Training', line2: '(until end of turn)' }
+                : figure.exhausted
+                  ? { line1: 'Exhausted', line2: '(until next turn)' }
+                  : undefined;
+              return (
+                <CardComponent
+                  key={idx}
+                  card={card}
+                  onClick={G.turnPhase === TurnPhase.Action ? () => handleSelectSlot(slotId) : undefined}
+                  statusBanner={statusBanner}
+                />
+              );
+            })}
+            <div className="card-slot">
+              <div className="card-slot-placeholder card-slot-placeholder-add">
+                <span className="card-slot-add-icon">+</span>
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Figures in Play */}
-          <div className="player-area-section">
-            <div className="player-area-section-title">
-              Figures in Play ({player.figures.length})
-            </div>
+        {/* Institutions and Demands */}
+        <div className="player-area-section-dual">
+          <div className="player-area-section-column">
+            <div className="player-area-section-title">Institutions</div>
             <div className="player-area-card-row">
-              {player.figures.map((figure, idx) => {
-                const card = getCardData(figure.id);
-                const slotId = `figures-${classKey}-${idx}`;
-                return (
-                  <CardComponent
-                    key={idx}
-                    card={card}
-                    onClick={isMe && G.turnPhase === TurnPhase.Action ? () => handleSelectSlot(slotId) : undefined}
-                  />
-                );
-              })}
-              <div className="card-slot">
-                <div className="card-slot-placeholder card-slot-placeholder-add">
-                  <span className="card-slot-add-icon">+</span>
+              {player.institutions.map((institution, i) => (
+                <div key={i} className="card-slot">
+                  {institution ? (
+                    <CardComponent card={getCardData(institution.id)} />
+                  ) : (
+                    <div className="card-slot-placeholder" />
+                  )}
                 </div>
-              </div>
+              ))}
             </div>
           </div>
-
-          {/* Institutions and Demands */}
-          <div className="player-area-section-dual">
-            <div className="player-area-section-column">
-              <div className="player-area-section-title">Institutions</div>
-              <div className="player-area-card-row">
-                {player.institutions.map((institution, i) => (
-                  <div key={i} className="card-slot">
-                    {institution ? (
-                      <CardComponent card={getCardData(institution.id)} />
-                    ) : (
-                      <div className="card-slot-placeholder" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="player-area-section-column">
-              <div className="player-area-section-title">Demands</div>
-              <div className="player-area-card-row">
-                {player.demands.map((demand, i) => (
-                  <div key={i} className="card-slot">
-                    {demand ? (
-                      <CardComponent card={getCardData(demand.id)} />
-                    ) : (
-                      <div className="card-slot-placeholder" />
-                    )}
-                  </div>
-                ))}
-              </div>
+          <div className="player-area-section-column">
+            <div className="player-area-section-title">Demands</div>
+            <div className="player-area-card-row">
+              {player.demands.map((demand, i) => (
+                <div key={i} className="card-slot">
+                  {demand ? (
+                    <CardComponent card={getCardData(demand.id)} />
+                  ) : (
+                    <div className="card-slot-placeholder" />
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -334,13 +455,22 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       )}
 
       {/* Top Bar */}
+      {/* Change 6: Add centered turn/player info to top bar */}
       <div className="game-top-controls">
         <div className="game-top-controls-left">
           <span className="game-title">Class War International</span>
         </div>
+        <div className="game-top-controls-center">
+          <span className="game-turn-info">Turn {G.turnNumber + 1}</span>
+          {(G.turnPhase === TurnPhase.Action || G.turnPhase === TurnPhase.Reproduction) && (
+            <span className="game-current-player-info">{currentClass}&apos;s Turn</span>
+          )}
+        </div>
+        <div className="game-top-controls-right" />
       </div>
 
       {/* Current Player Controls Bar */}
+      {/* Change 7: Status text center + player info right */}
       <div className="game-player-controls">
         <div className="game-player-controls-left">
           <button className="game-undo-button" disabled={!canUndo}>
@@ -365,25 +495,25 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           )}
         </div>
         <div className="game-player-controls-center">
-          <span className="game-phase-info">{currentClass}</span>
-          <span className="game-player-info">Turn {G.turnNumber + 1}</span>
-          <span className="game-player-wealth">${G.players[currentClass].wealth}</span>
+          <span className="game-status-text">{statusText}</span>
         </div>
-        <div className="game-player-controls-right" />
+        <div className="game-player-controls-right">
+          <div className="game-player-info-right">
+            <span className="game-player-class-label">{myClass}</span>
+            <span className="game-player-wealth">${G.players[myClass].wealth}</span>
+          </div>
+        </div>
       </div>
 
       {/* Main Game Area */}
+      {/* Change 8: [sidebar][my-player-area][shared-area] layout */}
       <div className="game-main-area">
-        {/* Player Areas Container */}
-        <div className="player-areas-container">
-          {renderPlayerArea(
-            wcFirst ? SocialClass.WorkingClass : SocialClass.CapitalistClass,
-            'player-area-container-first',
-          )}
-          {renderPlayerArea(
-            wcFirst ? SocialClass.CapitalistClass : SocialClass.WorkingClass,
-            'player-area-container-second',
-          )}
+        {/* Sidebar */}
+        {renderSidebar()}
+
+        {/* My Player Area */}
+        <div className="my-player-area-container">
+          {renderMyPlayerArea()}
         </div>
 
         {/* Shared Board Area */}

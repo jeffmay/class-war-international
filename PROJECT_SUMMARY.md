@@ -78,10 +78,14 @@ A 2-player board game based on **Class War: International** rules, built with th
 - Control bar: Undo button, End Turn / Finish Theorizing button
 - Phase and wealth info display
 - Shared board area: Workplaces (3 slots), Political Offices (3 state figures)
-- Player areas: Hand, Figures in Play, Institutions, Demands
-- Card inspector menu bar (`CardInspectorMenuBar`) for action selection
+- Player areas: Hand, Activated Figures (with In Training / Exhausted status banners), Institutions, Demands
+- Left sidebar showing both players' hand size, wealth, income, and activated figures (clickable for inspection)
+- Card inspector menu bar (`ActionMenuBar`) for action selection
 - Conflict target menu bar (`ConflictTargetMenuBar`) for strike/election targeting
-- Card back display for opponent's hand
+- Top bar now shows Turn N and current player's class name
+- Control bar now shows status text center and player class/wealth on the right
+- Escape key closes the action menu bar
+- `playCardFromHand` supports index `-1` for demands/institutions to auto-play to the first empty slot
 
 **Status: Running at localhost:3000**
 
@@ -97,7 +101,7 @@ A 2-player board game based on **Class War: International** rules, built with th
 5. **CardInspectorMenuBar.test.tsx** - Card inspector component (12 tests)
 6. **ConflictTargetMenuBar.test.tsx** - Conflict target component (12 tests)
 
-**Total: 57 passing + 2 skipped = 59 tests**
+**Total: 64 passing + 2 skipped = 66 tests**
 
 ### Testing Architecture
 

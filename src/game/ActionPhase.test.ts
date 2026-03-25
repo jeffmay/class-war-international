@@ -208,7 +208,7 @@ describe('Action Phase - Playing Cards', () => {
       expect(client.getStateOrThrow().G.players[SocialClass.WorkingClass].hand[0]).toBe('wealth_tax');
       expect(client.getStateOrThrow().G.players[SocialClass.WorkingClass].demands[0]).toBeNull();
 
-      client.moves.playCardFromHand(0, 'demands[0]');
+      client.moves.playCardFromHand(0, 'demands[-1]');
       const newState = client.getStateOrThrow();
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
@@ -271,7 +271,7 @@ describe('Action Phase - Playing Cards', () => {
 
       const initialMaxHandSize = client.getStateOrThrow().G.players[SocialClass.WorkingClass].maxHandSize;
 
-      client.moves.playCardFromHand(0, 'institutions[0]');
+      client.moves.playCardFromHand(0, 'institutions[-1]');
       const newPlayer = client.getStateOrThrow().G.players[SocialClass.WorkingClass];
 
       expect(newPlayer.institutions[0]).toEqual({

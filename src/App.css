@@ -109,7 +109,7 @@
   /* Small screen layout adjustments */
   .game-main-area {
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     padding-bottom: 80px;
   }
 
@@ -1961,4 +1961,221 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* ===== Card Status Banner (Change 4 & 5) ===== */
+
+.card-status-banner {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #FFFFFF;
+  text-align: center;
+  padding: 0.4em 0;
+  border-top: 0.15em solid rgba(255, 255, 255, 0.5);
+  border-bottom: 0.15em solid rgba(255, 255, 255, 0.5);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.card-status-banner-line1 {
+  font-size: 0.9em;
+  font-weight: bold;
+  line-height: 1.2;
+}
+
+.card-status-banner-line2 {
+  font-size: 0.65em;
+  opacity: 0.85;
+  line-height: 1.2;
+}
+
+/* ===== Top Bar Center (Change 6) ===== */
+
+.game-top-controls-center {
+  display: flex;
+  gap: 1vw;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.game-turn-info {
+  color: #FFD700;
+  font-weight: bold;
+  font-size: 1.5vw;
+}
+
+.game-current-player-info {
+  color: #e2e8f0;
+  font-size: 1.3vw;
+}
+
+/* ===== Control Bar Status & Player Info (Change 7) ===== */
+
+.game-status-text {
+  color: #e2e8f0;
+  font-size: 1.2vw;
+  font-style: italic;
+  text-align: center;
+}
+
+.game-player-info-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2em;
+}
+
+.game-player-class-label {
+  color: #e2e8f0;
+  font-size: 1vw;
+  font-weight: bold;
+}
+
+/* ===== Sidebar (Change 8) ===== */
+
+.game-sidebar {
+  width: 14vw;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5vw;
+  overflow-y: auto;
+  max-height: calc(100vh - calc(var(--top-bar-height) * 2) - 40px);
+}
+
+.sidebar-player-section {
+  border-radius: 0.5vw;
+  padding: 0.5vw;
+  font-family: Arial, sans-serif;
+  font-size: 1vw;
+  color: #FFFFFF;
+}
+
+.sidebar-player-section-wc {
+  background-color: rgba(211, 74, 74, 0.5);
+  border: 0.15vw solid rgb(211, 74, 74);
+}
+
+.sidebar-player-section-cc {
+  background-color: rgba(57, 97, 227, 0.5);
+  border: 0.15vw solid rgb(57, 97, 227);
+}
+
+.sidebar-player-section-header {
+  font-weight: bold;
+  font-size: 1.1em;
+  margin-bottom: 0.3em;
+  color: #FFD700;
+}
+
+.sidebar-player-stat {
+  font-size: 0.9em;
+  margin-bottom: 0.2em;
+  color: #e2e8f0;
+}
+
+.sidebar-figures-list {
+  margin-top: 0.4em;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+.sidebar-figure-row {
+  font-size: 0.85em;
+  padding: 0.2em 0.4em;
+  border-radius: 0.3vw;
+  cursor: pointer;
+  color: #e2e8f0;
+  background-color: rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-figure-row:hover {
+  background-color: rgba(255, 215, 0, 0.2);
+  color: #FFD700;
+}
+
+.sidebar-figure-status {
+  opacity: 0.7;
+  font-size: 0.85em;
+}
+
+.my-player-area-container {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Small screen overrides for new elements */
+@media (max-width: 1000px) {
+  .game-top-controls-center {
+    gap: 1vw;
+  }
+
+  .game-turn-info {
+    font-size: 3vw;
+  }
+
+  .game-current-player-info {
+    font-size: 2.5vw;
+  }
+
+  .game-status-text {
+    font-size: 2.5vw;
+  }
+
+  .game-player-class-label {
+    font-size: 2vw;
+  }
+
+  .game-sidebar {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    max-height: none;
+  }
+
+  .sidebar-player-section {
+    flex: 1;
+    min-width: 40vw;
+    font-size: 2.5vw;
+  }
+
+  .sidebar-player-section-header {
+    font-size: 3vw;
+  }
+}
+
+/* Wide-screen overrides for new elements */
+@media (min-width: 1800px) {
+  .game-turn-info {
+    font-size: 18px;
+  }
+
+  .game-current-player-info {
+    font-size: 16px;
+  }
+
+  .game-status-text {
+    font-size: 15px;
+  }
+
+  .game-player-class-label {
+    font-size: 14px;
+  }
+
+  .game-sidebar {
+    width: 160px;
+  }
+
+  .sidebar-player-section {
+    font-size: 12px;
+  }
 }

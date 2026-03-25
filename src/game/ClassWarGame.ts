@@ -119,35 +119,47 @@ export const Moves = {
 
     } else if (slotType === 'demands') {
       if (cardData.card_type !== CardType.Demand) return;
-      if (slotIndex < 0 || slotIndex > 1) return;
+
+      let resolvedDemandIndex = slotIndex;
+      if (slotIndex === -1) {
+        resolvedDemandIndex = player.demands.findIndex(s => s === null);
+        if (resolvedDemandIndex === -1) return; // no empty slot
+      }
+      if (resolvedDemandIndex < 0 || resolvedDemandIndex > 1) return;
 
       player.hand.splice(handIndex, 1);
 
-      const existing = player.demands[slotIndex];
+      const existing = player.demands[resolvedDemandIndex];
       if (existing) player.dustbin.push(existing.id);
 
       const demandInPlay: DemandCardInPlay = {
         id: cardId,
         card_type: CardType.Demand,
       };
-      player.demands[slotIndex] = demandInPlay;
+      player.demands[resolvedDemandIndex] = demandInPlay;
 
     } else if (slotType === 'institutions') {
       if (cardData.card_type !== CardType.Institution) return;
-      if (slotIndex < 0 || slotIndex > 1) return;
+
+      let resolvedInstIndex = slotIndex;
+      if (slotIndex === -1) {
+        resolvedInstIndex = player.institutions.findIndex(s => s === null);
+        if (resolvedInstIndex === -1) return; // no empty slot
+      }
+      if (resolvedInstIndex < 0 || resolvedInstIndex > 1) return;
       if (player.wealth < cardData.cost) return;
 
       player.wealth -= cardData.cost;
       player.hand.splice(handIndex, 1);
 
-      const existing = player.institutions[slotIndex];
+      const existing = player.institutions[resolvedInstIndex];
       if (existing) player.dustbin.push(existing.id);
 
       const institutionInPlay: InstitutionCardInPlay = {
         id: cardId,
         card_type: CardType.Institution,
       };
-      player.institutions[slotIndex] = institutionInPlay;
+      player.institutions[resolvedInstIndex] = institutionInPlay;
 
       // "When first played" effect: increase max hand size
       player.maxHandSize += 1;
