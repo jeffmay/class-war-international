@@ -71,23 +71,63 @@ A 2-player board game based on **Class War: International** rules, built with th
 - Election target: lists all political offices
 - Cancel button returns to normal board state
 
-### 10. React UI
+### 10. React UI Foundation
 - Full game board display with responsive CSS
 - `TurnStartModal` full-screen overlay for Production phase
 - Top bar with game title
 - Control bar: Undo button, End Turn / Finish Theorizing button
 - Phase and wealth info display
 - Shared board area: Workplaces (3 slots), Political Offices (3 state figures)
-- Player areas: Hand, Activated Figures (with In Training / Exhausted status banners), Institutions, Demands
-- Left sidebar showing both players' hand size, wealth, income, and activated figures (clickable for inspection)
 - Card inspector menu bar (`ActionMenuBar`) for action selection
 - Conflict target menu bar (`ConflictTargetMenuBar`) for strike/election targeting
-- Top bar now shows Turn N and current player's class name
-- Control bar now shows status text center and player class/wealth on the right
-- Escape key closes the action menu bar
-- `playCardFromHand` supports index `-1` for demands/institutions to auto-play to the first empty slot
 
 **Status: Running at localhost:3000**
+
+### 11. Escape Key Closes ActionMenuBar (`src/Board.tsx`)
+- `useEffect` in `Board.tsx` attaches a `keydown` listener that listens for the Escape key
+- When a card slot is selected and Escape is pressed, the inspector is closed (selected slot cleared)
+- Listener is cleaned up on unmount
+
+### 12. "Activated Figures" Rename (`src/Board.tsx`)
+- The "Figures in Play" section label was renamed to "Activated Figures" throughout `Board.tsx`
+- Reflects the game terminology more accurately: figures become activated once their training is complete
+
+### 13. Card Slot Labels and `demands[-1]` / `institutions[-1]` Support
+- `playCardFromHand` move now resolves a slot index of `-1` to the first empty slot in the target array
+- Board slot labels updated to be context-sensitive:
+  - Empty demand slot: "Make New Demand"
+  - Occupied demand slot: "Replace [name] Demand"
+  - Empty institution slot: "Build New Institution ($N)"
+  - Occupied institution slot: "Replace [name] ($N)"
+- Auto-play via `directAction` now uses `-1` notation for demands and institutions
+
+### 14. Status Banners on Figure Cards (`src/components/CardComponent.tsx`)
+- `CardComponent` gains an optional `statusBanner?: { line1: string; line2?: string }` prop
+- When provided, renders a semi-transparent overlay banner centered on the card face
+- Board passes the following banners based on figure state:
+  - `{ line1: 'In Training', line2: '(until end of turn)' }` for figures with `in_training: true`
+  - `{ line1: 'Exhausted', line2: '(until next turn)' }` for figures with `exhausted: true`
+
+### 15. Turn Counter and Current Player in Top Bar (`src/Board.tsx`)
+- `.game-top-controls-center` now displays "Turn N" and "[Class]'s Turn" during Action and Reproduction phases
+- Text is derived from `G.turn` and the current player's social class
+- Provides at-a-glance awareness of game progress without needing to inspect the state panel
+
+### 16. Redesigned Control Bar (`src/Board.tsx`)
+- Center region shows context-sensitive status text:
+  - Waiting for the other player: "Waiting for [Class]..."
+  - Action phase (no selection): "Select a card to play"
+  - Strike targeting: "Select a workplace to strike"
+  - Election targeting: "Select an office to run for"
+  - Reproduction phase: "Theorize up to N card(s)"
+- Right region shows the current player's class name and wealth (`$N`)
+
+### 17. Left Sidebar Replaces Opposing Player Area (`src/Board.tsx`)
+- A new left sidebar panel replaced the second `renderPlayerArea` call for the opponent
+- Sidebar shows for both players: hand card count, wealth (`$N`), income (wages or profits), and a clickable list of activated figures
+- Clicking an activated figure in the sidebar opens the `ActionMenuBar` inspector for that figure
+- Main layout is now `[sidebar][my-player-area][shared-area]`
+- Opposing player's full card hand is no longer rendered; only their aggregate stats are shown
 
 ---
 
@@ -145,7 +185,7 @@ src/
 │   └── cards.ts                 # Card database, buildDeck(), defaultWorkplaces
 ├── components/
 │   ├── StartGameScreen.tsx      # TurnStartModal overlay
-│   ├── CardComponent.tsx        # Reusable card display
+│   ├── CardComponent.tsx        # Reusable card display with optional status banner
 │   ├── CardInspectorMenuBar.tsx # Action menu bar for selected cards
 │   ├── CardInspectorMenuBar.test.tsx
 │   ├── ConflictTargetMenuBar.tsx # Strike/election target selector
@@ -247,4 +287,4 @@ npm start             # Start dev server at localhost:3000
 
 ---
 
-*Last updated: March 24, 2026*
+*Last updated: March 25, 2026*
