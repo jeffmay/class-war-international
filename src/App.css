@@ -90,8 +90,12 @@
     gap: 1vw;
   }
 
-  .game-player-controls-right {
+  .game-player-controls-center {
     gap: 1vw;
+  }
+
+  .game-player-controls-right {
+    display: none;
   }
 
   .game-player-wealth {
@@ -232,8 +236,12 @@
     gap: 25px;
   }
 
-  .game-player-controls-right {
+  .game-player-controls-center {
     gap: 20px;
+  }
+
+  .game-player-controls-right {
+    display: block;
   }
 
   .game-player-wealth {
@@ -342,21 +350,27 @@ body {
   border-bottom: 2px solid #4a5568;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0 20px;
   z-index: 999;
 }
 
 .game-player-controls-left {
+  flex: 1;
   display: flex;
   gap: 20px;
   align-items: center;
+  justify-content: flex-start;
 }
 
 .game-player-controls-right {
+  flex: 1;
+}
+
+.game-player-controls-center {
   display: flex;
   gap: 15px;
   align-items: center;
+  justify-content: center;
 }
 
 .game-player-wealth {
@@ -488,10 +502,19 @@ body {
 .player-areas-container {
   display: flex;
   gap: 1vw;
+  flex-wrap: wrap;
 }
 
 .player-area-container {
   flex-shrink: 0;
+}
+
+.player-area-container-first {
+  order: 0;
+}
+
+.player-area-container-second {
+  order: 1;
 }
 
 /* Player Area Styles */
@@ -945,6 +968,19 @@ body {
   border-radius: var(--card-slot-border-radius);
   /* opacity: 0.5; */
   background-color: transparent;
+}
+
+.card-slot-placeholder-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-slot-add-icon {
+  font-size: calc(var(--card-inner-width) * 0.4);
+  color: #718096;
+  font-weight: bold;
+  line-height: 1;
 }
 
 .card-slot-drop-validity-icon {
@@ -1785,6 +1821,30 @@ body {
 }
 
 .menu-bar-close:hover {
+  background: rgba(255, 50, 50, 1);
+  transform: scale(1.1);
+}
+
+.menu-bar-close-float {
+  position: absolute;
+  left: 1vw;
+  top: 1vw;
+  background: rgba(200, 50, 50, 0.8);
+  border: none;
+  border-radius: 50%;
+  width: calc(var(--card-inner-width) * 0.2);
+  height: calc(var(--card-inner-width) * 0.2);
+  font-size: calc(var(--card-inner-width) * 0.15);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.menu-bar-close-float:hover {
   background: rgba(255, 50, 50, 1);
   transform: scale(1.1);
 }

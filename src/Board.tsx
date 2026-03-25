@@ -5,25 +5,30 @@
 import React, { useState } from 'react';
 import { BoardProps } from 'boardgame.io/react';
 import { GameState, TurnPhase } from './types/game';
-import { FigureCardInPlay, SocialClass } from './types/cards';
+import { CardType, FigureCardInPlay, SocialClass } from './types/cards';
 import { ConflictType } from './types/conflicts';
 import { getCardData } from './data/cards';
 import { StartGameScreen } from './components/StartGameScreen';
 import { CardComponent } from './components/CardComponent';
-import { CardInspectorMenuBar } from './components/CardInspectorMenuBar';
+import { CardInspectorMenuBar, MenuOption } from './components/CardInspectorMenuBar';
 import { ConflictTargetMenuBar } from './components/ConflictTargetMenuBar';
 
 interface ClassWarBoardProps extends BoardProps<GameState> {}
 
-type InspectorState =
-  | null
-  | { mode: 'card'; cardId: string; location: 'hand' | 'figures'; figureInPlay?: FigureCardInPlay }
+type BoardState =
+  | { mode: 'normal'; selectedSlotId: string | null }
   | { mode: 'selectStrikeTarget'; figure: FigureCardInPlay }
   | { mode: 'selectOfficeTarget'; figure: FigureCardInPlay };
 
+interface SlotData {
+  cardId?: string;
+  figureInPlay?: FigureCardInPlay;
+  options: MenuOption[];
+}
+
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
   const [gameStarted, setGameStarted] = useState(G.gameStarted);
-  const [inspectorState, setInspectorState] = useState<InspectorState>(null);
+  const [boardState, setBoardState] = useState<BoardState>({ mode: 'normal', selectedSlotId: null });
 
   // Determine current class
   const isWorkingClass = ctx.currentPlayer === '0';
@@ -39,100 +44,220 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         : currentClass;
 
   // Get player states
-  const workingClassPlayer = G.players[SocialClass.WorkingClass];
-  const capitalistPlayer = G.players[SocialClass.CapitalistClass];
+  const myPlayer = G.players[myClass];
+  const myClassKey = myClass === SocialClass.WorkingClass ? 'wc' : 'cc';
 
   const handleStartGame = () => {
     setGameStarted(true);
   };
 
-  // --- Card / figure click handlers ---
+  const handleCloseInspector = () => setBoardState({ mode: 'normal', selectedSlotId: null });
 
-  const handleCardClick = (cardId: string, location: 'hand' | 'figures', figureInPlay?: FigureCardInPlay) => {
-    const current = inspectorState;
-    if (
-      current?.mode === 'card' &&
-      current.cardId === cardId &&
-      current.location === location
-    ) {
-      setInspectorState(null); // Toggle off
+  const handleSelectSlot = (slotId: string) => {
+    if (boardState.mode === 'normal' && boardState.selectedSlotId === slotId) {
+      setBoardState({ mode: 'normal', selectedSlotId: null });
     } else {
-      setInspectorState({ mode: 'card', cardId, location, figureInPlay });
+      setBoardState({ mode: 'normal', selectedSlotId: slotId });
     }
-  };
-
-  const handleCloseInspector = () => setInspectorState(null);
-
-  // Train (play figure from hand)
-  const handleTrainFigure = (cardId: string) => {
-    moves.playFigure(cardId);
-    setInspectorState(null);
-  };
-
-  // Lead Strike: transition to target selection
-  const handleLeadStrike = (figure: FigureCardInPlay) => {
-    setInspectorState({ mode: 'selectStrikeTarget', figure });
-  };
-
-  // Run for Office: transition to target selection
-  const handleRunForOffice = (figure: FigureCardInPlay) => {
-    setInspectorState({ mode: 'selectOfficeTarget', figure });
   };
 
   // Confirm strike target
   const handleSelectStrikeTarget = (workplaceIndex: number) => {
-    if (inspectorState?.mode !== 'selectStrikeTarget') return;
-    moves.planStrike(inspectorState.figure.id, workplaceIndex);
-    setInspectorState(null);
+    if (boardState.mode !== 'selectStrikeTarget') return;
+    moves.planStrike(boardState.figure.id, workplaceIndex);
+    setBoardState({ mode: 'normal', selectedSlotId: null });
   };
 
   // Confirm election target
   const handleSelectOfficeTarget = (officeIndex: number) => {
-    if (inspectorState?.mode !== 'selectOfficeTarget') return;
-    moves.planElection(inspectorState.figure.id, officeIndex);
-    setInspectorState(null);
+    if (boardState.mode !== 'selectOfficeTarget') return;
+    moves.planElection(boardState.figure.id, officeIndex);
+    setBoardState({ mode: 'normal', selectedSlotId: null });
   };
+
+  // --- Pre-compute slot data ---
+  const slotData = new Map<string, SlotData>();
+
+  // End turn option
+  const endTurnHandler = () => {
+    if (G.turnPhase === TurnPhase.Production) moves.collectProduction();
+    else if (G.turnPhase === TurnPhase.Action) moves.endActionPhase();
+    else if (G.turnPhase === TurnPhase.Reproduction) moves.endReproductionPhase();
+  };
+  slotData.set('end-turn', { options: [['End Turn', isMyTurn ? endTurnHandler : undefined]] });
+
+  // My hand cards
+  myPlayer.hand.forEach((cardId, idx) => {
+    const card = getCardData(cardId);
+    const slotId = `hand-${myClassKey}-${idx}`;
+    const options: MenuOption[] = [];
+    if (isMyTurn && G.turnPhase === TurnPhase.Action && card.card_type === CardType.Figure) {
+      const canAfford = myPlayer.wealth >= card.cost;
+      options.push([
+        `Train ($${card.cost})`,
+        canAfford ? () => { moves.playFigure(cardId); handleCloseInspector(); } : undefined,
+      ]);
+    }
+    slotData.set(slotId, { cardId, options });
+  });
+
+  // My figures in play
+  myPlayer.figures.forEach((figure, idx) => {
+    const slotId = `figures-${myClassKey}-${idx}`;
+    const options: MenuOption[] = [];
+    if (isMyTurn && G.turnPhase === TurnPhase.Action) {
+      if (figure.exhausted) {
+        options.push(['Figure is exhausted', undefined]);
+      } else if (figure.in_training) {
+        options.push(['Figure is in training', undefined]);
+      } else {
+        if (myClass === SocialClass.WorkingClass) {
+          options.push(['Lead Strike', () => setBoardState({ mode: 'selectStrikeTarget', figure })]);
+        }
+        options.push(['Run for Office', () => setBoardState({ mode: 'selectOfficeTarget', figure })]);
+      }
+    }
+    slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options });
+  });
+
+  // Derive active menu content from selected slot
+  const selectedSlot =
+    boardState.mode === 'normal' && boardState.selectedSlotId !== null
+      ? slotData.get(boardState.selectedSlotId)
+      : undefined;
+
+  const activeOptions: MenuOption[] =
+    selectedSlot?.options ?? (isMyTurn ? (slotData.get('end-turn')?.options ?? []) : []);
+
+  const activeCard = selectedSlot?.cardId ? getCardData(selectedSlot.cardId) : undefined;
+
+  // Undo label
+  const undoLabel = !G.undoState
+    ? '↩️ Undo'
+    : G.undoState.canUndo
+      ? `↩️ Undo ${G.undoState.previousActionName}`
+      : `Cannot Undo: ${G.undoState.reason}`;
+  const canUndo = G.undoState?.canUndo ?? false;
+
+  // Player area ordering: current player first
+  const wcFirst = ctx.currentPlayer === '0';
 
   // Show start screen if game hasn't started
   if (!gameStarted) {
     return <StartGameScreen onStart={handleStartGame} />;
   }
 
-  const selectedCard =
-    inspectorState?.mode === 'card' ? getCardData(inspectorState.cardId) : null;
+  const renderPlayerArea = (
+    socialClass: SocialClass,
+    orderClass: 'player-area-container-first' | 'player-area-container-second',
+  ) => {
+    const player = G.players[socialClass];
+    const isWC = socialClass === SocialClass.WorkingClass;
+    const classKey = isWC ? 'wc' : 'cc';
+    const playerId = isWC ? '0' : '1';
+    const isMe = playerID === playerId || (!playerID && socialClass === myClass);
+
+    return (
+      <div key={socialClass} className={`player-area-container ${orderClass}`}>
+        <div
+          className={`player-area player-area-${isWC ? 'working-class' : 'capitalist-class'} ${ctx.currentPlayer === playerId ? 'current-player' : ''}`}
+        >
+          <div className={`player-area-title ${ctx.currentPlayer === playerId ? 'current-player' : ''}`}>
+            {isWC ? 'Working Class' : 'Capitalist Class'}
+          </div>
+
+          {/* Hand Section */}
+          <div className="player-area-section">
+            <div className="player-area-section-title">
+              Hand ({player.hand.length}/{player.maxHandSize})
+            </div>
+            <div className="player-area-card-row">
+              {player.hand.map((cardId, idx) => {
+                const card = getCardData(cardId);
+                const slotId = `hand-${classKey}-${idx}`;
+                return isMe ? (
+                  <CardComponent
+                    key={idx}
+                    card={card}
+                    onClick={() => handleSelectSlot(slotId)}
+                  />
+                ) : (
+                  <CardComponent key={idx} card={card} showAsCardBack />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Figures in Play */}
+          <div className="player-area-section">
+            <div className="player-area-section-title">
+              Figures in Play ({player.figures.length})
+            </div>
+            <div className="player-area-card-row">
+              {player.figures.map((figure, idx) => {
+                const card = getCardData(figure.id);
+                const slotId = `figures-${classKey}-${idx}`;
+                return (
+                  <CardComponent
+                    key={idx}
+                    card={card}
+                    onClick={isMe ? () => handleSelectSlot(slotId) : undefined}
+                  />
+                );
+              })}
+              <div className="card-slot">
+                <div className="card-slot-placeholder card-slot-placeholder-add">
+                  <span className="card-slot-add-icon">+</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Institutions and Demands */}
+          <div className="player-area-section-dual">
+            <div className="player-area-section-column">
+              <div className="player-area-section-title">Institutions</div>
+              <div className="player-area-card-row">
+                {[0, 1].map((i) => (
+                  <div key={i} className="card-slot">
+                    <div className="card-slot-placeholder" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="player-area-section-column">
+              <div className="player-area-section-title">Demands</div>
+              <div className="player-area-card-row">
+                {[0, 1].map((i) => (
+                  <div key={i} className="card-slot">
+                    <div className="card-slot-placeholder" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="game-board">
-      {/* Card Inspector Menu Bar */}
-      {inspectorState?.mode === 'card' && selectedCard && (
+      {/* Card Inspector Menu Bar - always visible during normal play */}
+      {boardState.mode === 'normal' && (activeOptions.length > 0 || activeCard) && (
         <CardInspectorMenuBar
-          card={selectedCard}
+          card={activeCard}
+          options={activeOptions}
           playerClass={myClass}
-          turnPhase={G.turnPhase}
-          playerWealth={G.players[myClass].wealth}
-          isMyTurn={isMyTurn}
-          cardLocation={inspectorState.location}
-          figureInPlay={inspectorState.figureInPlay}
-          onClose={handleCloseInspector}
-          onTrainFigure={handleTrainFigure}
-          onLeadStrike={
-            inspectorState.figureInPlay
-              ? () => handleLeadStrike(inspectorState.figureInPlay!)
-              : undefined
-          }
-          onRunForOffice={
-            inspectorState.figureInPlay
-              ? () => handleRunForOffice(inspectorState.figureInPlay!)
-              : undefined
-          }
+          onClose={selectedSlot ? handleCloseInspector : undefined}
         />
       )}
 
       {/* Strike Target Selector */}
-      {inspectorState?.mode === 'selectStrikeTarget' && (
+      {boardState.mode === 'selectStrikeTarget' && (
         <ConflictTargetMenuBar
           conflictType={ConflictType.Strike}
-          figureName={getCardData(inspectorState.figure.id).name}
+          figureName={getCardData(boardState.figure.id).name}
           playerClass={myClass}
           workplaces={G.workplaces}
           onSelectTarget={handleSelectStrikeTarget}
@@ -141,10 +266,10 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       )}
 
       {/* Office Target Selector */}
-      {inspectorState?.mode === 'selectOfficeTarget' && (
+      {boardState.mode === 'selectOfficeTarget' && (
         <ConflictTargetMenuBar
           conflictType={ConflictType.Election}
-          figureName={getCardData(inspectorState.figure.id).name}
+          figureName={getCardData(boardState.figure.id).name}
           playerClass={myClass}
           politicalOffices={G.politicalOffices}
           onSelectTarget={handleSelectOfficeTarget}
@@ -156,163 +281,36 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       <div className="game-top-controls">
         <div className="game-top-controls-left">
           <span className="game-title">Class War International</span>
-          <span className="game-phase-info">{currentClass}</span>
         </div>
       </div>
 
       {/* Current Player Controls Bar */}
       <div className="game-player-controls">
         <div className="game-player-controls-left">
+          <button className="game-undo-button" disabled={!canUndo}>
+            {undoLabel}
+          </button>
+        </div>
+        <div className="game-player-controls-center">
+          <span className="game-phase-info">{currentClass}</span>
+          <span className="game-player-info">Turn {G.turnNumber + 1}</span>
           <span className="game-player-wealth">${G.players[currentClass].wealth}</span>
         </div>
-        <div className="game-player-controls-right">
-          <span className="game-player-info">Turn {G.turnNumber + 1}</span>
-          <button className="game-undo-button" disabled>
-            Undo
-          </button>
-          <button
-            className="game-end-turn-button"
-            onClick={() => {
-              if (G.turnPhase === TurnPhase.Production) moves.collectProduction();
-              else if (G.turnPhase === TurnPhase.Action) moves.endActionPhase();
-              else if (G.turnPhase === TurnPhase.Reproduction) moves.endReproductionPhase();
-            }}
-            disabled={!isMyTurn}
-          >
-            End Turn
-          </button>
-        </div>
+        <div className="game-player-controls-right" />
       </div>
 
       {/* Main Game Area */}
       <div className="game-main-area">
         {/* Player Areas Container */}
         <div className="player-areas-container">
-          {/* Working Class Player Area */}
-          <div className="player-area-container">
-            <div className={`player-area player-area-working-class ${ctx.currentPlayer === '0' ? 'current-player' : ''}`}>
-              <div className={`player-area-title ${ctx.currentPlayer === '0' ? 'current-player' : ''}`}>
-                Working Class
-              </div>
-
-              {/* Hand Section */}
-              <div className="player-area-section">
-                <div className="player-area-section-title">
-                  Hand ({workingClassPlayer.hand.length}/{workingClassPlayer.maxHandSize})
-                </div>
-                <div className="player-area-card-row">
-                  {workingClassPlayer.hand.map((cardId, idx) => {
-                    const card = getCardData(cardId);
-                    return playerID === '0' ? (
-                      <CardComponent
-                        key={idx}
-                        card={card}
-                        onClick={() => handleCardClick(cardId, 'hand')}
-                      />
-                    ) : (
-                      <CardComponent key={idx} card={card} showAsCardBack />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Figures in Play */}
-              <div className="player-area-section">
-                <div className="player-area-section-title">
-                  Figures in Play ({workingClassPlayer.figures.length})
-                </div>
-                <div className="player-area-card-row">
-                  {workingClassPlayer.figures.map((figure, idx) => {
-                    const card = getCardData(figure.id);
-                    return (
-                      <CardComponent
-                        key={idx}
-                        card={card}
-                        onClick={
-                          playerID === '0'
-                            ? () => handleCardClick(figure.id, 'figures', figure)
-                            : undefined
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Institutions and Demands */}
-              <div className="player-area-section-dual">
-                <div className="player-area-section-column">
-                  <div className="player-area-section-title">Institutions (2 max)</div>
-                </div>
-                <div className="player-area-section-column">
-                  <div className="player-area-section-title">Demands (2 max)</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Capitalist Class Player Area */}
-          <div className="player-area-container">
-            <div className={`player-area player-area-capitalist-class ${ctx.currentPlayer === '1' ? 'current-player' : ''}`}>
-              <div className={`player-area-title ${ctx.currentPlayer === '1' ? 'current-player' : ''}`}>
-                Capitalist Class
-              </div>
-
-              {/* Hand Section */}
-              <div className="player-area-section">
-                <div className="player-area-section-title">
-                  Hand ({capitalistPlayer.hand.length}/{capitalistPlayer.maxHandSize})
-                </div>
-                <div className="player-area-card-row">
-                  {capitalistPlayer.hand.map((cardId, idx) => {
-                    const card = getCardData(cardId);
-                    return playerID === '1' ? (
-                      <CardComponent
-                        key={idx}
-                        card={card}
-                        onClick={() => handleCardClick(cardId, 'hand')}
-                      />
-                    ) : (
-                      <CardComponent key={idx} card={card} showAsCardBack />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Figures in Play */}
-              <div className="player-area-section">
-                <div className="player-area-section-title">
-                  Figures in Play ({capitalistPlayer.figures.length})
-                </div>
-                <div className="player-area-card-row">
-                  {capitalistPlayer.figures.map((figure, idx) => {
-                    const card = getCardData(figure.id);
-                    return (
-                      <CardComponent
-                        key={idx}
-                        card={card}
-                        onClick={
-                          playerID === '1'
-                            ? () => handleCardClick(figure.id, 'figures', figure)
-                            : undefined
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Institutions and Demands */}
-              <div className="player-area-section-dual">
-                <div className="player-area-section-column">
-                  <div className="player-area-section-title">Institutions (2 max)</div>
-                </div>
-                <div className="player-area-section-column">
-                  <div className="player-area-section-title">Demands (2 max)</div>
-                </div>
-              </div>
-            </div>
-          </div>
+          {renderPlayerArea(
+            wcFirst ? SocialClass.WorkingClass : SocialClass.CapitalistClass,
+            'player-area-container-first',
+          )}
+          {renderPlayerArea(
+            wcFirst ? SocialClass.CapitalistClass : SocialClass.WorkingClass,
+            'player-area-container-second',
+          )}
         </div>
 
         {/* Shared Board Area */}

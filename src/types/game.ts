@@ -23,6 +23,10 @@ export interface PlayerState {
   playedWorkplaceThisTurn: boolean;
 }
 
+export type UndoState =
+  | { canUndo: true; previousActionName: string; previousState: GameState }
+  | { canUndo: false; reason: string };
+
 export interface GameState {
   // Turn management
   turnPhase: TurnPhase;
@@ -43,6 +47,7 @@ export interface GameState {
   activeConflict?: ConflictState;
   conflictOutcome?: ConflictOutcome;
   errorMessage?: string;
+  undoState?: UndoState;
 
   // Game state
   gameStarted: boolean;
