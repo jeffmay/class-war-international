@@ -75,7 +75,6 @@
   }
 
   .game-top-controls {
-    /* height: calc(var(--game-header-height) * .6); */
     padding: 0 1vw;
   }
 
@@ -83,8 +82,20 @@
     gap: 1vw;
   }
 
-  .game-top-controls-right {
+  .game-player-controls {
+    padding: 0 1vw;
+  }
+
+  .game-player-controls-left {
     gap: 1vw;
+  }
+
+  .game-player-controls-right {
+    gap: 1vw;
+  }
+
+  .game-player-wealth {
+    font-size: 14px;
   }
 
   .game-title {
@@ -192,10 +203,10 @@
     --layout: 'wide-screen';
     --card-inner-width: 7vw;
     --font-size: .75vw;
+    --top-bar-height: 75px;
   }
 
   .game-top-controls {
-    height: 75px;
     padding: 0 25px;
   }
 
@@ -203,8 +214,20 @@
     gap: 25px;
   }
 
-  .game-top-controls-right {
+  .game-player-controls {
+    padding: 0 25px;
+  }
+
+  .game-player-controls-left {
+    gap: 25px;
+  }
+
+  .game-player-controls-right {
     gap: 20px;
+  }
+
+  .game-player-wealth {
+    font-size: 20px;
   }
 
   .game-title {
@@ -288,7 +311,7 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  height: var(--top-bar-height);
   background-color: #1a365d;
   border-bottom: 2px solid #2d3748;
   display: flex;
@@ -296,6 +319,40 @@ body {
   justify-content: space-between;
   padding: 0 20px;
   z-index: 1000;
+}
+
+/* Current Player Controls Bar */
+.game-player-controls {
+  position: fixed;
+  top: var(--top-bar-height);
+  left: 0;
+  right: 0;
+  height: var(--top-bar-height);
+  background-color: #2d3748;
+  border-bottom: 2px solid #4a5568;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 999;
+}
+
+.game-player-controls-left {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.game-player-controls-right {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.game-player-wealth {
+  font-size: 2vw;
+  font-weight: bold;
+  color: #FFD700;
 }
 
 .game-top-controls-left {
@@ -413,9 +470,8 @@ body {
   display: flex;
   gap: var(--area-gap);
   padding: var(--area-padding);
-  padding-top: 80px;
-  /* TODO: Figure out this magic number '96px' */
-  min-height: calc(100vh - 96px);
+  padding-top: calc(var(--top-bar-height) * 2 + 20px);
+  min-height: calc(100vh - calc(var(--top-bar-height) * 2));
 }
 
 /* Player Areas */
@@ -464,12 +520,6 @@ body {
   color: #FFD700;
 }
 
-.player-area-wealth {
-  font-size: 1em;
-  font-weight: bold;
-  color: #000000;
-  margin-bottom: 10px;
-}
 
 .player-area-section {
   margin-bottom: 15px;

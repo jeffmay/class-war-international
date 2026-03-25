@@ -41,16 +41,27 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           <span className="game-title">Class War International</span>
           <span className="game-phase-info">{currentClass}</span>
         </div>
-        <div className="game-top-controls-right">
-          <span className="game-player-info">Turn {ctx.turn}</span>
+      </div>
+
+      {/* Current Player Controls Bar */}
+      <div className="game-player-controls">
+        <div className="game-player-controls-left">
+          <span className="game-player-wealth">${G.players[currentClass].wealth}</span>
+        </div>
+        <div className="game-player-controls-right">
+          <span className="game-player-info">Turn {G.turnNumber + 1}</span>
           <button className="game-undo-button" disabled>
             Undo
           </button>
-          <button className="game-end-turn-button" onClick={() => {
-            if (G.turnPhase === TurnPhase.Production) moves.collectProduction();
-            else if (G.turnPhase === TurnPhase.Action) moves.endActionPhase();
-            else if (G.turnPhase === TurnPhase.Reproduction) moves.endReproductionPhase();
-          }} disabled={!isMyTurn}>
+          <button
+            className="game-end-turn-button"
+            onClick={() => {
+              if (G.turnPhase === TurnPhase.Production) moves.collectProduction();
+              else if (G.turnPhase === TurnPhase.Action) moves.endActionPhase();
+              else if (G.turnPhase === TurnPhase.Reproduction) moves.endReproductionPhase();
+            }}
+            disabled={!isMyTurn}
+          >
             End Turn
           </button>
         </div>
@@ -65,9 +76,6 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             <div className={`player-area player-area-working-class ${ctx.currentPlayer === '0' ? 'current-player' : ''}`}>
               <div className={`player-area-title ${ctx.currentPlayer === '0' ? 'current-player' : ''}`}>
                 Working Class
-              </div>
-              <div className="player-area-wealth">
-                Wealth: ${workingClassPlayer.wealth}
               </div>
 
               {/* Hand Section */}
@@ -114,9 +122,6 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             <div className={`player-area player-area-capitalist-class ${ctx.currentPlayer === '1' ? 'current-player' : ''}`}>
               <div className={`player-area-title ${ctx.currentPlayer === '1' ? 'current-player' : ''}`}>
                 Capitalist Class
-              </div>
-              <div className="player-area-wealth">
-                Wealth: ${capitalistPlayer.wealth}
               </div>
 
               {/* Hand Section */}
