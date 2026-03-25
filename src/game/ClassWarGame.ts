@@ -346,17 +346,18 @@ export const Moves = {
   /**
    * End Reproduction Phase and move to next player's Production
    */
-  endReproductionPhase: ({ G, ctx, events }, cardIdsToTheorize?: string[]) => {
+  endReproductionPhase: ({ G, ctx, events }, handIndexesToTheorize?: number[]) => {
     if (G.turnPhase !== TurnPhase.Reproduction) return;
 
     const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
     const player = G.players[currentClass];
 
-    // Theorize: move selected cards from hand to dustbin
-    for (const cardId of (cardIdsToTheorize ?? [])) {
-      const idx = player.hand.indexOf(cardId);
-      if (idx !== -1) {
-        player.hand.splice(idx, 1);
+    // Theorize: move selected cards to dustbin (sort descending to avoid index drift)
+    const unique = (handIndexesToTheorize ?? []).filter((v, i, arr) => arr.indexOf(v) === i);
+    const sortedIndexes = unique.sort((a, b) => b - a);
+    for (const idx of sortedIndexes) {
+      if (idx >= 0 && idx < player.hand.length) {
+        const [cardId] = player.hand.splice(idx, 1);
         player.dustbin.push(cardId);
       }
     }

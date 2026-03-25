@@ -173,25 +173,28 @@
     --font-size: 1.8vw;
   }
 
-  /* Full screen layout adjustments */
+  /* Full screen layout: sidebar left, player area centre, shared area right */
   .game-main-area {
-    flex-direction: column;
-    align-items: center;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: center;
   }
 
   .shared-area-sections {
     display: flex;
     gap: var(--area-gap);
+    flex-direction: column;
   }
 
   .shared-area-section {
     flex: 1;
   }
 
+  /* Stack workplaces/offices vertically so they fit in the side column */
   .workplaces-section,
   .offices-section {
-    flex-direction: row;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
   }
 
   /* Hide office header on full screen */
@@ -1877,6 +1880,27 @@ body {
 .menu-bar-close-float:hover {
   background: rgba(255, 50, 50, 1);
   transform: scale(1.1);
+}
+
+/* Wrapper that places nav buttons on either side of the card */
+.menu-bar-card-area {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.5vw;
+  padding: 0.5vw 0;
+}
+
+/* The card itself sits in the centre; no extra padding needed */
+.menu-bar-card-area .menu-bar-card-display {
+  padding: 0;
+}
+
+/* Nav buttons in the flanking position stretch to card height */
+.menu-bar-card-area .menu-bar-nav-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .menu-bar-card-display {

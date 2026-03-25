@@ -5,6 +5,7 @@ interface CardComponentProps {
   card: CardData;
   showAsCardBack?: boolean;
   onClick?: () => void;
+  onDoubleClick?: () => void;
   className?: string;
   /** When set, renders a status overlay banner bisecting the card */
   statusBanner?: { line1: string; line2?: string };
@@ -14,6 +15,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
   card,
   showAsCardBack = false,
   onClick,
+  onDoubleClick,
   className = '',
   statusBanner,
 }) => {
@@ -39,7 +41,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
 
   if (showAsCardBack) {
     return (
-      <div className={cardClasses} onClick={onClick}>
+      <div className={cardClasses} onClick={onClick} onDoubleClick={onDoubleClick}>
         <div className="card-back-content">
           <span className="card-back-question">?</span>
         </div>
@@ -95,7 +97,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
   };
 
   return (
-    <div className={cardClasses} onClick={onClick}>
+    <div className={cardClasses} onClick={onClick} onDoubleClick={onDoubleClick}>
       {/* Status Banner Overlay */}
       {statusBanner && (
         <div className="card-status-banner">

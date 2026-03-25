@@ -113,7 +113,7 @@ describe('Production Phase', () => {
     // Complete Capitalist turn
     client.moves.collectProduction('1');
     client.moves.endActionPhase('1');
-    client.moves.endReproductionPhase('1');
+    client.moves.endReproductionPhase();
 
     // Turn number should stay 1 (Capitalist doesn't increment)
     const afterSecondTurn = client.getStateOrThrow();

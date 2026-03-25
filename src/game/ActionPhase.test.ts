@@ -162,7 +162,7 @@ describe('Action Phase - Playing Cards', () => {
       // Complete Capitalist's full turn
       client.moves.collectProduction('1');
       client.moves.endActionPhase('1');
-      client.moves.endReproductionPhase('1');
+      client.moves.endReproductionPhase();
 
       // Back to Working Class – in_training should be cleared
       const finalState = client.getStateOrThrow();
