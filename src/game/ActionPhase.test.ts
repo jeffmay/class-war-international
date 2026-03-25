@@ -42,8 +42,8 @@ describe('Action Phase - Playing Cards', () => {
       const newState = client.getStateOrThrow();
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
-      // Drew a replacement – hand size is unchanged
-      expect(newPlayer.hand.length).toBe(initialHandSize);
+      // Figure is removed from the player's hand
+      expect(newPlayer.hand.length).toBe(initialHandSize - 1);
 
       // Figure is now in play
       const played = newPlayer.figures.find(f => f.id === 'cashier');
@@ -154,33 +154,6 @@ describe('Action Phase - Playing Cards', () => {
       );
       expect(finalFigure).toBeDefined();
       expect(finalFigure?.in_training).toBe(false);
-    });
-
-    test('draws replacement card when playing figure', () => {
-      // Pre-conditions: Action phase, WC has 'cashier' in hand, deck has cards
-      // remaining so a replacement can be drawn.
-      const wcDeck = buildDeck(SocialClass.WorkingClass);
-      const { hand, deck } = withCardInHand(wcDeck, 'cashier');
-      const G = makeActionPhaseState({ wealth: 10, hand, deck });
-      const client = clientFromFixture(G);
-
-      const state = client.getStateOrThrow();
-      const player = state.G.players[SocialClass.WorkingClass];
-      const initialHandSize = player.hand.length;
-      const initialDeckSize = player.deck.length;
-
-      expect(player.hand[0]).toBe('cashier');
-
-      client.moves.playFigure('cashier');
-      const newState = client.getStateOrThrow();
-      const newPlayer = newState.G.players[SocialClass.WorkingClass];
-
-      // Hand size is maintained (one card drawn to replace)
-      expect(newPlayer.hand.length).toBe(initialHandSize);
-      // Deck shrank by one
-      expect(newPlayer.deck.length).toBe(initialDeckSize - 1);
-      // Figure is in play
-      expect(newPlayer.figures.find(f => f.id === 'cashier')).toBeDefined();
     });
 
     test('multiple figures can be played in same turn if affordable', () => {

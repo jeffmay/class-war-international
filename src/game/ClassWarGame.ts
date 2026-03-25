@@ -118,9 +118,6 @@ export const Moves = {
       in_training: true,
     };
     player.figures.push(figureInPlay);
-
-    // Draw a card to replace
-    drawCards(player);
   },
 
   /**
