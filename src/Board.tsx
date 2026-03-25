@@ -9,16 +9,37 @@ import { SocialClass } from './types/cards';
 import { getCardData } from './data/cards';
 import { StartGameScreen } from './components/StartGameScreen';
 import { CardComponent } from './components/CardComponent';
+import { CardInspectorMenuBar } from './components/CardInspectorMenuBar';
 
 interface ClassWarBoardProps extends BoardProps<GameState> {}
 
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
   const [gameStarted, setGameStarted] = useState(G.gameStarted);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [selectedCardLocation, setSelectedCardLocation] = useState<'hand' | 'figures'>('hand');
 
   // Determine current class
   const isWorkingClass = ctx.currentPlayer === '0';
   const currentClass = isWorkingClass ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
   const isMyTurn = playerID === ctx.currentPlayer;
+
+  const handleCardClick = (cardId: string, location: 'hand' | 'figures') => {
+    if (selectedCardId === cardId && selectedCardLocation === location) {
+      setSelectedCardId(null);
+    } else {
+      setSelectedCardId(cardId);
+      setSelectedCardLocation(location);
+    }
+  };
+
+  const handleCloseInspector = () => {
+    setSelectedCardId(null);
+  };
+
+  const handlePlayFigure = (cardId: string) => {
+    moves.playFigure(cardId);
+    setSelectedCardId(null);
+  };
 
   // Get player states
   const workingClassPlayer = G.players[SocialClass.WorkingClass];
@@ -33,8 +54,29 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     return <StartGameScreen onStart={handleStartGame} />;
   }
 
+  const selectedCard = selectedCardId ? getCardData(selectedCardId) : null;
+  const myClass = playerID === '0'
+    ? SocialClass.WorkingClass
+    : playerID === '1'
+      ? SocialClass.CapitalistClass
+      : currentClass;
+
   return (
     <div className="game-board">
+      {/* Card Inspector Menu Bar */}
+      {selectedCard && (
+        <CardInspectorMenuBar
+          card={selectedCard}
+          playerClass={myClass}
+          turnPhase={G.turnPhase}
+          playerWealth={G.players[myClass].wealth}
+          isMyTurn={isMyTurn}
+          cardLocation={selectedCardLocation}
+          onClose={handleCloseInspector}
+          onPlayFigure={handlePlayFigure}
+        />
+      )}
+
       {/* Top Bar */}
       <div className="game-top-controls">
         <div className="game-top-controls-left">
@@ -87,7 +129,11 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                   {workingClassPlayer.hand.map((cardId, idx) => {
                     const card = getCardData(cardId);
                     return playerID === '0' ? (
-                      <CardComponent key={idx} card={card} />
+                      <CardComponent
+                        key={idx}
+                        card={card}
+                        onClick={() => handleCardClick(cardId, 'hand')}
+                      />
                     ) : (
                       <CardComponent key={idx} card={card} showAsCardBack />
                     );
@@ -133,7 +179,11 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                   {capitalistPlayer.hand.map((cardId, idx) => {
                     const card = getCardData(cardId);
                     return playerID === '1' ? (
-                      <CardComponent key={idx} card={card} />
+                      <CardComponent
+                        key={idx}
+                        card={card}
+                        onClick={() => handleCardClick(cardId, 'hand')}
+                      />
                     ) : (
                       <CardComponent key={idx} card={card} showAsCardBack />
                     );

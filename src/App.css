@@ -155,6 +155,11 @@
 /* full-screen mode - large tablets and laptop screens - 6 card width */
 @media (min-width: 1001px) and (max-width: 1799px) {
 
+  .menu-bar .card-component {
+    --card-inner-width: 20vw;
+    --card-font-size: calc(var(--card-inner-width) / 14);
+  }
+
   :root {
     --layout: 'full-screen';
     --card-inner-width: 13.5vw;
@@ -198,6 +203,11 @@
 
 /* Wide-screen mode - large desktops and ultrawide monitors - 10 card width */
 @media (min-width: 1800px) {
+
+  .menu-bar .card-component {
+    --card-inner-width: 12vw;
+    --card-font-size: calc(var(--card-inner-width) / 14);
+  }
 
   :root {
     --layout: 'wide-screen';
@@ -1699,7 +1709,7 @@ body {
 
 .menu-bar {
   position: fixed;
-  top: var(--top-bar-height);
+  top: calc(var(--top-bar-height) * 2);
   left: 0;
   right: 0;
   backdrop-filter: blur(2px);
