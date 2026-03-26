@@ -6,12 +6,12 @@ import React, { useState, useEffect } from 'react';
 import { BoardProps } from 'boardgame.io/react';
 import { GameState, TurnPhase } from './types/game';
 import { CardType, FigureCardInPlay, SocialClass } from './types/cards';
-import { getCardData } from './data/cards';
+import { allCards, getCardData } from './data/cards';
 import { TurnStartModal } from './components/StartGameScreen';
 import { CardComponent } from './components/CardComponent';
 import { ActionMenuBar, MenuOption } from './components/ActionMenuBar';
 
-interface ClassWarBoardProps extends BoardProps<GameState> {}
+interface ClassWarBoardProps extends BoardProps<GameState> { }
 
 type BoardState =
   | { mode: 'normal'; selectedSlotId: string | null }
@@ -109,7 +109,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   };
 
   // Actually end the turn: discard theorize cards, draw, switch players
-  const handleEndTurnAndSwitch = () => {
+  const handleEndTurn = () => {
     moves.endReproductionPhase(theorizeSelectedIndexes);
     setTheorizeSelectedIndexes([]);
     setBoardState({ mode: 'normal', selectedSlotId: null });
@@ -235,16 +235,16 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
   // Undo label
   const undoLabel = !G.undoState
-    ? '↩️ Undo'
+    ? '↩ Undo'
     : G.undoState.canUndo
-      ? `↩️ Undo ${G.undoState.previousActionName}`
-      : `Cannot Undo: ${G.undoState.reason}`;
+      ? `↩ Undo ${G.undoState.previousActionName}`
+      : `X Cannot Undo: ${G.undoState.reason}`;
   const canUndo = G.undoState?.canUndo ?? false;
 
   // Status text
   const statusText = (() => {
     if (!isMyTurn) return `Waiting for ${currentClass} player...`;
-    if (boardState.mode === 'showingDealtCards') return 'These are the cards you will draw — click "End Turn and Switch Players" to confirm.';
+    if (boardState.mode === 'showingDealtCards') return 'Click "End Turn" to confirm new cards and switch players.';
     if (G.turnPhase === TurnPhase.Action && boardState.mode === 'normal' && boardState.selectedSlotId === null) {
       return 'Select a card to see available actions';
     }
@@ -275,12 +275,12 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   const previewHand: string[] | null =
     boardState.mode === 'showingDealtCards'
       ? [
-          ...myPlayer.hand.filter((_, i) => !theorizeSelectedIndexes.includes(i)),
-          ...myPlayer.deck.slice(
-            0,
-            myPlayer.maxHandSize - myPlayer.hand.filter((_, i) => !theorizeSelectedIndexes.includes(i)).length,
-          ),
-        ]
+        ...myPlayer.hand.filter((_, i) => !theorizeSelectedIndexes.includes(i)),
+        ...myPlayer.deck.slice(
+          0,
+          myPlayer.maxHandSize - myPlayer.hand.filter((_, i) => !theorizeSelectedIndexes.includes(i)).length,
+        ),
+      ]
       : null;
 
   // Sidebar
@@ -370,8 +370,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                   onDoubleClick={boardState.mode === 'showingDealtCards' ? undefined : handleDoubleClick}
                   className={
                     isTheorizeSelected ? 'card-theorize-selected'
-                    : isNewlyDealt ? 'card-newly-dealt'
-                    : undefined
+                      : isNewlyDealt ? 'card-newly-dealt'
+                        : undefined
                   }
                 />
               );
@@ -471,20 +471,15 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       {/* Strike Target Selector — merged into ActionMenuBar */}
       {boardState.mode === 'selectStrikeTarget' && (
         <ActionMenuBar
-          title={`Choose a workplace for ${getCardData(boardState.figure.id).name} to strike`}
+          title={"Plan Strike"}
           options={G.workplaces.map((workplace, index) => {
-            const isEmpty = workplace.id.startsWith('empty');
-            const preview = !isEmpty ? (
-              <div className="menu-bar-target-preview">
-                <div className="menu-bar-preview-name">{workplace.id.replace(/_/g, ' ')}</div>
-                <div className="menu-bar-preview-stats">Wages ${workplace.wages} · Profits ${workplace.profits} · {workplace.established_power} ⚫️</div>
-              </div>
-            ) : undefined;
+            const card = workplace.id.startsWith('empty') ? null : getCardData(workplace.id);
+            const preview = card && <CardComponent card={card} />;
             return [
-              isEmpty ? 'Empty Slot' : workplace.id.replace(/_/g, ' '),
-              isEmpty ? undefined : () => handleSelectStrikeTarget(index),
+              !card ? 'Empty Slot' : workplace.id.replace(/_/g, ' '),
+              !card ? undefined : () => handleSelectStrikeTarget(index),
               preview,
-            ] as MenuOption;
+            ] as const satisfies MenuOption;
           })}
           playerClass={myClass}
           onClose={handleCloseInspector}
@@ -496,19 +491,15 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         <ActionMenuBar
           title={`Choose an office for ${getCardData(boardState.figure.id).name} to run for`}
           options={G.politicalOffices.map((office, index) => {
+            // TODO: Convert default state figure to a card to allow previewing as a card
             const officeName = OFFICE_NAMES[office.id] ?? office.id;
-            const preview = (
-              <div className="menu-bar-target-preview">
-                <div className="menu-bar-preview-name">{officeName}</div>
-                <div className="menu-bar-preview-stats">{OFFICE_POWER[office.id]} ⚫️ · {office.exhausted ? 'Exhausted' : 'Ready'}</div>
-                <div className="menu-bar-preview-rules">{OFFICE_RULES[office.id]}</div>
-              </div>
-            );
+            const card = office.id in allCards ? getCardData(office.id) : undefined
+            const preview = card && <CardComponent card={card} />;;
             return [
               officeName,
               () => handleSelectOfficeTarget(index),
               preview,
-            ] as MenuOption;
+            ] as const satisfies MenuOption;
           })}
           playerClass={myClass}
           onClose={handleCloseInspector}
@@ -540,7 +531,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               className="game-end-turn-button"
               onClick={() => moves.endActionPhase()}
             >
-              🔄 End Action Phase
+              ⏭ End Action Phase
             </button>
           )}
           {isMyTurn && G.turnPhase === TurnPhase.Reproduction && boardState.mode !== 'showingDealtCards' && (
@@ -548,16 +539,16 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               className="game-finish-theorizing-button"
               onClick={handleFinishTheorizing}
             >
-              Finish Theorizing
+              ⏭ Finish Theorizing
               {theorizeSelectedIndexes.length > 0 && ` (${theorizeSelectedIndexes.length})`}
             </button>
           )}
           {isMyTurn && G.turnPhase === TurnPhase.Reproduction && boardState.mode === 'showingDealtCards' && (
             <button
-              className="game-end-turn-switch-button"
-              onClick={handleEndTurnAndSwitch}
+              className="game-end-turn-button"
+              onClick={handleEndTurn}
             >
-              End Turn and Switch Players
+              ⏭ End Turn
             </button>
           )}
         </div>
@@ -583,8 +574,6 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         {/* Shared Board Area */}
         <div className="shared-area-container">
           <div className="shared-area">
-            <div className="shared-area-section-title">Class War International</div>
-
             <div className="shared-area-sections">
               {/* Workplaces Section */}
               <div className="shared-area-section">

@@ -16,7 +16,7 @@ import { CardComponent } from './CardComponent';
  * - handler: click handler; undefined = disabled button
  * - preview: optional React node rendered above the button (e.g. a card or target display)
  */
-export type MenuOption = [label: string, handler: (() => void) | undefined, preview?: React.ReactNode];
+export type MenuOption = readonly [label: string, handler: (() => void) | undefined, preview?: React.ReactNode];
 
 export interface ActionMenuBarProps {
   /** Optional title shown above the actions */

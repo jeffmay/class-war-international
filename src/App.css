@@ -1827,6 +1827,7 @@ body {
   color: #fff;
   font-size: calc(var(--card-inner-width) * 0.15);
   font-weight: bold;
+  text-align: center;
   margin: 0;
   flex: 1;
 }

@@ -1,4 +1,4 @@
-import type { Game, LongFormMove, Move, MoveFn, MoveMap, PlayerID, State } from "boardgame.io";
+import type { Game, LongFormMove, Move, MoveFn, MoveMap, PlayerID } from "boardgame.io";
 import { Client } from 'boardgame.io/client';
 import type { _ClientImpl, ClientOpts, ClientState } from "boardgame.io/dist/types/src/client/client";
 import { assertDefined } from "./assertions";
@@ -73,6 +73,6 @@ export type StrictBoardProps<G, M extends MoveMap> =
   }
 
 export type StrictBoardPropsOf<Game> =
-  Game extends StrictGame<infer G, infer _, infer M extends MoveMap>
+  Game extends StrictGame<infer G, any, infer M extends MoveMap>
   ? StrictBoardProps<G, M>
   : never

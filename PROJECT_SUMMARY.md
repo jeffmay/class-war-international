@@ -66,7 +66,6 @@ A 2-player board game based on **Class War: International** rules, built with th
 - Enforced in the UI; game move accepts any number of card IDs to discard
 
 ### 9. Conflict System (UI only - resolution TBD)
-- `ConflictTargetMenuBar` component for choosing strike/election targets
 - Strike target: lists all workplaces; empty slots are disabled
 - Election target: lists all political offices
 - Cancel button returns to normal board state
@@ -75,11 +74,10 @@ A 2-player board game based on **Class War: International** rules, built with th
 - Full game board display with responsive CSS
 - `TurnStartModal` full-screen overlay for Production phase
 - Top bar with game title
-- Control bar: Undo button, End Turn / Finish Theorizing button
+- Control bar: Undo button and a next phase button (End Action Phase, Finish Theorizing, End Turn)
 - Phase and wealth info display
 - Shared board area: Workplaces (3 slots), Political Offices (3 state figures)
-- Card inspector menu bar (`ActionMenuBar`) for action selection
-- Conflict target menu bar (`ConflictTargetMenuBar`) for strike/election targeting
+- Card inspector menu bar (`ActionMenuBar`) for viewing cards in hand, selecting actions, choosing a conflict target, or generally progressing the game through linear menu option trees.
 
 **Status: Running at localhost:3000**
 
@@ -139,7 +137,6 @@ A 2-player board game based on **Class War: International** rules, built with th
 3. **ActionPhase.test.ts** - Card playing (7 tests)
 4. **ConflictPhase.test.ts** - Strike and election planning (11 tests)
 5. **CardInspectorMenuBar.test.tsx** - Card inspector component (12 tests)
-6. **ConflictTargetMenuBar.test.tsx** - Conflict target component (12 tests)
 
 **Total: 64 passing + 2 skipped = 66 tests**
 
@@ -187,9 +184,7 @@ src/
 │   ├── StartGameScreen.tsx      # TurnStartModal overlay
 │   ├── CardComponent.tsx        # Reusable card display with optional status banner
 │   ├── CardInspectorMenuBar.tsx # Action menu bar for selected cards
-│   ├── CardInspectorMenuBar.test.tsx
-│   ├── ConflictTargetMenuBar.tsx # Strike/election target selector
-│   └── ConflictTargetMenuBar.test.tsx
+│   └── CardInspectorMenuBar.test.tsx
 ├── util/
 │   ├── assertions.ts            # assertDefined helper
 │   └── typedboardgame.ts        # StrictClient, StrictGameOf types

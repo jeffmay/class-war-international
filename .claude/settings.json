@@ -7,6 +7,8 @@
       "mcp__playwright__browser_take_screenshot",
       "Bash(git add:*)",
       "Bash(git commit:*)",
+      "Bash(git diff:*)",
+      "Bash(git status:*)",
       "Bash(npm run:*)",
       "Bash(npm test:*)"
     ]

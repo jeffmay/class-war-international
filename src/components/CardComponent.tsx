@@ -110,11 +110,11 @@ export const CardComponent: React.FC<CardComponentProps> = ({
       {/* Top-left: Name and Cost */}
       <div className="card-top-left-block">
         <div className="card-name">{card.name}</div>
-        {card.cost !== undefined && (
+        {
           <div className="card-cost-icon">
-            {getCardIcon()} ${card.cost}
+            {getCardIcon()}{card.cost > 0 && ` $${card.cost}`}
           </div>
-        )}
+        }
       </div>
 
       {/* Top-right: Power indicators */}
