@@ -9,7 +9,7 @@
  * withCardInHand / withCardsInHand helpers from generate.ts.
  */
 
-import { buildDeck, getCardData } from '../data/cards';
+import { allCards, buildDeck } from '../data/cards';
 import { CardType, SocialClass, type FigureCardInPlay } from '../types/cards';
 import { TurnPhase } from '../types/game';
 import {
@@ -35,8 +35,8 @@ describe('Action Phase - Playing Cards', () => {
       const initialWealth = player.wealth;
 
       expect(player.hand[0]).toBe('cashier');
-      expect(getCardData('cashier').card_type).toBe(CardType.Figure);
-      expect(initialWealth).toBeGreaterThanOrEqual(getCardData('cashier').cost);
+      expect(allCards.cashier.card_type).toBe(CardType.Figure);
+      expect(initialWealth).toBeGreaterThanOrEqual(allCards.cashier.cost);
 
       client.moves.playCardFromHand(0, 'figures[-1]');
       const newState = client.getStateOrThrow();
@@ -52,7 +52,7 @@ describe('Action Phase - Playing Cards', () => {
       expect(played?.exhausted).toBe(false);
 
       // Cost deducted
-      expect(newPlayer.wealth).toBe(initialWealth - getCardData('cashier').cost);
+      expect(newPlayer.wealth).toBe(initialWealth - allCards.cashier.cost);
     });
 
     test('cannot play figure without enough wealth', () => {
@@ -60,7 +60,7 @@ describe('Action Phase - Playing Cards', () => {
       // wealth is set to $1 (one below the card's cost).
       const wcDeck = buildDeck(SocialClass.WorkingClass);
       const { hand, deck } = withCardInHand(wcDeck, 'cashier');
-      const cashierCost = getCardData('cashier').cost;
+      const cashierCost = allCards.cashier.cost;
       const G = makeActionPhaseState({ wealth: cashierCost - 1, hand, deck });
       const client = clientFromFixture(G);
 
@@ -142,6 +142,7 @@ describe('Action Phase - Playing Cards', () => {
       const figureInPlay: FigureCardInPlay = {
         id: 'cashier',
         card_type: CardType.Figure,
+        in_play: true,
         exhausted: false,
         in_training: true,
       };
@@ -212,7 +213,7 @@ describe('Action Phase - Playing Cards', () => {
       const newState = client.getStateOrThrow();
       const newPlayer = newState.G.players[SocialClass.WorkingClass];
 
-      expect(newPlayer.demands[0]).toEqual({ id: 'wealth_tax', card_type: CardType.Demand });
+      expect(newPlayer.demands[0]).toEqual({ id: 'wealth_tax', card_type: CardType.Demand, in_play: true });
       expect(newPlayer.hand).not.toContain('wealth_tax');
     });
 
@@ -225,7 +226,7 @@ describe('Action Phase - Playing Cards', () => {
       client.moves.playCardFromHand(0, 'demands[1]');
       const newPlayer = client.getStateOrThrow().G.players[SocialClass.WorkingClass];
 
-      expect(newPlayer.demands[1]).toEqual({ id: 'wealth_tax', card_type: CardType.Demand });
+      expect(newPlayer.demands[1]).toEqual({ id: 'wealth_tax', card_type: CardType.Demand, in_play: true });
       expect(newPlayer.demands[0]).toBeNull();
     });
 
@@ -243,7 +244,7 @@ describe('Action Phase - Playing Cards', () => {
       client.moves.playCardFromHand(0, 'demands[0]');
       const newPlayer = client.getStateOrThrow().G.players[SocialClass.WorkingClass];
 
-      expect(newPlayer.demands[0]).toEqual({ id: 'free_health_care', card_type: CardType.Demand });
+      expect(newPlayer.demands[0]).toEqual({ id: 'free_health_care', card_type: CardType.Demand, in_play: true });
       expect(newPlayer.dustbin).toContain('wealth_tax');
     });
 
@@ -265,7 +266,7 @@ describe('Action Phase - Playing Cards', () => {
     test('successfully plays an institution to slot 0 when both slots empty', () => {
       const wcDeck = buildDeck(SocialClass.WorkingClass);
       const { hand, deck } = withCardInHand(wcDeck, 'political_education_group');
-      const institutionCost = getCardData('political_education_group').cost;
+      const institutionCost = allCards.political_education_group.cost;
       const G = makeActionPhaseState({ wealth: institutionCost, hand, deck });
       const client = clientFromFixture(G);
 
@@ -277,6 +278,7 @@ describe('Action Phase - Playing Cards', () => {
       expect(newPlayer.institutions[0]).toEqual({
         id: 'political_education_group',
         card_type: CardType.Institution,
+        in_play: true,
       });
       expect(newPlayer.hand).not.toContain('political_education_group');
       expect(newPlayer.wealth).toBe(0);
@@ -287,7 +289,7 @@ describe('Action Phase - Playing Cards', () => {
     test('cannot play institution without enough wealth', () => {
       const wcDeck = buildDeck(SocialClass.WorkingClass);
       const { hand, deck } = withCardInHand(wcDeck, 'political_education_group');
-      const institutionCost = getCardData('political_education_group').cost;
+      const institutionCost = allCards.political_education_group.cost;
       const G = makeActionPhaseState({ wealth: institutionCost - 1, hand, deck });
       const client = clientFromFixture(G);
 
@@ -301,7 +303,7 @@ describe('Action Phase - Playing Cards', () => {
     test('replaces existing institution and moves it to dustbin', () => {
       const wcDeck = buildDeck(SocialClass.WorkingClass);
       const { hand, deck } = withCardsInHand(wcDeck, ['political_education_group', 'political_education_group']);
-      const institutionCost = getCardData('political_education_group').cost;
+      const institutionCost = allCards.political_education_group.cost;
       const G = makeActionPhaseState({ wealth: institutionCost * 2, hand, deck });
       const client = clientFromFixture(G);
 
@@ -316,6 +318,7 @@ describe('Action Phase - Playing Cards', () => {
       expect(newPlayer.institutions[0]).toEqual({
         id: 'political_education_group',
         card_type: CardType.Institution,
+        in_play: true,
       });
       expect(newPlayer.dustbin).toContain('political_education_group');
     });

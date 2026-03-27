@@ -12,6 +12,7 @@
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "boardgame.io": "^0.50.2",
+    "lodash": "^4.17.23",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-scripts": "5.0.1",
@@ -46,5 +47,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.24",
+    "type-fest": "^4.41.0"
   }
 }

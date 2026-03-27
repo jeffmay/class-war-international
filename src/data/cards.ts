@@ -6,62 +6,78 @@
  */
 
 import {
-  CardData,
+  AnyCardData,
+  DeckCardData,
   CardType,
   SocialClass,
-  DefaultStateFigureData,
-  DefaultWorkplaceData,
+  StateFigureCardData,
   FigureCardData,
   InstitutionCardData,
   DemandCardData,
   WorkplaceCardData,
   TacticCardData,
 } from '../types/cards';
+import type { ReadonlyDeep } from 'type-fest';
 
-// Default workplaces (always in play at start)
-export const defaultWorkplaces: Record<string, DefaultWorkplaceData> = {
+// ─── Default workplaces (always in play at start, qty: 0 keeps them out of decks) ─
+// TODO: In the future, the choice of deck and default cards should be externalized from the cards themselves.
+
+export const defaultWorkplaceCards = {
   corner_store: {
     id: 'corner_store',
     name: 'Corner Store',
+    social_class: SocialClass.CapitalistClass,
+    card_type: CardType.Workplace,
+    cost: 0, // only used as a starting card
+    qty: 0,
     starting_wages: 2,
     starting_profits: 6,
     established_power: 1,
-    quote: 'Where dreams go to die, one scanning beep at a time.',
+    quote: "Where dreams go to die, one scanning beep at a time.",
   },
   parts_producer: {
     id: 'parts_producer',
     name: 'Parts Producer',
+    social_class: SocialClass.CapitalistClass,
+    card_type: CardType.Workplace,
+    cost: 0, // only used as a starting card
+    qty: 0,
     starting_wages: 3,
     starting_profits: 9,
     established_power: 2,
-    quote: 'Making the little widgets that hold the big widgets together.',
+    quote: "Making the little widgets that hold the big widgets together.",
   },
-};
+} as const satisfies Record<string, WorkplaceCardData>;
 
-// Default state figures (always in play at start)
-export const defaultStateFigures: Record<string, DefaultStateFigureData> = {
+// ─── Default state figures (always in play, never in decks) ──────────────────
+
+export const defaultStateFigureCards = {
   populist: {
     id: 'populist',
     name: 'The Populist',
+    card_type: CardType.DefaultStateFigure,
     established_power: 1,
     rules: 'Sides with the class that has more figures in play for a legislative contest',
   },
   centrist: {
     id: 'centrist',
     name: 'The Centrist',
+    card_type: CardType.DefaultStateFigure,
     established_power: 2,
     rules: 'Always supports the incumbent in elections',
   },
   opportunist: {
     id: 'opportunist',
     name: 'The Opportunist',
+    card_type: CardType.DefaultStateFigure,
     established_power: 2,
     rules: 'Can be influenced with money (not yet implemented)',
   },
-};
+} as const satisfies Record<string, StateFigureCardData>;
 
-// Working Class Cards
-const workingClassFigures: Record<string, FigureCardData> = {
+// ─── Working Class Cards ──────────────────────────────────────────────────────
+
+const workingClassFigureCards = {
   cashier: {
     id: 'cashier',
     name: 'Cashier',
@@ -96,9 +112,9 @@ const workingClassFigures: Record<string, FigureCardData> = {
     rules: 'When first played: You may retrieve a Tactic from your Dustbin to your hand.',
     quote: 'Freedom is always freedom for those who think differently.',
   },
-};
+} as const satisfies Record<string, FigureCardData>;
 
-const workingClassDemands: Record<string, DemandCardData> = {
+const workingClassDemandCards = {
   wealth_tax: {
     id: 'wealth_tax',
     name: 'Wealth Tax',
@@ -121,9 +137,9 @@ const workingClassDemands: Record<string, DemandCardData> = {
     rules: 'When law: Your Figures cannot be put in the Dustbin by card effects.',
     quote: 'It turns out you CAN put a price on human life -- but we\'re saying you shouldn\'t.',
   },
-};
+} as const satisfies Record<string, DemandCardData>;
 
-const workingClassInstitutions: Record<string, InstitutionCardData> = {
+const workingClassInstitutionCards = {
   political_education_group: {
     id: 'political_education_group',
     name: 'Political Education Group',
@@ -135,9 +151,9 @@ const workingClassInstitutions: Record<string, InstitutionCardData> = {
     rules: 'When first played: Increase your max hand size by 1.',
     quote: 'Reading Marx so you don\'t have to.',
   },
-};
+} as const satisfies Record<string, InstitutionCardData>;
 
-const workingClassTactics: Record<string, TacticCardData> = {
+const workingClassTacticCards = {
   propagandize: {
     id: 'propagandize',
     name: 'Propagandize',
@@ -149,10 +165,11 @@ const workingClassTactics: Record<string, TacticCardData> = {
     rules: 'Support a conflict on any turn: Roll 2 extra dice.',
     quote: 'How do you do, fellow worker?',
   },
-};
+} as const satisfies Record<string, TacticCardData>;
 
-// Capitalist Class Cards
-const capitalistFigures: Record<string, FigureCardData> = {
+// ─── Capitalist Class Cards ───────────────────────────────────────────────────
+
+const capitalistFigureCards = {
   manager: {
     id: 'manager',
     name: 'Manager',
@@ -188,9 +205,9 @@ const capitalistFigures: Record<string, FigureCardData> = {
     rules: 'When first played: You may search your deck for a Demand, shuffle, then put the card on top.',
     quote: 'Let\'s reboot blood and soil for the new generation.',
   },
-};
+} as const satisfies Record<string, FigureCardData>;
 
-const capitalistDemands: Record<string, DemandCardData> = {
+const capitalistDemandCards = {
   tax_breaks: {
     id: 'tax_breaks',
     name: 'Tax Breaks',
@@ -213,9 +230,9 @@ const capitalistDemands: Record<string, DemandCardData> = {
     rules: 'When law: Shift $1 from wages to profits at all existing Workplaces.',
     quote: 'Safety standards are just suggestions anyway.',
   },
-};
+} as const satisfies Record<string, DemandCardData>;
 
-const capitalistInstitutions: Record<string, InstitutionCardData> = {
+const capitalistInstitutionCards = {
   think_tank: {
     id: 'think_tank',
     name: 'Think Tank',
@@ -227,9 +244,9 @@ const capitalistInstitutions: Record<string, InstitutionCardData> = {
     rules: 'When first played: Increase your max hand size by 1.',
     quote: 'Where ideology goes to get a fancy PowerPoint presentation.',
   },
-};
+} as const satisfies Record<string, InstitutionCardData>;
 
-const capitalistWorkplaces: Record<string, WorkplaceCardData> = {
+const capitalistWorkplaceCards = {
   fast_food_chain: {
     id: 'fast_food_chain',
     name: 'Fast Food Chain',
@@ -254,9 +271,9 @@ const capitalistWorkplaces: Record<string, WorkplaceCardData> = {
     qty: 2,
     quote: 'Toilet paper and ammunition in bulk, as intended.',
   },
-};
+} as const satisfies Record<string, WorkplaceCardData>;
 
-const capitalistTactics: Record<string, TacticCardData> = {
+const capitalistTacticCards = {
   union_busting: {
     id: 'union_busting',
     name: 'Union Busting',
@@ -268,42 +285,97 @@ const capitalistTactics: Record<string, TacticCardData> = {
     rules: 'Support a conflict on your turn: Roll 2 extra dice.',
     quote: 'Unions are just like families, except you can fire families.',
   },
-};
+} as const satisfies Record<string, TacticCardData>;
 
-// Combine all cards
-export const allCards: Record<string, CardData> = {
-  ...workingClassFigures,
-  ...workingClassDemands,
-  ...workingClassInstitutions,
-  ...workingClassTactics,
-  ...capitalistFigures,
-  ...capitalistDemands,
-  ...capitalistInstitutions,
-  ...capitalistWorkplaces,
-  ...capitalistTactics,
-};
+// ─── Aggregated lookups ───────────────────────────────────────────────────────
 
-// Helper to get card by ID
-export function getCardData(id: string): CardData {
-  const card = allCards[id];
+export const allFigureCards = {
+  ...workingClassFigureCards,
+  ...capitalistFigureCards,
+} as const satisfies Record<string, FigureCardData>;
+
+export const allDemandCards = {
+  ...workingClassDemandCards,
+  ...capitalistDemandCards,
+} as const satisfies Record<string, DemandCardData>;
+
+export const allInstitutionCards = {
+  ...workingClassInstitutionCards,
+  ...capitalistInstitutionCards,
+} as const satisfies Record<string, InstitutionCardData>;
+
+export const allTacticCards = {
+  ...workingClassTacticCards,
+  ...capitalistTacticCards,
+} as const satisfies Record<string, TacticCardData>;
+
+export const allDeckWorkplaceCards = capitalistWorkplaceCards;
+
+export const allWorkplaceCards = {
+  ...capitalistWorkplaceCards,
+  ...defaultWorkplaceCards,
+} as const satisfies Record<string, WorkplaceCardData>
+
+/**
+ * All cards that are legal to include in a player's deck, hand, or figures.
+ * Default workplaces are included but have qty: 0 so they never appear in
+ * a generated deck.
+ */
+export const allDeckCards = {
+  ...allFigureCards,
+  ...allDemandCards,
+  ...allInstitutionCards,
+  ...allTacticCards,
+  ...allDeckWorkplaceCards,
+} as const satisfies Record<string, DeckCardData>;
+
+// TODO: The allDeckCards should not need to be distinct from allCards,
+// it is just a convenience until we support other starting decks, since
+// some of the default cards have no social class, qty, or cost.
+
+/**
+ * Every card that can be rendered by CardComponent, including board-only cards
+ * (state figures) that are never in a player's deck, hand, or figures.
+ */
+export const allCards = {
+  ...allDeckCards,
+  ...defaultStateFigureCards,
+  ...defaultWorkplaceCards,
+} as const satisfies Record<string, ReadonlyDeep<AnyCardData>>;
+
+export type DemandCardID = keyof typeof allDemandCards;
+export type FigureCardID = keyof typeof allFigureCards;
+export type InstitutionCardID = keyof typeof allInstitutionCards;
+export type TacticCardID = keyof typeof allTacticCards;
+export type WorkplaceCardID = keyof typeof allDeckWorkplaceCards;
+
+export type DefaultStateFigureID = keyof typeof defaultStateFigureCards;
+
+export type DeckCardID = keyof typeof allDeckCards;
+export type CardID = keyof typeof allCards;
+
+/** Look up any card (player or board-only) by ID. Throws if not found. */
+export function getAnyCardData(id: string): AnyCardData {
+  const card = allCards[id as keyof typeof allCards];
   if (!card) {
     throw new Error(`Card not found: ${id}`);
   }
   return card;
 }
 
-// Helper to build initial deck for a class
-export function buildDeck(socialClass: SocialClass): string[] {
-  const deck: string[] = [];
+/** Build the initial deck for a player class (excludes qty: 0 cards). */
+export function buildDeck(socialClass: SocialClass): DeckCardID[] {
+  const deck: DeckCardID[] = [];
 
-  Object.values(allCards).forEach((card) => {
-    if (card.social_class === socialClass) {
-      // Add multiple copies based on qty
-      for (let i = 0; i < card.qty; i++) {
-        deck.push(card.id);
+  let cardID: DeckCardID;
+  for (cardID in allDeckCards) {
+    const cardData = allDeckCards[cardID];
+    if (cardData.social_class === socialClass) {
+      for (let i = 0; i < cardData.qty; i++) {
+        deck.push(cardID);
       }
     }
-  });
+  }
 
   return deck;
 }

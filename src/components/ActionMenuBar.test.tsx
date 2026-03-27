@@ -2,13 +2,13 @@
  * Component tests for ActionMenuBar
  */
 
-import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ActionMenuBar } from './ActionMenuBar';
-import { getCardData } from '../data/cards';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { allFigureCards } from '../data/cards';
 import { SocialClass } from '../types/cards';
+import { ActionMenuBar } from './ActionMenuBar';
 
-const cashierCard = getCardData('cashier');
+const cashierCard = allFigureCards.cashier;
 
 describe('ActionMenuBar', () => {
   const baseProps = {

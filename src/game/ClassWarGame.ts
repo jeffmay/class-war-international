@@ -3,10 +3,12 @@
  */
 
 import { type MoveMap } from 'boardgame.io';
-import { buildDeck, defaultWorkplaces, getCardData } from '../data/cards';
-import { CardType, type DemandCardInPlay, type FigureCardInPlay, type InstitutionCardInPlay, SocialClass, type StateFigureInPlay, type WorkplaceInPlay } from '../types/cards';
+import { pick } from 'lodash';
+import { buildDeck, defaultStateFigureCards, DefaultStateFigureID, defaultWorkplaceCards, getAnyCardData } from '../data/cards';
+import { CardType, type FigureCardInPlay, SocialClass, type StateFigureCardInPlay, type WorkplaceInPlay } from '../types/cards';
 import { ConflictPhase, ConflictType, type ElectionConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
+import { isDemandCardID, isFigureCardID, isInstitutionCardID, playDemandCard, playFigureCard, playInstitutionCard } from '../util/game';
 import { type StrictGameOf } from '../util/typedboardgame';
 
 /**
@@ -17,7 +19,7 @@ import { type StrictGameOf } from '../util/typedboardgame';
 function powerStats(figures: FigureCardInPlay[]): PowerStats {
   let diceCount = 0;
   for (const figure of figures) {
-    const data = getCardData(figure.id);
+    const data = getAnyCardData(figure.id);
     if (data.card_type === CardType.Figure) {
       diceCount += data.dice;
     }
@@ -95,7 +97,8 @@ export const Moves = {
     if (handIndex < 0 || handIndex >= player.hand.length) return;
 
     const cardId = player.hand[handIndex];
-    const cardData = getCardData(cardId);
+    const cardData = getAnyCardData(cardId);
+    const cost = cardData?.cost ?? 0
 
     const slotMatch = targetSlot.match(/^(figures|demands|institutions)\[(-?\d+)\]$/);
     if (!slotMatch) return;
@@ -103,22 +106,16 @@ export const Moves = {
     const slotIndex = parseInt(slotMatch[2], 10);
 
     if (slotType === 'figures') {
-      if (cardData.card_type !== CardType.Figure) return;
-      if (player.wealth < cardData.cost) return;
+      if (!isFigureCardID(cardId)) return;
+      if (player.wealth < cost) return;
 
-      player.wealth -= cardData.cost;
+      player.wealth -= cost;
       player.hand.splice(handIndex, 1);
 
-      const figureInPlay: FigureCardInPlay = {
-        id: cardId,
-        card_type: CardType.Figure,
-        exhausted: false,
-        in_training: true,
-      };
-      player.figures.push(figureInPlay);
+      player.figures.push(playFigureCard(cardId));
 
     } else if (slotType === 'demands') {
-      if (cardData.card_type !== CardType.Demand) return;
+      if (!isDemandCardID(cardId)) return;
 
       let resolvedDemandIndex = slotIndex;
       if (slotIndex === -1) {
@@ -132,14 +129,10 @@ export const Moves = {
       const existing = player.demands[resolvedDemandIndex];
       if (existing) player.dustbin.push(existing.id);
 
-      const demandInPlay: DemandCardInPlay = {
-        id: cardId,
-        card_type: CardType.Demand,
-      };
-      player.demands[resolvedDemandIndex] = demandInPlay;
+      player.demands[resolvedDemandIndex] = playDemandCard(cardId);
 
     } else if (slotType === 'institutions') {
-      if (cardData.card_type !== CardType.Institution) return;
+      if (!isInstitutionCardID(cardId)) return;
 
       let resolvedInstIndex = slotIndex;
       if (slotIndex === -1) {
@@ -147,19 +140,15 @@ export const Moves = {
         if (resolvedInstIndex === -1) return; // no empty slot
       }
       if (resolvedInstIndex < 0 || resolvedInstIndex > 1) return;
-      if (player.wealth < cardData.cost) return;
+      if (player.wealth < cost) return;
 
-      player.wealth -= cardData.cost;
+      player.wealth -= cost;
       player.hand.splice(handIndex, 1);
 
       const existing = player.institutions[resolvedInstIndex];
       if (existing) player.dustbin.push(existing.id);
 
-      const institutionInPlay: InstitutionCardInPlay = {
-        id: cardId,
-        card_type: CardType.Institution,
-      };
-      player.institutions[resolvedInstIndex] = institutionInPlay;
+      player.institutions[resolvedInstIndex] = playInstitutionCard(cardId);
 
       // "When first played" effect: increase max hand size
       player.maxHandSize += 1;
@@ -249,7 +238,7 @@ export const Moves = {
       return;
     }
 
-    const figureData = getCardData(figure.id);
+    const figureData = getAnyCardData(figure.id);
     if (figureData.card_type !== CardType.Figure || figureData.social_class !== SocialClass.WorkingClass) {
       G.errorMessage = 'Only Working Class figures can lead strikes.';
       return;
@@ -393,16 +382,16 @@ export function setup(ctx: any): GameState {
   const workplaces: WorkplaceInPlay[] = [
     {
       id: 'corner_store',
-      wages: defaultWorkplaces.corner_store.starting_wages,
-      profits: defaultWorkplaces.corner_store.starting_profits,
-      established_power: defaultWorkplaces.corner_store.established_power,
+      wages: defaultWorkplaceCards.corner_store.starting_wages,
+      profits: defaultWorkplaceCards.corner_store.starting_profits,
+      established_power: defaultWorkplaceCards.corner_store.established_power,
       unionized: false,
     },
     {
       id: 'parts_producer',
-      wages: defaultWorkplaces.parts_producer.starting_wages,
-      profits: defaultWorkplaces.parts_producer.starting_profits,
-      established_power: defaultWorkplaces.parts_producer.established_power,
+      wages: defaultWorkplaceCards.parts_producer.starting_wages,
+      profits: defaultWorkplaceCards.parts_producer.starting_profits,
+      established_power: defaultWorkplaceCards.parts_producer.established_power,
       unionized: false,
     },
     {
@@ -414,20 +403,17 @@ export function setup(ctx: any): GameState {
     },
   ];
 
+  const playStateFigure = (stateFigureID: DefaultStateFigureID): StateFigureCardInPlay => ({
+    ...pick(defaultStateFigureCards[stateFigureID], 'id', 'card_type', 'established_power'),
+    exhausted: false,
+    in_play: true,
+  })
+
   // Initialize political offices (3 state figures)
-  const politicalOffices: StateFigureInPlay[] = [
-    {
-      id: 'populist',
-      exhausted: false,
-    },
-    {
-      id: 'centrist',
-      exhausted: false,
-    },
-    {
-      id: 'opportunist',
-      exhausted: false,
-    },
+  const politicalOffices: StateFigureCardInPlay[] = [
+    playStateFigure('populist'),
+    playStateFigure('centrist'),
+    playStateFigure('opportunist'),
   ];
 
   return {

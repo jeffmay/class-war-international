@@ -2,14 +2,23 @@
  * Main Board component for Class War: International
  */
 
-import React, { useState, useEffect } from 'react';
 import { BoardProps } from 'boardgame.io/react';
-import { GameState, TurnPhase } from './types/game';
-import { CardType, FigureCardInPlay, SocialClass } from './types/cards';
-import { allCards, getCardData } from './data/cards';
-import { TurnStartModal } from './components/StartGameScreen';
-import { CardComponent } from './components/CardComponent';
+import React, { useEffect, useState } from 'react';
 import { ActionMenuBar, MenuOption } from './components/ActionMenuBar';
+import { CardComponent } from './components/CardComponent';
+import { TurnStartModal } from './components/StartGameScreen';
+import { getAnyCardData } from './data/cards';
+import { CardType, FigureCardInPlay, SocialClass, WorkplaceCardData, WorkplaceInPlay } from './types/cards';
+import { GameState, TurnPhase } from './types/game';
+
+/** Build a WorkplaceCardData for display by substituting current wages/profits from in-play state. */
+function makeWorkplaceDisplayCard(wp: WorkplaceInPlay): WorkplaceCardData {
+  const card = getAnyCardData(wp.id);
+  if (card.card_type !== CardType.Workplace) {
+    throw new Error(`Expected workplace card for id "${wp.id}", got ${card.card_type}`);
+  }
+  return { ...card, starting_wages: wp.wages, starting_profits: wp.profits, established_power: wp.established_power };
+}
 
 interface ClassWarBoardProps extends BoardProps<GameState> { }
 
@@ -24,24 +33,6 @@ interface SlotData {
   figureInPlay?: FigureCardInPlay;
   options: MenuOption[];
 }
-
-const OFFICE_NAMES: Record<string, string> = {
-  populist: 'The Populist',
-  centrist: 'The Centrist',
-  opportunist: 'The Opportunist',
-};
-
-const OFFICE_POWER: Record<string, number> = {
-  populist: 1,
-  centrist: 3,
-  opportunist: 2,
-};
-
-const OFFICE_RULES: Record<string, string> = {
-  populist: 'Sides with the class that has more figures in play for a legislative contest',
-  centrist: 'Opposes all legislation from either class',
-  opportunist: 'Opposes all legislation, unless paid $15 to support it',
-};
 
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
   const [boardState, setBoardState] = useState<BoardState>({ mode: 'normal', selectedSlotId: null });
@@ -121,7 +112,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   if (G.turnPhase === TurnPhase.Action && isMyTurn) {
     // Hand cards: action options
     myPlayer.hand.forEach((cardId, idx) => {
-      const card = getCardData(cardId);
+      const card = getAnyCardData(cardId);
       const slotId = `hand-${myClassKey}-${idx}`;
       const options: MenuOption[] = [];
 
@@ -139,10 +130,10 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           options.push(['Make New Demand', () => { moves.playCardFromHand(idx, 'demands[-1]'); handleCloseInspector(); }]);
         }
         if (slot0 !== null) {
-          options.push([`Replace ${getCardData(slot0.id).name} Demand`, () => { moves.playCardFromHand(idx, 'demands[0]'); handleCloseInspector(); }]);
+          options.push([`Replace ${getAnyCardData(slot0.id).name} Demand`, () => { moves.playCardFromHand(idx, 'demands[0]'); handleCloseInspector(); }]);
         }
         if (slot1 !== null) {
-          options.push([`Replace ${getCardData(slot1.id).name} Demand`, () => { moves.playCardFromHand(idx, 'demands[1]'); handleCloseInspector(); }]);
+          options.push([`Replace ${getAnyCardData(slot1.id).name} Demand`, () => { moves.playCardFromHand(idx, 'demands[1]'); handleCloseInspector(); }]);
         }
       } else if (card.card_type === CardType.Institution) {
         const slot0 = myPlayer.institutions[0];
@@ -157,13 +148,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         }
         if (slot0 !== null) {
           options.push([
-            `Replace ${getCardData(slot0.id).name} ($${card.cost})`,
+            `Replace ${getAnyCardData(slot0.id).name} ($${card.cost})`,
             canAfford ? () => { moves.playCardFromHand(idx, 'institutions[0]'); handleCloseInspector(); } : undefined,
           ]);
         }
         if (slot1 !== null) {
           options.push([
-            `Replace ${getCardData(slot1.id).name} ($${card.cost})`,
+            `Replace ${getAnyCardData(slot1.id).name} ($${card.cost})`,
             canAfford ? () => { moves.playCardFromHand(idx, 'institutions[1]'); handleCloseInspector(); } : undefined,
           ]);
         }
@@ -219,7 +210,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       : undefined;
 
   const activeOptions: MenuOption[] = selectedSlot?.options ?? [];
-  const activeCard = selectedSlot?.cardId ? getCardData(selectedSlot.cardId) : undefined;
+  const activeCard = selectedSlot?.cardId ? getAnyCardData(selectedSlot.cardId) : undefined;
 
   // Hand navigation — only available when a hand card is selected in normal mode
   const selectedSlotId = boardState.mode === 'normal' ? boardState.selectedSlotId : null;
@@ -304,7 +295,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             {player.figures.length > 0 && (
               <div className="sidebar-figures-list">
                 {player.figures.map((figure, idx) => {
-                  const figureCard = getCardData(figure.id);
+                  const figureCard = getAnyCardData(figure.id);
                   const slotId = `sidebar-${classKey}-${idx}`;
                   return (
                     <div
@@ -349,7 +340,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           </div>
           <div className="player-area-card-row">
             {displayHand.map((cardId, idx) => {
-              const card = getCardData(cardId);
+              const card = getAnyCardData(cardId);
               const slotId = `hand-${classKey}-${idx}`;
               const isTheorizeSelected = G.turnPhase === TurnPhase.Reproduction
                 && boardState.mode !== 'showingDealtCards'
@@ -386,7 +377,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           </div>
           <div className="player-area-card-row">
             {player.figures.map((figure, idx) => {
-              const card = getCardData(figure.id);
+              const card = getAnyCardData(figure.id);
               const slotId = `figures-${classKey}-${idx}`;
               const statusBanner = figure.in_training
                 ? { line1: 'In Training', line2: '(until end of turn)' }
@@ -418,7 +409,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               {player.institutions.map((institution, i) => (
                 <div key={i} className="card-slot">
                   {institution ? (
-                    <CardComponent card={getCardData(institution.id)} />
+                    <CardComponent card={getAnyCardData(institution.id)} />
                   ) : (
                     <div className="card-slot-placeholder" />
                   )}
@@ -432,7 +423,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               {player.demands.map((demand, i) => (
                 <div key={i} className="card-slot">
                   {demand ? (
-                    <CardComponent card={getCardData(demand.id)} />
+                    <CardComponent card={getAnyCardData(demand.id)} />
                   ) : (
                     <div className="card-slot-placeholder" />
                   )}
@@ -473,11 +464,12 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         <ActionMenuBar
           title={"Plan Strike"}
           options={G.workplaces.map((workplace, index) => {
-            const card = workplace.id.startsWith('empty') ? null : getCardData(workplace.id);
+            const isEmpty = workplace.id.startsWith('empty');
+            const card = isEmpty ? null : makeWorkplaceDisplayCard(workplace);
             const preview = card && <CardComponent card={card} />;
             return [
-              !card ? 'Empty Slot' : workplace.id.replace(/_/g, ' '),
-              !card ? undefined : () => handleSelectStrikeTarget(index),
+              isEmpty ? 'Empty Slot' : card!.name,
+              isEmpty ? undefined : () => handleSelectStrikeTarget(index),
               preview,
             ] as const satisfies MenuOption;
           })}
@@ -489,14 +481,12 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       {/* Office Target Selector — merged into ActionMenuBar */}
       {boardState.mode === 'selectOfficeTarget' && (
         <ActionMenuBar
-          title={`Choose an office for ${getCardData(boardState.figure.id).name} to run for`}
+          title={`Choose an office for ${getAnyCardData(boardState.figure.id).name} to run for`}
           options={G.politicalOffices.map((office, index) => {
-            // TODO: Convert default state figure to a card to allow previewing as a card
-            const officeName = OFFICE_NAMES[office.id] ?? office.id;
-            const card = office.id in allCards ? getCardData(office.id) : undefined
-            const preview = card && <CardComponent card={card} />;;
+            const stateCard = getAnyCardData(office.id);
+            const preview = <CardComponent card={stateCard} />;
             return [
-              officeName,
+              stateCard.name,
               () => handleSelectOfficeTarget(index),
               preview,
             ] as const satisfies MenuOption;
@@ -586,22 +576,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                           <div className="workplace-empty-text">FOR SALE</div>
                         </div>
                       ) : (
-                        <div className="card-component card-color-default">
-                          <div className="card-top-left-block">
-                            <div className="card-name">{workplace.id.replace(/_/g, ' ')}</div>
-                            <div className="card-cost-icon">{workplace.established_power} ⚫️</div>
-                          </div>
-                          <div className="card-bottom-block">
-                            <div className="card-workplace-revenue-container">
-                              <div className="workplace-wages">
-                                <div>Wages: ${workplace.wages}</div>
-                              </div>
-                              <div className="workplace-profits">
-                                <div>Profits: ${workplace.profits}</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
+                        <CardComponent card={makeWorkplaceDisplayCard(workplace)} />
                       )}
                     </div>
                   ))}
@@ -612,29 +587,19 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               <div className="shared-area-section">
                 <div className="shared-area-section-title">Political Offices</div>
                 <div className="offices-section">
-                  {G.politicalOffices.map((office, index) => (
-                    <div key={index} className="office-container">
-                      <div className="office-header">
-                        <div className="office-name">{office.id}</div>
-                        <div className="office-power">{office.exhausted ? '(Exhausted)' : '(Ready)'}</div>
-                      </div>
-                      <div className="card-slot">
-                        <div className="card-component card-color-default">
-                          <div className="card-top-left-block">
-                            <div className="card-name">{OFFICE_NAMES[office.id] ?? office.id}</div>
-                          </div>
-                          <div className="card-top-right-float power-color-established">
-                            <span>{OFFICE_POWER[office.id]} ⚫️</span>
-                          </div>
-                          <div className="card-bottom-block">
-                            <div className="card-rules rules-color-state-figure">
-                              {OFFICE_RULES[office.id]}
-                            </div>
-                          </div>
+                  {G.politicalOffices.map((office, index) => {
+                    const stateCard = getAnyCardData(office.id);
+                    return (
+                      <div key={index} className="office-container">
+                        <div className="card-slot">
+                          <CardComponent
+                            card={stateCard}
+                            statusBanner={office.exhausted ? { line1: 'Exhausted' } : undefined}
+                          />
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>

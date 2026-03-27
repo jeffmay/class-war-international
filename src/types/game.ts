@@ -2,7 +2,8 @@
  * Game state types for Class War: International
  */
 
-import { CardId, DemandId, FigureCardInPlay, InstitutionCardInPlay, DemandCardInPlay, WorkplaceInPlay, StateFigureInPlay, SocialClass } from './cards';
+import { DeckCardID, DemandCardID } from '../data/cards';
+import { FigureCardInPlay, InstitutionCardInPlay, DemandCardInPlay, WorkplaceInPlay, StateFigureCardInPlay, SocialClass } from './cards';
 import { ConflictOutcome, ConflictState } from './conflicts';
 
 export enum TurnPhase {
@@ -13,9 +14,9 @@ export enum TurnPhase {
 
 export interface PlayerState {
   wealth: number;
-  hand: CardId[];
-  deck: CardId[];
-  dustbin: CardId[]; // Discard pile
+  hand: DeckCardID[];
+  deck: DeckCardID[];
+  dustbin: DeckCardID[]; // Discard pile
   institutions: (InstitutionCardInPlay | null)[]; // 2 slots
   demands: (DemandCardInPlay | null)[]; // 2 slots for demand cards
   figures: FigureCardInPlay[];
@@ -41,8 +42,8 @@ export interface GameState {
 
   // Shared board state
   workplaces: WorkplaceInPlay[]; // 3 workplace slots
-  politicalOffices: StateFigureInPlay[]; // 3 political offices
-  laws: DemandId[]; // Passed legislation
+  politicalOffices: StateFigureCardInPlay[]; // 3 political offices
+  laws: DemandCardID[]; // Passed legislation
 
   // Conflict state
   activeConflict?: ConflictState;

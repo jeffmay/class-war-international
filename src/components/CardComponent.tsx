@@ -1,8 +1,9 @@
 import React from 'react';
-import { CardData, CardType, SocialClass } from '../types/cards';
+import { getAnyCardData } from '../data/cards';
+import { CardSlotEntity, CardType, SocialClass, WorkplaceForSale } from '../types/cards';
 
 interface CardComponentProps {
-  card: CardData;
+  card: CardSlotEntity;
   showAsCardBack?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
@@ -19,7 +20,68 @@ export const CardComponent: React.FC<CardComponentProps> = ({
   className = '',
   statusBanner,
 }) => {
-  const getCardColorClass = () => {
+  if (card === WorkplaceForSale) {
+    // TODO: Migrate the for sale logic from Board
+    return <div>FOR SALE</div>
+  }
+
+  const interactionClass = onClick ? 'interactive' : 'non-interactive';
+
+  const statusBannerEl = statusBanner && (
+    <div className="card-status-banner">
+      <div className="card-status-banner-line1">{statusBanner.line1}</div>
+      {statusBanner.line2 && (
+        <div className="card-status-banner-line2">{statusBanner.line2}</div>
+      )}
+    </div>
+  );
+
+  // ── Card back ───────────────────────────────────────────────────────────────
+  if (showAsCardBack) {
+    return (
+      <div
+        className={['card-component', 'card-back', interactionClass, className].filter(Boolean).join(' ')}
+        onClick={onClick}
+        onDoubleClick={onDoubleClick}
+      >
+        <div className="card-back-content">
+          <span className="card-back-question">?</span>
+        </div>
+      </div>
+    );
+  }
+
+  const cardData = card.in_play ? getAnyCardData(card.id) : card;
+  const cardProps = card.in_play ? card : undefined;
+
+  // ── State figure (board-only: political offices) ────────────────────────────
+  // Uses card_type: CardType.StateFigure as the discriminator.
+  // TypeScript narrows to StateFigureCardData inside this block.
+  if (cardData.card_type === CardType.DefaultStateFigure) {
+    return (
+      <div
+        className={['card-component', 'card-color-default', interactionClass, className].filter(Boolean).join(' ')}
+        onClick={onClick}
+        onDoubleClick={onDoubleClick}
+      >
+        {statusBannerEl}
+        <div className="card-top-left-block">
+          <div className="card-name">{cardData.name}</div>
+        </div>
+        <div className="card-top-right-float power-color-established">
+          {cardData.established_power} ⚫️
+        </div>
+        <div className="card-bottom-block">
+          <div className="card-rules rules-color-state-figure">{cardData.rules}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Player cards (CardData) ─────────────────────────────────────────────────
+  // TypeScript narrows `card` to CardData after the StateFigure branch above.
+
+  const getCardColorClass = (): string => {
     switch (card.card_type) {
       case CardType.Demand:
         return card.social_class === SocialClass.CapitalistClass
@@ -30,129 +92,98 @@ export const CardComponent: React.FC<CardComponentProps> = ({
     }
   };
 
-  const cardClasses = [
-    'card-component',
-    showAsCardBack ? 'card-back' : getCardColorClass(),
-    onClick ? 'interactive' : 'non-interactive',
-    className,
-  ]
+  const getCardIcon = (): string => {
+    switch (card.card_type) {
+      case CardType.Figure: return '👤';
+      case CardType.Workplace: return '🏭';
+      case CardType.Tactic: return '⚠️';
+      case CardType.Institution: return '🏠';
+      case CardType.Demand: return '💬';
+      default: return '';
+    }
+  };
+
+  const getRulesColorClass = (): string => {
+    switch (card.card_type) {
+      case CardType.Figure:
+        return card.social_class === SocialClass.CapitalistClass
+          ? 'rules-color-figure-capitalist'
+          : 'rules-color-figure-working';
+      case CardType.Tactic: return 'rules-color-tactic';
+      case CardType.Institution: return 'rules-color-institution';
+      case CardType.Demand: return 'rules-color-demand';
+      default: return '';
+    }
+  };
+
+  const cardClasses = ['card-component', getCardColorClass(), interactionClass, className]
     .filter(Boolean)
     .join(' ');
 
-  if (showAsCardBack) {
-    return (
-      <div className={cardClasses} onClick={onClick} onDoubleClick={onDoubleClick}>
-        <div className="card-back-content">
-          <span className="card-back-question">?</span>
-        </div>
-      </div>
-    );
-  }
-
-  const getCardIcon = () => {
-    switch (card.card_type) {
-      case CardType.Figure:
-        return '👤';
-      case CardType.Workplace:
-        return '🏭';
-      case CardType.Tactic:
-        return '⚠️';
-      case CardType.Institution:
-        return '🏠';
-      case CardType.Demand:
-        return '💬';
-      default:
-        return '';
-    }
-  };
-
-  const getBorderClass = () => {
-    return card.social_class === SocialClass.CapitalistClass
-      ? 'demand-border-capitalist'
-      : 'demand-border-working';
-  };
-
-  const getStarColorClass = () => {
-    return card.social_class === SocialClass.CapitalistClass
-      ? 'star-color-capitalist'
-      : 'star-color-working';
-  };
-
-  const getRulesColorClass = () => {
-    if (card.card_type === CardType.Figure) {
-      return card.social_class === SocialClass.CapitalistClass
-        ? 'rules-color-figure-capitalist'
-        : 'rules-color-figure-working';
-    }
-    if (card.card_type === CardType.Tactic) {
-      return 'rules-color-tactic';
-    }
-    if (card.card_type === CardType.Institution) {
-      return 'rules-color-institution';
-    }
-    if (card.card_type === CardType.Demand) {
-      return 'rules-color-demand';
-    }
-    return '';
-  };
-
   return (
     <div className={cardClasses} onClick={onClick} onDoubleClick={onDoubleClick}>
-      {/* Status Banner Overlay */}
-      {statusBanner && (
-        <div className="card-status-banner">
-          <div className="card-status-banner-line1">{statusBanner.line1}</div>
-          {statusBanner.line2 && (
-            <div className="card-status-banner-line2">{statusBanner.line2}</div>
-          )}
-        </div>
-      )}
+      {statusBannerEl}
+
       {/* Top-left: Name and Cost */}
       <div className="card-top-left-block">
-        <div className="card-name">{card.name}</div>
-        {
-          <div className="card-cost-icon">
-            {getCardIcon()}{card.cost > 0 && ` $${card.cost}`}
-          </div>
-        }
+        <div className="card-name">{cardData.name}</div>
+        <div className="card-cost-icon">
+          {getCardIcon()}{cardData.cost > 0 && ` $${cardData.cost}`}
+        </div>
       </div>
 
-      {/* Top-right: Power indicators */}
-      {card.card_type === CardType.Demand ? (
-        <div className={`card-top-right-float ${getBorderClass()}`}>
-          <span className={`demand-star ${getStarColorClass()}`}>★</span>
+      {/* Top-right: Power indicators — use card_type discriminators only */}
+      {cardData.card_type === CardType.Demand ? (
+        <div className={`card-top-right-float ${card.social_class === SocialClass.CapitalistClass ? 'demand-border-capitalist' : 'demand-border-working'}`}>
+          <span className={`demand-star ${card.social_class === SocialClass.CapitalistClass ? 'star-color-capitalist' : 'star-color-working'}`}>★</span>
         </div>
       ) : (
         <>
-          {(card.card_type === CardType.Figure || (card.card_type === CardType.Tactic && 'dice' in card)) &&
-            card.dice &&
-            card.dice > 0 && (
-              <div className="card-top-right-float power-color-dice">
-                {card.dice} 🎲
+          {cardData.card_type === CardType.Figure && cardData.dice > 0 && (
+            <div className="card-top-right-float power-color-dice">
+              {cardData.dice} 🎲
+            </div>
+          )}
+          {cardData.card_type === CardType.Tactic && cardData.dice !== undefined && cardData.dice > 0 && (
+            <div className="card-top-right-float power-color-dice">
+              {cardData.dice} 🎲
+            </div>
+          )}
+          {(cardData.card_type === CardType.Institution || cardData.card_type === CardType.Workplace) &&
+            cardData.established_power > 0 && (
+              <div className="card-top-right-float power-color-established">
+                <span className="institution-power">{cardData.established_power} ⚫️</span>
               </div>
             )}
-          {(card.card_type === CardType.Institution ||
-            card.card_type === CardType.Workplace ||
-            (card.card_type === CardType.Tactic && 'established_power' in card)) &&
-            'established_power' in card &&
-            card.established_power &&
-            card.established_power > 0 && (
+          {cardData.card_type === CardType.Tactic &&
+            cardData.established_power !== undefined &&
+            cardData.established_power > 0 && (
               <div className="card-top-right-float power-color-established">
-                <span className="institution-power">
-                  {card.established_power} ⚫️
-                </span>
+                <span className="institution-power">{cardData.established_power} ⚫️</span>
               </div>
             )}
         </>
       )}
 
-      {/* Bottom: Quote and Rules */}
+      {/* Bottom block */}
       <div className="card-bottom-block">
-        {card.quote && <div className="card-quote">{card.quote}</div>}
-        {card.rules && (
-          <div className={`card-rules ${getRulesColorClass()}`}>
-            {card.rules}
+        {/* Workplace: wages/profits panel */}
+        {cardProps?.card_type === CardType.Workplace && (
+          <div className="card-workplace-revenue-container">
+            <div className="workplace-wages">
+              <div>Wages: ${cardProps.wages}</div>
+            </div>
+            <div className="workplace-profits">
+              <div>Profits: ${cardProps.profits}</div>
+            </div>
           </div>
+        )}
+        {/* Quote and rules for non-workplace cards */}
+        {cardData.card_type !== CardType.Workplace && cardData.quote && (
+          <div className="card-quote">{cardData.quote}</div>
+        )}
+        {cardData.card_type !== CardType.Workplace && cardData.rules && (
+          <div className={`card-rules ${getRulesColorClass()}`}>{cardData.rules}</div>
         )}
       </div>
     </div>

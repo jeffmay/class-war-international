@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { CardData, SocialClass } from '../types/cards';
+import { CardSlotEntity, SocialClass } from '../types/cards';
 import { CardComponent } from './CardComponent';
 
 /**
@@ -22,7 +22,7 @@ export interface ActionMenuBarProps {
   /** Optional title shown above the actions */
   title?: string;
   /** Card to display in the inspector (optional) */
-  card?: CardData;
+  card?: CardSlotEntity;
   /** Pre-computed list of [label, handler, preview?] tuples */
   options: MenuOption[];
   playerClass: SocialClass;

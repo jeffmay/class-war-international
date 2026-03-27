@@ -2,6 +2,8 @@
  * Card type definitions for Class War: International
  */
 
+import { CardID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID } from "../data/cards";
+
 export enum SocialClass {
   CapitalistClass = 'Capitalist Class',
   WorkingClass = 'Working Class'
@@ -13,36 +15,69 @@ export enum CardType {
   Demand = 'Demand',
   Workplace = 'Workplace',
   Tactic = 'Tactic',
+  /** Political offices and other default state entities — never in a player's deck/hand/figures */
+  DefaultStateFigure = 'StateFigure',
 }
 
-export type CardId = string;
-export type FigureId = string;
-export type InstitutionId = string;
-export type DemandId = string;
-export type WorkplaceId = string;
-export type TacticId = string;
+// TODO: Use string literal types here?
+// export type CardId = string;
+// export type FigureId = string;
+// export type InstitutionId = string;
+// export type DemandId = string;
+// export type WorkplaceId = string;
+// export type TacticId = string;
+
+/** The base card type that contains properties that both cards in play and card data must implement. */
+export interface BaseCard {
+  id: string;
+  card_type: CardType;
+  social_class?: SocialClass;
+  in_play?: boolean;
+}
+
+// Mutable qualities attached to a card that has been activated (aka "in play")
+export interface BaseCardInPlay extends BaseCard {
+  id: CardID;
+  in_play: true;
+}
 
 // Base card data (immutable card definitions)
-export interface BaseCardData {
-  id: CardId;
+export interface BaseCardData extends BaseCard {
+  /** This card can never be in play */
+  in_play?: undefined;
+  /** The name of a card must be defined for the card data */
   name: string;
-  social_class: SocialClass;
-  card_type: CardType;
-  cost: number;
-  quote: string;
+  /** A humorous quote related to what is on the card */
+  quote?: string;
+  /** A description of the rules associated with this card */
   rules?: string;
+  /** The cost to activate the card, if playable */
+  cost?: number;
+}
+
+// TODO: This type is really more for convenience. The game should be able to handle these properties being empty.
+export interface BaseDeckCardData extends BaseCardData {
+  /** Social class must be defined for a deck card to know which player it can belong to */
+  social_class: SocialClass
+  /** A deck card must be playable from a player's hand */
+  cost: number;
+  /**
+   * The quantity of cards in the standard deck.
+   * 
+   * @TODO externalize this to allow for different starting decks.
+   */
   qty: number;
 }
 
 // Figure cards
-export interface FigureCardData extends BaseCardData {
+export interface FigureCardData extends BaseDeckCardData {
   card_type: CardType.Figure;
   dice: number;
   hero: boolean;
 }
 
-export interface FigureCardInPlay {
-  id: FigureId;
+export interface FigureCardInPlay extends BaseCardInPlay {
+  id: FigureCardID;
   card_type: CardType.Figure;
   exhausted: boolean;
   in_training: boolean;
@@ -50,39 +85,51 @@ export interface FigureCardInPlay {
 }
 
 // Institution cards
-export interface InstitutionCardData extends BaseCardData {
+export interface InstitutionCardData extends BaseDeckCardData {
   card_type: CardType.Institution;
   established_power: number;
 }
 
-export interface InstitutionCardInPlay {
-  id: InstitutionId;
+export interface InstitutionCardInPlay extends BaseCardInPlay {
+  id: InstitutionCardID;
   card_type: CardType.Institution;
 }
 
 // Demand cards (legislation)
-export interface DemandCardData extends BaseCardData {
+export interface DemandCardData extends BaseDeckCardData {
   card_type: CardType.Demand;
-  cost: 0;
+  cost: 0; // demands are always free to make
   demand_power_basis: string;
 }
 
-export interface DemandCardInPlay {
-  id: DemandId;
+export interface DemandCardInPlay extends BaseCardInPlay {
+  id: DemandCardID;
   card_type: CardType.Demand;
 }
 
-// Workplace cards
-export interface WorkplaceCardData extends BaseCardData {
+// Workplace cards — all workplaces (player-purchased and default board workplaces)
+// belong to the Capitalist Class.  Default workplaces use qty: 0 so they never
+// appear in a generated deck, but they are structurally valid WorkplaceCardData.
+export interface WorkplaceCardData extends BaseDeckCardData {
   card_type: CardType.Workplace;
   starting_wages: number;
   starting_profits: number;
   established_power: number;
 }
 
-export interface WorkplaceCardInPlay {
-  id: WorkplaceId;
+export interface WorkplaceCardInPlay extends BaseCardInPlay {
+  id: WorkplaceCardID;
   card_type: CardType.Workplace;
+  wages: number;
+  profits: number;
+  unionized: boolean;
+  established_power: number;
+}
+
+// TODO: Replace this with WorkplaceCardInPlay and move the slot index to the outer container of this type
+export interface WorkplaceInPlay {
+  id: string;
+  workplaceId?: WorkplaceCardID; // If a workplace card was played here
   wages: number;
   profits: number;
   unionized: boolean;
@@ -90,60 +137,73 @@ export interface WorkplaceCardInPlay {
 }
 
 // Tactic cards
-export interface TacticCardData extends BaseCardData {
+export interface TacticCardData extends BaseDeckCardData {
   card_type: CardType.Tactic;
   dice?: number;
   established_power?: number;
 }
 
-export interface TacticCardInPlay {
-  id: TacticId;
+export interface TacticCardInPlay extends BaseCardInPlay {
+  id: TacticCardID;
   card_type: CardType.Tactic;
 }
 
-// Union types
-export type CardData =
+// Union of all player-deck-legal card data types
+export type DeckCardData =
   | FigureCardData
   | InstitutionCardData
   | DemandCardData
   | WorkplaceCardData
   | TacticCardData;
 
-export type CardInPlay =
+export type DeckCardInPlay =
   | FigureCardInPlay
   | InstitutionCardInPlay
   | DemandCardInPlay
   | WorkplaceCardInPlay
   | TacticCardInPlay;
 
-// Default entities (non-card entities)
-export interface DefaultStateFigureData {
+// ─── Board-only card types (never in a player's area: either hand or played cards) ───────
+
+export interface BaseBoardCardData extends BaseCardData {
   id: string;
   name: string;
+}
+
+/**
+ * A political office or other default state figure that is always on the board.
+ * Uses card_type: CardType.StateFigure to distinguish it from all player card types.
+ */
+export interface StateFigureCardData extends BaseBoardCardData {
+  card_type: CardType.DefaultStateFigure;
   established_power: number;
   rules: string;
 }
 
-export interface StateFigureInPlay {
-  id: string;
-  figureId?: FigureId; // If a player figure was elected
+// TODO: Move the id to the container type and replace with figureId
+export interface StateFigureCardInPlay extends BaseCardInPlay {
+  card_type: CardType.DefaultStateFigure;
+  figureId?: FigureCardID; // If a player figure was elected
   exhausted: boolean;
 }
 
-export interface DefaultWorkplaceData {
-  id: string;
-  name: string;
-  starting_wages: number;
-  starting_profits: number;
-  established_power: number;
-  quote: string;
-}
+/** All board-only card data types */
+export type BoardCardData = StateFigureCardData;
 
-export interface WorkplaceInPlay {
-  id: string;
-  workplaceId?: WorkplaceId; // If a workplace card was played here
-  wages: number;
-  profits: number;
-  unionized: boolean;
-  established_power: number;
-}
+/** All board-only cards in play */
+export type BoardCardInPlay = StateFigureCardInPlay;
+
+/** Every card that can be rendered by CardComponent */
+export type AnyCardData = DeckCardData | BoardCardData;
+
+/** Every card that can possibly be in play, whether by default or activated by a player */
+export type AnyCardInPlay = DeckCardInPlay | StateFigureCardInPlay;
+
+/** Anything that can be viewed like a card */
+export type AnyCard = AnyCardData | AnyCardInPlay;
+
+export const WorkplaceForSale = 'workplace_for_sale' as const;
+export type WorkplaceForSale = typeof WorkplaceForSale;
+
+/** A valid entity for a card slot: either a card or a placeholder for a workplace */
+export type CardSlotEntity = AnyCard | WorkplaceForSale;

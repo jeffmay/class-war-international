@@ -6,7 +6,7 @@
  * None of these functions shuffle or otherwise randomise state.
  */
 
-import { buildDeck } from '../data/cards';
+import { buildDeck, DeckCardID } from '../data/cards';
 import { SocialClass } from '../types/cards';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
 import { ClassWarGame, Moves, setup } from './ClassWarGame';
@@ -66,9 +66,9 @@ export function makeActionPhaseState(
  * Throws if `cardId` is not present in `fullDeck`.
  */
 export function withCardInHand(
-  fullDeck: string[],
-  cardId: string,
-): { hand: string[]; deck: string[] } {
+  fullDeck: DeckCardID[],
+  cardId: DeckCardID,
+): { hand: DeckCardID[]; deck: DeckCardID[] } {
   const cardIdx = fullDeck.indexOf(cardId);
   if (cardIdx === -1) {
     throw new Error(`Card "${cardId}" not found in deck`);
@@ -89,11 +89,11 @@ export function withCardInHand(
  * is processed (so duplicates are safe as long as enough copies exist).
  */
 export function withCardsInHand(
-  fullDeck: string[],
-  cardIds: string[],
-): { hand: string[]; deck: string[] } {
+  fullDeck: DeckCardID[],
+  cardIds: DeckCardID[],
+): { hand: DeckCardID[]; deck: DeckCardID[] } {
   let remaining = [...fullDeck];
-  const handFront: string[] = [];
+  const handFront: DeckCardID[] = [];
 
   for (const cardId of cardIds) {
     const idx = remaining.indexOf(cardId);

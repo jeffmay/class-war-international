@@ -14,6 +14,7 @@ import { clientFromFixture, makeActionPhaseState } from './generate';
 const readyWcFigure: FigureCardInPlay = {
   id: 'cashier',
   card_type: CardType.Figure,
+  in_play: true,
   exhausted: false,
   in_training: false,
 };
@@ -21,6 +22,7 @@ const readyWcFigure: FigureCardInPlay = {
 const exhaustedWcFigure: FigureCardInPlay = {
   id: 'cashier',
   card_type: CardType.Figure,
+  in_play: true,
   exhausted: true,
   in_training: false,
 };
@@ -28,6 +30,7 @@ const exhaustedWcFigure: FigureCardInPlay = {
 const inTrainingWcFigure: FigureCardInPlay = {
   id: 'cashier',
   card_type: CardType.Figure,
+  in_play: true,
   exhausted: false,
   in_training: true,
 };
@@ -36,6 +39,7 @@ const inTrainingWcFigure: FigureCardInPlay = {
 const readyCcFigure: FigureCardInPlay = {
   id: 'manager',
   card_type: CardType.Figure,
+  in_play: true,
   exhausted: false,
   in_training: false,
 };

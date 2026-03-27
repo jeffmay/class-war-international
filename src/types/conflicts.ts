@@ -2,7 +2,7 @@
  * Conflict state types for Class War: International
  */
 
-import { FigureCardInPlay, StateFigureInPlay, WorkplaceInPlay } from './cards';
+import { FigureCardInPlay, StateFigureCardInPlay, WorkplaceInPlay } from './cards';
 import { SocialClass } from './cards';
 
 export enum ConflictType {
@@ -22,7 +22,7 @@ export interface PowerStats {
 }
 
 /** Cards that can participate in a conflict */
-export type ConflictCardInPlay = FigureCardInPlay | StateFigureInPlay;
+export type ConflictCardInPlay = FigureCardInPlay | StateFigureCardInPlay;
 
 export interface BaseConflictState {
   conflictType: ConflictType;
@@ -45,7 +45,7 @@ export interface StrikeConflictState extends BaseConflictState {
 export interface ElectionConflictState extends BaseConflictState {
   conflictType: ConflictType.Election;
   targetOfficeIndex: number;
-  targetIncumbent: StateFigureInPlay;
+  targetIncumbent: StateFigureCardInPlay;
   candidate: FigureCardInPlay;
 }
 
