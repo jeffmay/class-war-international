@@ -2,6 +2,16 @@ import React from 'react';
 import { getAnyCardData } from '../data/cards';
 import { CardSlotEntity, CardType, SocialClass, WorkplaceForSale } from '../types/cards';
 
+/**
+ * Overrides the default interactive/non-interactive border color.
+ * - 'hand': yellow — card is in the current player's hand
+ * - 'in-play': green — activated figure in play
+ * - 'training': light grey — figure in training
+ * - 'exhausted': red — exhausted figure
+ * - 'other': dark grey — opponent card, shared board card, or non-actionable card
+ */
+export type CardBorderVariant = 'hand' | 'in-play' | 'training' | 'exhausted' | 'other';
+
 interface CardComponentProps {
   card: CardSlotEntity;
   showAsCardBack?: boolean;
@@ -10,6 +20,8 @@ interface CardComponentProps {
   className?: string;
   /** When set, renders a status overlay banner bisecting the card */
   statusBanner?: { line1: string; line2?: string };
+  /** When set, overrides the default interactive/non-interactive border color */
+  borderVariant?: CardBorderVariant;
 }
 
 export const CardComponent: React.FC<CardComponentProps> = ({
@@ -19,6 +31,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
   onDoubleClick,
   className = '',
   statusBanner,
+  borderVariant,
 }) => {
   if (card === WorkplaceForSale) {
     // TODO: Migrate the for sale logic from Board
@@ -26,6 +39,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
   }
 
   const interactionClass = onClick ? 'interactive' : 'non-interactive';
+  const borderVariantClass = borderVariant ? `card-border-${borderVariant}` : '';
 
   const statusBannerEl = statusBanner && (
     <div className="card-status-banner">
@@ -41,6 +55,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
     return (
       <div
         className={['card-component', 'card-back', interactionClass, className].filter(Boolean).join(' ')}
+        data-testid="card-component"
         onClick={onClick}
         onDoubleClick={onDoubleClick}
       >
@@ -60,7 +75,8 @@ export const CardComponent: React.FC<CardComponentProps> = ({
   if (cardData.card_type === CardType.DefaultStateFigure) {
     return (
       <div
-        className={['card-component', 'card-color-default', interactionClass, className].filter(Boolean).join(' ')}
+        className={['card-component', 'card-color-default', interactionClass, borderVariantClass, className].filter(Boolean).join(' ')}
+        data-testid="card-component"
         onClick={onClick}
         onDoubleClick={onDoubleClick}
       >
@@ -116,12 +132,12 @@ export const CardComponent: React.FC<CardComponentProps> = ({
     }
   };
 
-  const cardClasses = ['card-component', getCardColorClass(), interactionClass, className]
+  const cardClasses = ['card-component', getCardColorClass(), interactionClass, borderVariantClass, className]
     .filter(Boolean)
     .join(' ');
 
   return (
-    <div className={cardClasses} onClick={onClick} onDoubleClick={onDoubleClick}>
+    <div className={cardClasses} data-testid="card-component" onClick={onClick} onDoubleClick={onDoubleClick}>
       {statusBannerEl}
 
       {/* Top-left: Name and Cost */}

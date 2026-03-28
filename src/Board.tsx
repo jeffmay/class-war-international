@@ -6,6 +6,7 @@ import { BoardProps } from 'boardgame.io/react';
 import React, { useEffect, useState } from 'react';
 import { ActionMenuBar, MenuOption } from './components/ActionMenuBar';
 import { CardComponent } from './components/CardComponent';
+import { DealResultModal } from './components/DealResultModal';
 import { TurnStartModal } from './components/StartGameScreen';
 import { getAnyCardData } from './data/cards';
 import { CardType, FigureCardInPlay, SocialClass, WorkplaceCardData, WorkplaceInPlay } from './types/cards';
@@ -26,7 +27,7 @@ type BoardState =
   | { mode: 'normal'; selectedSlotId: string | null }
   | { mode: 'selectStrikeTarget'; figure: FigureCardInPlay }
   | { mode: 'selectOfficeTarget'; figure: FigureCardInPlay }
-  | { mode: 'showingDealtCards'; newHandIndexes: number[] };
+  | { mode: 'showingDealtCards'; theorizedCardIds: string[]; newCardIds: string[]; modalDismissed: boolean };
 
 interface SlotData {
   cardId?: string;
@@ -91,12 +92,26 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     setBoardState({ mode: 'normal', selectedSlotId: null });
   };
 
-  // Preview the new hand after theorizing — transitions to showingDealtCards mode
+  // Toggle a hand card in/out of the theorize selection
+  const handleToggleTheorize = (idx: number) => {
+    setTheorizeSelectedIndexes(indexes => {
+      if (indexes.includes(idx)) {
+        return indexes.filter(i => i !== idx);
+      }
+      if (indexes.length < myPlayer.theorizeLimit) {
+        return [...indexes, idx];
+      }
+      return indexes;
+    });
+  };
+
+  // Show the deal result modal — does NOT yet execute the move
   const handleFinishTheorizing = () => {
     const remainingHand = myPlayer.hand.filter((_, i) => !theorizeSelectedIndexes.includes(i));
     const drawCount = myPlayer.maxHandSize - remainingHand.length;
-    const newHandIndexes = Array.from({ length: drawCount }, (_, i) => remainingHand.length + i);
-    setBoardState({ mode: 'showingDealtCards', newHandIndexes });
+    const theorizedCardIds = theorizeSelectedIndexes.map(i => myPlayer.hand[i]);
+    const newCardIds = myPlayer.deck.slice(0, drawCount);
+    setBoardState({ mode: 'showingDealtCards', theorizedCardIds, newCardIds, modalDismissed: false });
   };
 
   // Actually end the turn: discard theorize cards, draw, switch players
@@ -179,29 +194,16 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       }
       slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options });
     });
-
-    // Sidebar figures for both players (inspect only)
-    Object.values(SocialClass).forEach((socialClass) => {
-      const classKey = socialClass === SocialClass.WorkingClass ? 'wc' : 'cc';
-      G.players[socialClass].figures.forEach((figure, idx) => {
-        const slotId = `sidebar-${classKey}-${idx}`;
-        slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options: [] });
-      });
-    });
   }
 
-  if (G.turnPhase === TurnPhase.Reproduction && isMyTurn) {
-    // Hand cards: Theorize option
-    myPlayer.hand.forEach((cardId, idx) => {
-      const slotId = `hand-${myClassKey}-${idx}`;
-      const isSelected = theorizeSelectedIndexes.includes(idx);
-      const canAdd = !isSelected && theorizeSelectedIndexes.length < myPlayer.theorizeLimit;
-      const options: MenuOption[] = isSelected
-        ? [['Remove from Theorize', () => { setTheorizeSelectedIndexes(indexes => indexes.filter(i => i !== idx)); handleCloseInspector(); }]]
-        : [['Theorize', canAdd ? () => { setTheorizeSelectedIndexes(indexes => [...indexes, idx]); handleCloseInspector(); } : undefined]];
-      slotData.set(slotId, { cardId, options });
+  // Sidebar figures for both players — available in all phases for inspection
+  Object.values(SocialClass).forEach((socialClass) => {
+    const classKey = socialClass === SocialClass.WorkingClass ? 'wc' : 'cc';
+    G.players[socialClass].figures.forEach((figure, idx) => {
+      const slotId = `sidebar-${classKey}-${idx}`;
+      slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options: [] });
     });
-  }
+  });
 
   // Derive active menu content from selected slot
   const selectedSlot =
@@ -235,7 +237,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   // Status text
   const statusText = (() => {
     if (!isMyTurn) return `Waiting for ${currentClass} player...`;
-    if (boardState.mode === 'showingDealtCards') return 'Click "End Turn" to confirm new cards and switch players.';
+    if (boardState.mode === 'showingDealtCards' && boardState.modalDismissed) return 'Click "End Turn" to confirm new cards and switch players.';
     if (G.turnPhase === TurnPhase.Action && boardState.mode === 'normal' && boardState.selectedSlotId === null) {
       return 'Select a card to see available actions';
     }
@@ -261,18 +263,6 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       return sum + (socialClass === SocialClass.WorkingClass ? wp.wages : wp.profits);
     }, 0);
   };
-
-  // Preview hand for showingDealtCards mode
-  const previewHand: string[] | null =
-    boardState.mode === 'showingDealtCards'
-      ? [
-        ...myPlayer.hand.filter((_, i) => !theorizeSelectedIndexes.includes(i)),
-        ...myPlayer.deck.slice(
-          0,
-          myPlayer.maxHandSize - myPlayer.hand.filter((_, i) => !theorizeSelectedIndexes.includes(i)).length,
-        ),
-      ]
-      : null;
 
   // Sidebar
   const renderSidebar = () => (
@@ -324,8 +314,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     const classKey = myClassKey;
     const playerId = isWC ? '0' : '1';
 
-    // When showing dealt cards, use previewHand for display
-    const displayHand = previewHand ?? player.hand;
+    const isReproduction = G.turnPhase === TurnPhase.Reproduction && isMyTurn;
+    const theorizeAtLimit = theorizeSelectedIndexes.length >= myPlayer.theorizeLimit;
 
     return (
       <div className={`player-area player-area-${isWC ? 'working-class' : 'capitalist-class'} ${ctx.currentPlayer === playerId ? 'current-player' : ''}`}>
@@ -336,17 +326,33 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         {/* Hand Section */}
         <div className="player-area-section">
           <div className="player-area-section-title">
-            Hand ({displayHand.length}/{player.maxHandSize})
+            Hand ({player.hand.length}/{player.maxHandSize})
           </div>
           <div className="player-area-card-row">
-            {displayHand.map((cardId, idx) => {
+            {player.hand.map((cardId, idx) => {
               const card = getAnyCardData(cardId);
               const slotId = `hand-${classKey}-${idx}`;
-              const isTheorizeSelected = G.turnPhase === TurnPhase.Reproduction
-                && boardState.mode !== 'showingDealtCards'
-                && theorizeSelectedIndexes.includes(idx);
-              const isNewlyDealt = boardState.mode === 'showingDealtCards'
-                && boardState.newHandIndexes.includes(idx);
+
+              if (isReproduction) {
+                // During Reproduction: click-to-theorize, no ActionBar
+                const isSelected = theorizeSelectedIndexes.includes(idx);
+                const theorizeClass = isSelected
+                  ? 'card-theorize-selected'
+                  : theorizeAtLimit
+                    ? 'card-theorize-blocked'
+                    : 'card-theorize-available';
+                const banner = isSelected ? { line1: 'Send to Dustbin' } : undefined;
+                return (
+                  <CardComponent
+                    key={idx}
+                    card={card}
+                    onClick={() => handleToggleTheorize(idx)}
+                    statusBanner={banner}
+                    className={theorizeClass}
+                  />
+                );
+              }
+
               const slot = slotData.get(slotId);
               // Double-click performs single enabled option
               const enabledHandlers = slot?.options
@@ -357,13 +363,9 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 <CardComponent
                   key={idx}
                   card={card}
-                  onClick={boardState.mode === 'showingDealtCards' ? undefined : () => handleSelectSlot(slotId)}
-                  onDoubleClick={boardState.mode === 'showingDealtCards' ? undefined : handleDoubleClick}
-                  className={
-                    isTheorizeSelected ? 'card-theorize-selected'
-                      : isNewlyDealt ? 'card-newly-dealt'
-                        : undefined
-                  }
+                  onClick={() => handleSelectSlot(slotId)}
+                  onDoubleClick={handleDoubleClick}
+                  borderVariant="hand"
                 />
               );
             })}
@@ -384,12 +386,16 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 : figure.exhausted
                   ? { line1: 'Exhausted', line2: '(until next turn)' }
                   : undefined;
+              const borderVariant = figure.in_training ? 'training' as const
+                : figure.exhausted ? 'exhausted' as const
+                  : 'in-play' as const;
               return (
                 <CardComponent
                   key={idx}
                   card={card}
                   onClick={G.turnPhase === TurnPhase.Action ? () => handleSelectSlot(slotId) : undefined}
                   statusBanner={statusBanner}
+                  borderVariant={borderVariant}
                 />
               );
             })}
@@ -409,7 +415,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               {player.institutions.map((institution, i) => (
                 <div key={i} className="card-slot">
                   {institution ? (
-                    <CardComponent card={getAnyCardData(institution.id)} />
+                    <CardComponent card={getAnyCardData(institution.id)} borderVariant="in-play" />
                   ) : (
                     <div className="card-slot-placeholder" />
                   )}
@@ -423,7 +429,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               {player.demands.map((demand, i) => (
                 <div key={i} className="card-slot">
                   {demand ? (
-                    <CardComponent card={getAnyCardData(demand.id)} />
+                    <CardComponent card={getAnyCardData(demand.id)} borderVariant="in-play" />
                   ) : (
                     <div className="card-slot-placeholder" />
                   )}
@@ -447,6 +453,16 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         />
       )}
 
+      {/* Deal Result Modal - shown after theorizing */}
+      {boardState.mode === 'showingDealtCards' && !boardState.modalDismissed && (
+        <DealResultModal
+          theorizedCards={boardState.theorizedCardIds.map(id => getAnyCardData(id))}
+          newCards={boardState.newCardIds.map(id => getAnyCardData(id))}
+          onEndTurn={handleEndTurn}
+          onClose={() => setBoardState({ ...boardState, modalDismissed: true })}
+        />
+      )}
+
       {/* Action Menu Bar - normal card inspector */}
       {boardState.mode === 'normal' && (activeOptions.length > 0 || activeCard) && (
         <ActionMenuBar
@@ -466,7 +482,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           options={G.workplaces.map((workplace, index) => {
             const isEmpty = workplace.id.startsWith('empty');
             const card = isEmpty ? null : makeWorkplaceDisplayCard(workplace);
-            const preview = card && <CardComponent card={card} />;
+            const preview = card && <CardComponent card={card} borderVariant="other" />;
             return [
               isEmpty ? 'Empty Slot' : card!.name,
               isEmpty ? undefined : () => handleSelectStrikeTarget(index),
@@ -484,7 +500,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           title={`Choose an office for ${getAnyCardData(boardState.figure.id).name} to run for`}
           options={G.politicalOffices.map((office, index) => {
             const stateCard = getAnyCardData(office.id);
-            const preview = <CardComponent card={stateCard} />;
+            const preview = <CardComponent card={stateCard} borderVariant="other" />;
             return [
               stateCard.name,
               () => handleSelectOfficeTarget(index),
@@ -529,11 +545,12 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               className="game-finish-theorizing-button"
               onClick={handleFinishTheorizing}
             >
-              ⏭ Finish Theorizing
-              {theorizeSelectedIndexes.length > 0 && ` (${theorizeSelectedIndexes.length})`}
+              {theorizeSelectedIndexes.length === 0
+                ? '⏭ Skip Theorizing'
+                : `⏭ Theorize Cards (${theorizeSelectedIndexes.length})`}
             </button>
           )}
-          {isMyTurn && G.turnPhase === TurnPhase.Reproduction && boardState.mode === 'showingDealtCards' && (
+          {isMyTurn && boardState.mode === 'showingDealtCards' && boardState.modalDismissed && (
             <button
               className="game-end-turn-button"
               onClick={handleEndTurn}
@@ -576,7 +593,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                           <div className="workplace-empty-text">FOR SALE</div>
                         </div>
                       ) : (
-                        <CardComponent card={makeWorkplaceDisplayCard(workplace)} />
+                        <CardComponent card={makeWorkplaceDisplayCard(workplace)} borderVariant="other" />
                       )}
                     </div>
                   ))}
@@ -595,6 +612,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                           <CardComponent
                             card={stateCard}
                             statusBanner={office.exhausted ? { line1: 'Exhausted' } : undefined}
+                            borderVariant="other"
                           />
                         </div>
                       </div>

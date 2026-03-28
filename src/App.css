@@ -698,6 +698,27 @@ body {
   opacity: 0.6;
 }
 
+/* Border variant overrides — applied via borderVariant prop on CardComponent */
+.card-component.card-border-hand {
+  border-color: #FFD700;
+}
+
+.card-component.card-border-in-play {
+  border-color: #48bb78;
+}
+
+.card-component.card-border-training {
+  border-color: #a0aec0;
+}
+
+.card-component.card-border-exhausted {
+  border-color: #e53e3e;
+}
+
+.card-component.card-border-other {
+  border-color: #4a5568;
+}
+
 /* Cursor States */
 .card-slot.cursor-default {
   cursor: default;
@@ -1002,10 +1023,19 @@ body {
   line-height: 1;
 }
 
-.card-theorize-selected {
-  outline: 3px solid #d69e2e;
-  box-shadow: 0 0 12px rgba(214, 158, 46, 0.6);
+/* Theorize selection states during Reproduction phase */
+.card-component.card-theorize-selected {
+  border-color: #FFFFFF;
+  box-shadow: 0 0 0.6vw rgba(255, 255, 255, 0.7);
   transform: scale(1.03);
+}
+
+.card-component.card-theorize-available {
+  border-color: #48bb78;
+}
+
+.card-component.card-theorize-blocked {
+  border-color: #e53e3e;
 }
 
 .card-slot-drop-validity-icon {
@@ -1444,6 +1474,144 @@ body {
   color: #CCCCCC;
   font-style: italic;
   margin-bottom: 30px;
+}
+
+/* ===== Deal Result Modal ===== */
+
+.deal-result-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.deal-result-modal {
+  position: relative;
+  background-color: #1a202c;
+  border: 2px solid #4a5568;
+  border-radius: 12px;
+  padding: 2vw;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5vw;
+}
+
+.deal-result-close-button {
+  position: absolute;
+  top: 0.8vw;
+  left: 0.8vw;
+  width: 2vw;
+  min-width: 28px;
+  height: 2vw;
+  min-height: 28px;
+  border-radius: 50%;
+  background-color: #4a5568;
+  border: none;
+  color: #FFFFFF;
+  font-weight: bold;
+  font-size: 1vw;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deal-result-close-button:hover {
+  background-color: #718096;
+}
+
+.deal-result-sections {
+  display: flex;
+  gap: 2vw;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.deal-result-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8vw;
+}
+
+.deal-result-section-title {
+  font-family: Arial, sans-serif;
+  font-size: 1.4vw;
+  font-weight: bold;
+  color: #e2e8f0;
+}
+
+.deal-result-card-row {
+  display: flex;
+  gap: var(--card-slot-gap);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.deal-result-card-row .card-component {
+  --card-inner-width: 14vw;
+  --card-font-size: calc(var(--card-inner-width) / 14);
+}
+
+.deal-result-empty {
+  font-family: Arial, sans-serif;
+  font-size: 1.2vw;
+  color: #718096;
+  font-style: italic;
+  padding: 1vw 2vw;
+}
+
+.deal-result-end-turn-button {
+  padding: 0.8vw 2.5vw;
+  background-color: #38a169;
+  border: none;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-family: Arial;
+  font-weight: bold;
+  font-size: 1.4vw;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s;
+}
+
+.deal-result-end-turn-button:hover {
+  transform: scale(1.05);
+  background-color: #2f855a;
+}
+
+@media (max-width: 1000px) {
+  .deal-result-section-title {
+    font-size: 3.5vw;
+  }
+
+  .deal-result-empty {
+    font-size: 3vw;
+  }
+
+  .deal-result-end-turn-button {
+    font-size: 3.5vw;
+    padding: 2vw 5vw;
+  }
+
+  .deal-result-card-row .card-component {
+    --card-inner-width: 28vw;
+    --card-font-size: calc(var(--card-inner-width) / 14);
+  }
+
+  .deal-result-close-button {
+    font-size: 3vw;
+    width: 6vw;
+    height: 6vw;
+  }
 }
 
 /* ===== Shared Area Styles ===== */
