@@ -59,11 +59,15 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
   const handleCloseInspector = () => setBoardState({ mode: 'normal', selectedSlotId: null });
 
-  // Escape key closes ActionMenuBar
+  // Escape key closes ActionMenuBar or DealResultModal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && boardState.mode === 'normal' && boardState.selectedSlotId !== null) {
-        handleCloseInspector();
+      if (e.key === 'Escape') {
+        if (boardState.mode === 'showingDealtCards' && !boardState.modalDismissed) {
+          setBoardState({ ...boardState, modalDismissed: true });
+        } else if (boardState.mode === 'normal' && boardState.selectedSlotId !== null) {
+          handleCloseInspector();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -105,18 +109,18 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     });
   };
 
-  // Show the deal result modal — does NOT yet execute the move
+  // Execute the move and show the deal result modal
   const handleFinishTheorizing = () => {
     const remainingHand = myPlayer.hand.filter((_, i) => !theorizeSelectedIndexes.includes(i));
     const drawCount = myPlayer.maxHandSize - remainingHand.length;
     const theorizedCardIds = theorizeSelectedIndexes.map(i => myPlayer.hand[i]);
     const newCardIds = myPlayer.deck.slice(0, drawCount);
+    moves.endReproductionPhase(theorizeSelectedIndexes);
     setBoardState({ mode: 'showingDealtCards', theorizedCardIds, newCardIds, modalDismissed: false });
   };
 
-  // Actually end the turn: discard theorize cards, draw, switch players
+  // Dismiss the deal result modal (move was already executed in handleFinishTheorizing)
   const handleEndTurn = () => {
-    moves.endReproductionPhase(theorizeSelectedIndexes);
     setTheorizeSelectedIndexes([]);
     setBoardState({ mode: 'normal', selectedSlotId: null });
   };
