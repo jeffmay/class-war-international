@@ -8,9 +8,10 @@ import { ActionMenuBar, MenuOption } from './components/ActionMenuBar';
 import { CardComponent } from './components/CardComponent';
 import { DealResultModal } from './components/DealResultModal';
 import { TurnStartModal } from './components/StartGameScreen';
-import { getAnyCardData } from './data/cards';
+import { DeckCardID, getAnyCardData } from './data/cards';
 import { CardType, FigureCardInPlay, SocialClass, WorkplaceCardData, WorkplaceInPlay } from './types/cards';
 import { GameState, TurnPhase } from './types/game';
+import { Brand, make } from 'ts-brand';
 
 /** Build a WorkplaceCardData for display by substituting current wages/profits from in-play state. */
 function makeWorkplaceDisplayCard(wp: WorkplaceInPlay): WorkplaceCardData {
@@ -23,11 +24,15 @@ function makeWorkplaceDisplayCard(wp: WorkplaceInPlay): WorkplaceCardData {
 
 interface ClassWarBoardProps extends BoardProps<GameState> { }
 
+// TODO: Use the slot type in the brand name? Validate using the number of slots in the game?
+type SelectedSlotID = Brand<string, 'slot_id'>
+const SelectedSlotID = make<SelectedSlotID>()
+
 type BoardState =
-  | { mode: 'normal'; selectedSlotId: string | null }
+  | { mode: 'normal'; selectedSlotId: SelectedSlotID | null }
   | { mode: 'selectStrikeTarget'; figure: FigureCardInPlay }
   | { mode: 'selectOfficeTarget'; figure: FigureCardInPlay }
-  | { mode: 'showingDealtCards'; theorizedCardIds: string[]; newCardIds: string[]; modalDismissed: boolean };
+  | { mode: 'showingDealtCards'; theorizedCardIds: DeckCardID[]; newCardIds: DeckCardID[]; modalDismissed: boolean };
 
 interface SlotData {
   cardId?: string;
@@ -78,7 +83,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     if (boardState.mode === 'normal' && boardState.selectedSlotId === slotId) {
       setBoardState({ mode: 'normal', selectedSlotId: null });
     } else {
-      setBoardState({ mode: 'normal', selectedSlotId: slotId });
+      setBoardState({ mode: 'normal', selectedSlotId: SelectedSlotID(slotId) });
     }
   };
 
@@ -109,18 +114,18 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     });
   };
 
-  // Execute the move and show the deal result modal
+  // Show the deal result modal — does NOT yet execute the move
   const handleFinishTheorizing = () => {
     const remainingHand = myPlayer.hand.filter((_, i) => !theorizeSelectedIndexes.includes(i));
     const drawCount = myPlayer.maxHandSize - remainingHand.length;
     const theorizedCardIds = theorizeSelectedIndexes.map(i => myPlayer.hand[i]);
     const newCardIds = myPlayer.deck.slice(0, drawCount);
-    moves.endReproductionPhase(theorizeSelectedIndexes);
     setBoardState({ mode: 'showingDealtCards', theorizedCardIds, newCardIds, modalDismissed: false });
   };
 
-  // Dismiss the deal result modal (move was already executed in handleFinishTheorizing)
+  // Actually end the turn: discard theorize cards, draw, switch players
   const handleEndTurn = () => {
+    moves.endReproductionPhase(theorizeSelectedIndexes);
     setTheorizeSelectedIndexes([]);
     setBoardState({ mode: 'normal', selectedSlotId: null });
   };
