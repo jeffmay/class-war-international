@@ -1,5 +1,5 @@
-import { allCards, allDemandCards, allFigureCards, allInstitutionCards, CardID, DemandCardID, FigureCardID, InstitutionCardID } from "../data/cards";
-import { CardType, DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay } from "../types/cards";
+import { allCards, allDemandCards, allFigureCards, allInstitutionCards, allTacticCards, CardID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID } from "../data/cards";
+import { CardType, DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay, TacticCardInPlay } from "../types/cards";
 
 export function isDemandCardID(cardId: string): cardId is DemandCardID {
   return cardId in allDemandCards
@@ -35,6 +35,18 @@ export function playInstitutionCard(cardId: InstitutionCardID): InstitutionCardI
   return {
     id: cardId,
     card_type: CardType.Institution,
+    in_play: true,
+  };
+}
+
+export function isTacticCardID(cardId: string): cardId is TacticCardID {
+  return cardId in allTacticCards
+}
+
+export function playTacticCard(cardId: TacticCardID): TacticCardInPlay {
+  return {
+    id: cardId,
+    card_type: CardType.Tactic,
     in_play: true,
   };
 }

@@ -6,10 +6,13 @@ import { BoardProps } from 'boardgame.io/react';
 import React, { useEffect, useState } from 'react';
 import { ActionMenuBar, MenuOption } from './components/ActionMenuBar';
 import { CardComponent } from './components/CardComponent';
+import { ConflictModal } from './components/ConflictModal';
+import { ConflictOutcomeModal } from './components/ConflictOutcomeModal';
 import { DealResultModal } from './components/DealResultModal';
 import { TurnStartModal } from './components/StartGameScreen';
 import { DeckCardID, getAnyCardData } from './data/cards';
-import { CardType, FigureCardInPlay, SocialClass, WorkplaceCardData, WorkplaceInPlay } from './types/cards';
+import { CardType, CardSlotEntity, FigureCardInPlay, SocialClass, WorkplaceCardData, WorkplaceInPlay } from './types/cards';
+import { ConflictType } from './types/conflicts';
 import { GameState, TurnPhase } from './types/game';
 import { Brand, make } from 'ts-brand';
 
@@ -64,11 +67,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
   const handleCloseInspector = () => setBoardState({ mode: 'normal', selectedSlotId: null });
 
-  // Escape key closes ActionMenuBar or DealResultModal
+  // Escape key closes ActionMenuBar, DealResultModal, or ConflictOutcomeModal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (boardState.mode === 'showingDealtCards' && !boardState.modalDismissed) {
+        if (G.conflictOutcome && !G.conflictOutcome.dismissedBy.includes(myClass)) {
+          moves.dismissConflictOutcome(myClass);
+        } else if (boardState.mode === 'showingDealtCards' && !boardState.modalDismissed) {
           setBoardState({ ...boardState, modalDismissed: true });
         } else if (boardState.mode === 'normal' && boardState.selectedSlotId !== null) {
           handleCloseInspector();
@@ -77,7 +82,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [boardState]);
+  }, [boardState, G.conflictOutcome, myClass, moves]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSelectSlot = (slotId: string) => {
     if (boardState.mode === 'normal' && boardState.selectedSlotId === slotId) {
@@ -451,14 +456,48 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     );
   };
 
+  // Compute conflict target card for ConflictModal
+  const conflictTargetCard: CardSlotEntity | undefined = (() => {
+    if (!G.activeConflict) return undefined;
+    if (G.activeConflict.conflictType === ConflictType.Strike) {
+      return makeWorkplaceDisplayCard(G.workplaces[G.activeConflict.targetWorkplaceIndex]);
+    }
+    return getAnyCardData(G.activeConflict.targetIncumbent.id);
+  })();
+
   return (
     <div className="game-board">
       {/* Turn Start Modal - shown during Production phase */}
-      {G.turnPhase === TurnPhase.Production && (
+      {G.turnPhase === TurnPhase.Production && !G.conflictOutcome && (
         <TurnStartModal
           turnNumber={G.turnNumber}
           currentClass={currentClass}
           onStart={() => moves.collectProduction()}
+        />
+      )}
+
+      {/* Conflict Outcome Modal — shown after resolution; each player dismisses independently */}
+      {G.conflictOutcome && !G.conflictOutcome.dismissedBy.includes(myClass) && (
+        <ConflictOutcomeModal
+          outcome={G.conflictOutcome}
+          viewingClass={myClass}
+          onDismiss={() => moves.dismissConflictOutcome(myClass)}
+        />
+      )}
+
+      {/* Active Conflict Modal — shown during Initiating / Responding / Resolving phases */}
+      {G.activeConflict && conflictTargetCard && (
+        <ConflictModal
+          conflict={G.activeConflict}
+          activeConflictPlayer={G.activeConflict.activeConflictPlayer}
+          players={G.players}
+          targetCard={conflictTargetCard}
+          onCancel={() => moves.cancelConflict()}
+          onInitiate={() => moves.initiateConflict()}
+          onAddFigure={(figureId) => moves.addFigureToConflict(figureId)}
+          onAddTactic={(handIndex) => moves.addTacticToConflict(handIndex)}
+          onPlanResponse={() => moves.planResponse()}
+          onResolve={() => moves.resolveConflict()}
         />
       )}
 

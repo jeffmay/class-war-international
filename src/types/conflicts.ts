@@ -2,7 +2,7 @@
  * Conflict state types for Class War: International
  */
 
-import { FigureCardInPlay, StateFigureCardInPlay, WorkplaceInPlay } from './cards';
+import { FigureCardInPlay, StateFigureCardInPlay, TacticCardInPlay, WorkplaceInPlay } from './cards';
 import { SocialClass } from './cards';
 
 export enum ConflictType {
@@ -22,7 +22,7 @@ export interface PowerStats {
 }
 
 /** Cards that can participate in a conflict */
-export type ConflictCardInPlay = FigureCardInPlay | StateFigureCardInPlay;
+export type ConflictCardInPlay = FigureCardInPlay | StateFigureCardInPlay | TacticCardInPlay;
 
 export interface BaseConflictState {
   conflictType: ConflictType;
@@ -31,6 +31,8 @@ export interface BaseConflictState {
   active: boolean;
   phase: ConflictPhase;
   initiatingClass: SocialClass;
+  /** Whose turn it is within the conflict (may differ from the boardgame.io current player) */
+  activeConflictPlayer: SocialClass;
   workingClassPower: PowerStats;
   capitalistPower: PowerStats;
 }
@@ -66,4 +68,6 @@ export interface ConflictOutcome {
     establishedPower: number;
     total: number;
   };
+  /** Classes that have dismissed this outcome screen; cleared from GameState when both have dismissed */
+  dismissedBy: SocialClass[];
 }

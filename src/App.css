@@ -1622,6 +1622,501 @@ body {
   }
 }
 
+/* ===== Conflict Modal ===== */
+
+.conflict-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 2100;
+  overflow-y: auto;
+  padding: 2vw 0;
+}
+
+.conflict-modal {
+  position: relative;
+  background-color: #1a202c;
+  border: 2px solid #718096;
+  border-radius: 12px;
+  padding: 2.5vw 2vw 2vw;
+  max-width: 92vw;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5vw;
+  margin: auto;
+}
+
+.conflict-modal-close-button {
+  position: absolute;
+  top: 0.8vw;
+  left: 0.8vw;
+  width: 2vw;
+  min-width: 28px;
+  height: 2vw;
+  min-height: 28px;
+  border-radius: 50%;
+  background: rgba(200, 50, 50, 0.8);
+  border: none;
+  color: #FFFFFF;
+  font-weight: bold;
+  font-size: 1vw;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.conflict-modal-close-button:hover:not(:disabled) {
+  background: rgba(255, 50, 50, 1);
+  transform: scale(1.1);
+}
+
+.conflict-modal-close-button:disabled {
+  background: rgba(100, 100, 100, 0.5);
+  cursor: not-allowed;
+}
+
+.conflict-modal-title {
+  font-family: Arial, sans-serif;
+  font-size: 2vw;
+  font-weight: bold;
+  color: #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.conflict-modal-phase {
+  font-family: Arial, sans-serif;
+  font-size: 1.2vw;
+  color: #a0aec0;
+  font-style: italic;
+}
+
+.conflict-modal-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5vw;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+  padding: 1vw 1.5vw;
+}
+
+.conflict-modal-section-label {
+  font-family: Arial, sans-serif;
+  font-size: 1vw;
+  font-weight: bold;
+  color: #a0aec0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.conflict-modal-sides {
+  display: flex;
+  gap: 2vw;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.conflict-modal-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8vw;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+  padding: 1vw 1.5vw;
+  flex: 1;
+  min-width: 30vw;
+}
+
+.conflict-modal-side-title {
+  font-family: Arial, sans-serif;
+  font-size: 1.2vw;
+  font-weight: bold;
+  color: #e2e8f0;
+}
+
+.conflict-modal-card-row {
+  display: flex;
+  gap: var(--card-slot-gap);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.conflict-modal-card-row .card-component {
+  --card-inner-width: 12vw;
+  --card-font-size: calc(var(--card-inner-width) / 14);
+}
+
+.conflict-modal-power-breakdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3vw;
+  border-top: 1px solid #4a5568;
+  padding-top: 0.5vw;
+  width: 100%;
+}
+
+.conflict-modal-power-label {
+  font-family: Arial, sans-serif;
+  font-size: 0.9vw;
+  font-weight: bold;
+  color: #a0aec0;
+  text-transform: uppercase;
+}
+
+.conflict-modal-power-total {
+  font-family: Arial, sans-serif;
+  font-size: 1.1vw;
+  color: #e2e8f0;
+}
+
+.conflict-modal-power-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4vw;
+  justify-content: center;
+}
+
+.conflict-modal-power-source {
+  font-family: Arial, sans-serif;
+  font-size: 0.9vw;
+  color: #a0aec0;
+  background: rgba(255,255,255,0.05);
+  border-radius: 4px;
+  padding: 0.2vw 0.5vw;
+}
+
+.conflict-modal-available {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1vw;
+  width: 100%;
+}
+
+.conflict-modal-available-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6vw;
+  border: 1px dashed #4a5568;
+  border-radius: 8px;
+  padding: 0.8vw 1.5vw;
+  width: 100%;
+}
+
+.conflict-modal-add-card-button {
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 0.3vw;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.conflict-modal-add-card-button:hover:not(:disabled) {
+  border-color: #68d391;
+}
+
+.conflict-modal-add-card-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.conflict-modal-actions {
+  display: flex;
+  gap: 1vw;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.conflict-modal-button {
+  padding: 0.8vw 2.5vw;
+  border: none;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-family: Arial;
+  font-weight: bold;
+  font-size: 1.3vw;
+  cursor: pointer;
+  transition: transform 0.1s, background-color 0.15s;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.conflict-modal-button:hover {
+  transform: scale(1.05);
+}
+
+.conflict-modal-button-initiate {
+  background-color: #c53030;
+}
+
+.conflict-modal-button-initiate:hover {
+  background-color: #e53e3e;
+}
+
+.conflict-modal-button-cancel {
+  background-color: #4a5568;
+}
+
+.conflict-modal-button-cancel:hover {
+  background-color: #718096;
+}
+
+.conflict-modal-button-respond {
+  background-color: #2b6cb0;
+}
+
+.conflict-modal-button-respond:hover {
+  background-color: #3182ce;
+}
+
+.conflict-modal-button-resolve {
+  background-color: #744210;
+}
+
+.conflict-modal-button-resolve:hover {
+  background-color: #975a16;
+}
+
+@media (max-width: 1000px) {
+  .conflict-modal-title { font-size: 5vw; }
+  .conflict-modal-phase { font-size: 3vw; }
+  .conflict-modal-side-title { font-size: 3vw; }
+  .conflict-modal-section-label { font-size: 2.5vw; }
+  .conflict-modal-power-label { font-size: 2.2vw; }
+  .conflict-modal-power-total { font-size: 2.8vw; }
+  .conflict-modal-power-source { font-size: 2.2vw; }
+  .conflict-modal-button { font-size: 3.5vw; padding: 2vw 5vw; }
+  .conflict-modal-close-button { font-size: 3vw; width: 6vw; height: 6vw; }
+  .conflict-modal-card-row .card-component {
+    --card-inner-width: 26vw;
+    --card-font-size: calc(var(--card-inner-width) / 14);
+  }
+}
+
+/* ===== Conflict Outcome Modal ===== */
+
+.conflict-outcome-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 2200;
+  overflow-y: auto;
+  padding: 2vw 0;
+}
+
+.conflict-outcome-modal {
+  position: relative;
+  background-color: #1a202c;
+  border-radius: 12px;
+  padding: 2.5vw 2vw 2vw;
+  max-width: 80vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2vw;
+  margin: auto;
+}
+
+.outcome-wc-wins {
+  border: 3px solid #e53e3e;
+}
+
+.outcome-cc-wins {
+  border: 3px solid #3182ce;
+}
+
+.conflict-outcome-close-button {
+  position: absolute;
+  top: 0.8vw;
+  left: 0.8vw;
+  width: 2vw;
+  min-width: 28px;
+  height: 2vw;
+  min-height: 28px;
+  border-radius: 50%;
+  background: rgba(200, 50, 50, 0.8);
+  border: none;
+  color: #FFFFFF;
+  font-weight: bold;
+  font-size: 1vw;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.conflict-outcome-close-button:hover:not(:disabled) {
+  background: rgba(255, 50, 50, 1);
+  transform: scale(1.1);
+}
+
+.conflict-outcome-close-button:disabled {
+  background: rgba(100, 100, 100, 0.5);
+  cursor: not-allowed;
+}
+
+.conflict-outcome-title {
+  font-family: Arial, sans-serif;
+  font-size: 2.2vw;
+  font-weight: bold;
+  color: #e2e8f0;
+  text-align: center;
+}
+
+.conflict-outcome-winner {
+  font-family: Arial, sans-serif;
+  font-size: 1.4vw;
+  font-weight: bold;
+  color: #f6e05e;
+}
+
+.conflict-outcome-detail {
+  font-family: Arial, sans-serif;
+  font-size: 1.2vw;
+  color: #a0aec0;
+  text-align: center;
+  max-width: 60vw;
+}
+
+.conflict-outcome-powers {
+  display: flex;
+  gap: 2vw;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.conflict-outcome-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5vw;
+  border: 1px solid #4a5568;
+  border-radius: 8px;
+  padding: 1vw 1.5vw;
+  min-width: 28vw;
+}
+
+.conflict-outcome-section-title {
+  font-family: Arial, sans-serif;
+  font-size: 1.1vw;
+  font-weight: bold;
+  color: #e2e8f0;
+}
+
+.conflict-outcome-dice-row {
+  display: flex;
+  gap: 0.5vw;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-family: Arial, sans-serif;
+  font-size: 1vw;
+  color: #a0aec0;
+}
+
+.conflict-outcome-dice-rolls {
+  color: #e2e8f0;
+}
+
+.conflict-outcome-dice-sum {
+  font-weight: bold;
+  color: #e2e8f0;
+}
+
+.conflict-outcome-established {
+  font-family: Arial, sans-serif;
+  font-size: 1vw;
+  color: #a0aec0;
+}
+
+.conflict-outcome-total {
+  font-family: Arial, sans-serif;
+  font-size: 1.3vw;
+  font-weight: bold;
+  color: #e2e8f0;
+  border-top: 1px solid #4a5568;
+  padding-top: 0.4vw;
+  width: 100%;
+  text-align: center;
+}
+
+.conflict-outcome-cards {
+  display: flex;
+  gap: var(--card-slot-gap);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.conflict-outcome-cards .card-component {
+  --card-inner-width: 11vw;
+  --card-font-size: calc(var(--card-inner-width) / 14);
+}
+
+.conflict-outcome-waiting {
+  font-family: Arial, sans-serif;
+  font-size: 1.1vw;
+  color: #718096;
+  font-style: italic;
+}
+
+.conflict-outcome-dismiss-button {
+  padding: 0.8vw 2.5vw;
+  background-color: #38a169;
+  border: none;
+  border-radius: 8px;
+  color: #FFFFFF;
+  font-family: Arial;
+  font-weight: bold;
+  font-size: 1.4vw;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s;
+}
+
+.conflict-outcome-dismiss-button:hover {
+  transform: scale(1.05);
+  background-color: #2f855a;
+}
+
+@media (max-width: 1000px) {
+  .conflict-outcome-title { font-size: 5.5vw; }
+  .conflict-outcome-winner { font-size: 3.5vw; }
+  .conflict-outcome-detail { font-size: 3vw; max-width: 88vw; }
+  .conflict-outcome-section-title { font-size: 3vw; }
+  .conflict-outcome-dice-row { font-size: 2.5vw; }
+  .conflict-outcome-established { font-size: 2.5vw; }
+  .conflict-outcome-total { font-size: 3.2vw; }
+  .conflict-outcome-waiting { font-size: 2.8vw; }
+  .conflict-outcome-dismiss-button { font-size: 3.5vw; padding: 2vw 5vw; }
+  .conflict-outcome-close-button { font-size: 3vw; width: 6vw; height: 6vw; }
+  .conflict-outcome-cards .card-component {
+    --card-inner-width: 24vw;
+    --card-font-size: calc(var(--card-inner-width) / 14);
+  }
+}
+
 /* ===== Shared Area Styles ===== */
 
 .shared-area {
