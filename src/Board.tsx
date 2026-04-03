@@ -37,6 +37,7 @@ type BoardState =
   | { mode: 'normal'; selectedSlotId: SelectedSlotID | null }
   | { mode: 'selectStrikeTarget'; figure: FigureCardInPlay }
   | { mode: 'selectOfficeTarget'; figure: FigureCardInPlay }
+  | { mode: 'selectLegislationOffice'; demandSlotIndex: number }
   | { mode: 'showingDealtCards'; theorizedCardIds: DeckCardID[]; newCardIds: DeckCardID[]; modalDismissed: boolean };
 
 interface SlotData {
@@ -105,6 +106,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   const handleSelectOfficeTarget = (officeIndex: number) => {
     if (boardState.mode !== 'selectOfficeTarget') return;
     moves.planElection(boardState.figure.id, officeIndex);
+    setBoardState({ mode: 'normal', selectedSlotId: null });
+  };
+
+  // Confirm legislation office
+  const handleSelectLegislationOffice = (officeIndex: number) => {
+    if (boardState.mode !== 'selectLegislationOffice') return;
+    moves.planLegislation(officeIndex, boardState.demandSlotIndex);
     setBoardState({ mode: 'normal', selectedSlotId: null });
   };
 
@@ -233,6 +241,33 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       }
       slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options });
     });
+
+    // In-play demand cards: Propose Legislation if player holds an office with a non-exhausted figure
+    const proposingOffices = G.politicalOffices
+      .map((office, offIdx) => ({ office, offIdx }))
+      .filter(({ office }) => {
+        if (!office.figureId) return false;
+        if (office.exhausted) return false;
+        const figData = getAnyCardData(office.figureId);
+        return figData.card_type === CardType.Figure && figData.social_class === myClass;
+      });
+
+    myPlayer.demands.forEach((demand, demandIdx) => {
+      if (!demand) return;
+      const slotId = `demand-${myClassKey}-${demandIdx}`;
+      const options: MenuOption[] = [];
+      if (proposingOffices.length > 0 && !G.laws.includes(demand.id)) {
+        options.push([
+          `Propose Legislation`,
+          () => { setBoardState({ mode: 'selectLegislationOffice', demandSlotIndex: demandIdx }); handleCloseInspector(); },
+        ]);
+      } else if (G.laws.includes(demand.id)) {
+        options.push(['Already law', undefined]);
+      } else {
+        options.push(['No office held to propose legislation', undefined]);
+      }
+      slotData.set(slotId, { cardId: demand.id, options });
+    });
   }
 
   // Sidebar figures for both players — available in all phases for inspection
@@ -242,6 +277,11 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       const slotId = `sidebar-${classKey}-${idx}`;
       slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options: [] });
     });
+  });
+
+  // Laws — clickable for inspection in all phases
+  G.laws.forEach((lawId) => {
+    slotData.set(`law-${lawId}`, { cardId: lawId, options: [] });
   });
 
   // Derive active menu content from selected slot
@@ -285,6 +325,9 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     }
     if (G.turnPhase === TurnPhase.Action && boardState.mode === 'selectOfficeTarget') {
       return 'Select an office to run for';
+    }
+    if (G.turnPhase === TurnPhase.Action && boardState.mode === 'selectLegislationOffice') {
+      return 'Select the office from which to propose legislation';
     }
     if (G.turnPhase === TurnPhase.Reproduction && theorizeSelectedIndexes.length === 0) {
       return 'Select cards to send to the Dustbin';
@@ -343,6 +386,30 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           </div>
         );
       })}
+
+      {/* Laws in Effect */}
+      <div className="sidebar-laws-section">
+        <div className="sidebar-laws-title">Laws in Effect</div>
+        {G.laws.length === 0 ? (
+          <div className="sidebar-laws-empty">No laws yet</div>
+        ) : (
+          <div className="sidebar-laws-list">
+            {G.laws.map((lawId) => {
+              const lawCard = getAnyCardData(lawId);
+              const slotId = `law-${lawId}`;
+              return (
+                <div
+                  key={lawId}
+                  className="sidebar-law-row"
+                  onClick={() => handleSelectSlot(slotId)}
+                >
+                  <span className="sidebar-law-name">{lawCard.name}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 
@@ -465,15 +532,23 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           <div className="player-area-section-column">
             <div className="player-area-section-title">Demands</div>
             <div className="player-area-card-row">
-              {player.demands.map((demand, i) => (
-                <div key={i} className="card-slot">
-                  {demand ? (
-                    <CardComponent card={getAnyCardData(demand.id)} borderVariant="in-play" />
-                  ) : (
-                    <div className="card-slot-placeholder" />
-                  )}
-                </div>
-              ))}
+              {player.demands.map((demand, i) => {
+                if (!demand) {
+                  return <div key={i} className="card-slot"><div className="card-slot-placeholder" /></div>;
+                }
+                const demandSlotId = `demand-${classKey}-${i}`;
+                const isLaw = G.laws.includes(demand.id);
+                return (
+                  <div key={i} className="card-slot">
+                    <CardComponent
+                      card={getAnyCardData(demand.id)}
+                      borderVariant="in-play"
+                      statusBanner={isLaw ? { line1: "Law" } : undefined}
+                      onClick={G.turnPhase === TurnPhase.Action && isMyTurn ? () => handleSelectSlot(demandSlotId) : undefined}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -487,7 +562,11 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     if (G.activeConflict.conflictType === ConflictType.Strike) {
       return makeWorkplaceDisplayCard(G.workplaces[G.activeConflict.targetWorkplaceIndex]);
     }
-    return getAnyCardData(G.activeConflict.targetIncumbent.id);
+    if (G.activeConflict.conflictType === ConflictType.Election) {
+      return getAnyCardData(G.activeConflict.targetIncumbent.id);
+    }
+    // Legislation: show the demand card being proposed
+    return getAnyCardData(G.activeConflict.demandCardId);
   })();
 
   return (
@@ -577,6 +656,30 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             return [
               stateCard.name,
               () => handleSelectOfficeTarget(index),
+              preview,
+            ] as const satisfies MenuOption;
+          })}
+          playerClass={myClass}
+          onClose={handleCloseInspector}
+        />
+      )}
+
+      {/* Legislation Office Selector — merged into ActionMenuBar */}
+      {boardState.mode === 'selectLegislationOffice' && (
+        <ActionMenuBar
+          title={`Choose an office to propose legislation from`}
+          options={G.politicalOffices.map((office, index) => {
+            const stateCard = getAnyCardData(office.id);
+            const electedName = office.figureId ? getAnyCardData(office.figureId).name : undefined;
+            const label = electedName ? `${stateCard.name} (${electedName})` : stateCard.name;
+            const preview = <CardComponent card={stateCard} borderVariant={office.figureId ? "in-play" : "other"} />;
+            const canPropose = !!(office.figureId && !office.exhausted && (() => {
+              const fd = getAnyCardData(office.figureId!);
+              return fd.card_type === CardType.Figure && fd.social_class === myClass;
+            })());
+            return [
+              label,
+              canPropose ? () => handleSelectLegislationOffice(index) : undefined,
               preview,
             ] as const satisfies MenuOption;
           })}
@@ -679,13 +782,24 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 <div className="offices-section">
                   {G.politicalOffices.map((office, index) => {
                     const stateCard = getAnyCardData(office.id);
+                    const electedFigureName = office.figureId
+                      ? getAnyCardData(office.figureId).name
+                      : undefined;
+                    const cooldown = office.electionCooldownTurnsRemaining;
+                    const statusLine1 = office.exhausted ? 'Exhausted' : undefined;
+                    const statusLine2 = cooldown && cooldown > 0
+                      ? `Protected (${cooldown})`
+                      : undefined;
+                    const statusBanner = (statusLine1 || statusLine2 || electedFigureName)
+                      ? { line1: electedFigureName ?? statusLine1 ?? '', line2: electedFigureName ? (statusLine1 ?? statusLine2) : statusLine2 }
+                      : undefined;
                     return (
                       <div key={index} className="office-container">
                         <div className="card-slot">
                           <CardComponent
                             card={stateCard}
-                            statusBanner={office.exhausted ? { line1: 'Exhausted' } : undefined}
-                            borderVariant="other"
+                            statusBanner={statusBanner}
+                            borderVariant={office.figureId ? "in-play" : "other"}
                           />
                         </div>
                       </div>

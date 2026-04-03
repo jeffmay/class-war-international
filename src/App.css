@@ -2804,6 +2804,56 @@ body {
   font-size: 0.85em;
 }
 
+.sidebar-laws-section {
+  border-radius: 0.5vw;
+  padding: 0.5vw;
+  background-color: rgba(100, 60, 160, 0.4);
+  border: 0.15vw solid rgb(140, 90, 200);
+  font-family: Arial, sans-serif;
+  font-size: 1vw;
+  color: #FFFFFF;
+}
+
+.sidebar-laws-title {
+  font-weight: bold;
+  font-size: 1.1em;
+  margin-bottom: 0.3em;
+  color: #FFD700;
+}
+
+.sidebar-laws-empty {
+  font-size: 0.85em;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
+.sidebar-laws-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+}
+
+.sidebar-law-row {
+  font-size: 0.85em;
+  padding: 0.2em 0.4em;
+  border-radius: 0.3vw;
+  cursor: pointer;
+  color: #e2e8f0;
+  background-color: rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-law-row:hover {
+  background-color: rgba(180, 130, 255, 0.3);
+  color: #d4aaff;
+}
+
+.sidebar-law-name {
+  display: block;
+}
+
 .my-player-area-container {
   flex: 1;
   min-width: 0;
@@ -2847,6 +2897,12 @@ body {
   .sidebar-player-section-header {
     font-size: 3vw;
   }
+
+  .sidebar-laws-section {
+    flex: 1;
+    min-width: 40vw;
+    font-size: 2.5vw;
+  }
 }
 
 /* Wide-screen overrides for new elements */
@@ -2872,6 +2928,10 @@ body {
   }
 
   .sidebar-player-section {
+    font-size: 12px;
+  }
+
+  .sidebar-laws-section {
     font-size: 12px;
   }
 }

@@ -2,12 +2,14 @@
  * Conflict state types for Class War: International
  */
 
+import { DemandCardID } from '../data/cards';
 import { FigureCardInPlay, StateFigureCardInPlay, TacticCardInPlay, WorkplaceInPlay } from './cards';
 import { SocialClass } from './cards';
 
 export enum ConflictType {
   Election = 'Election',
   Strike = 'Strike',
+  Legislation = 'Legislation',
 }
 
 export enum ConflictPhase {
@@ -51,7 +53,17 @@ export interface ElectionConflictState extends BaseConflictState {
   candidate: FigureCardInPlay;
 }
 
-export type ConflictState = StrikeConflictState | ElectionConflictState;
+export interface LegislationConflictState extends BaseConflictState {
+  conflictType: ConflictType.Legislation;
+  /** The demand card being proposed as law */
+  demandCardId: DemandCardID;
+  /** Index in the proposing class's demands array */
+  demandSlotIndex: number;
+  /** Office index from which this legislation is being proposed */
+  proposingOfficeIndex: number;
+}
+
+export type ConflictState = StrikeConflictState | ElectionConflictState | LegislationConflictState;
 
 export interface ConflictOutcome {
   conflict: ConflictState;

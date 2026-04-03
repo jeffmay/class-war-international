@@ -63,7 +63,7 @@ export const defaultStateFigureCards = {
     id: 'centrist',
     name: 'The Centrist',
     card_type: CardType.DefaultStateFigure,
-    established_power: 2,
+    established_power: 3,
     rules: 'Always supports the incumbent in elections',
   },
   opportunist: {

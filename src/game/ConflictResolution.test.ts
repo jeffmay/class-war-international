@@ -15,8 +15,10 @@
 
 import { CardType, SocialClass, type FigureCardInPlay } from '../types/cards';
 import { ConflictPhase, ConflictType } from '../types/conflicts';
+import { TurnPhase } from '../types/game';
 import { clientFromFixture, makeActionPhaseState } from './generate';
 import { buildDeck } from '../data/cards';
+import { playDemandCard, playFigureCard } from '../util/game';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -360,5 +362,291 @@ describe('dismissConflictOutcome', () => {
     const client = clientFromFixture(G);
     client.moves.dismissConflictOutcome(SocialClass.WorkingClass);
     expect(client.getStateOrThrow().G.conflictOutcome).toBeUndefined();
+  });
+});
+
+// ── Election: cooldown and figure placement ───────────────────────────────────
+
+describe('resolveConflict - election', () => {
+  test('election produces a conflictOutcome with election type', () => {
+    const G = makeActionPhaseState({
+      figures: [{ id: 'cashier', card_type: CardType.Figure, in_play: true, exhausted: false, in_training: false }],
+    });
+    const client = clientFromFixture(G);
+    client.moves.planElection('cashier', 0);
+    client.moves.initiateConflict();
+    client.moves.planResponse();
+    client.moves.resolveConflict();
+
+    const outcome = client.getStateOrThrow().G.conflictOutcome!;
+    expect(outcome).toBeDefined();
+    expect(outcome.conflict.conflictType).toBe(ConflictType.Election);
+    expect([SocialClass.WorkingClass, SocialClass.CapitalistClass]).toContain(outcome.winner);
+  });
+
+  test('WC election win places candidate in office with cooldown=1', () => {
+    const candidate = playFigureCard('cashier');
+    const G = makeActionPhaseState();
+    // Build a Resolving-phase election fixture directly with overwhelming WC power
+    G.activeConflict = {
+      conflictType: ConflictType.Election,
+      targetOfficeIndex: 0,
+      targetIncumbent: { ...G.politicalOffices[0] },
+      candidate,
+      workingClassCards: [candidate],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 0, establishedPower: 100 },
+      capitalistPower: { diceCount: 0, establishedPower: 0 },
+    };
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    const finalState = client.getStateOrThrow();
+    expect(finalState.G.politicalOffices[0].figureId).toBe('cashier');
+    expect(finalState.G.politicalOffices[0].electionCooldownTurnsRemaining).toBe(1);
+    expect(finalState.G.players[SocialClass.WorkingClass].figures.some(f => f.id === 'cashier')).toBe(false);
+  });
+
+  test('WC election loss returns candidate exhausted; no office cooldown set', () => {
+    const candidate = playFigureCard('cashier');
+    const G = makeActionPhaseState();
+    G.activeConflict = {
+      conflictType: ConflictType.Election,
+      targetOfficeIndex: 0,
+      targetIncumbent: { ...G.politicalOffices[0] },
+      candidate,
+      workingClassCards: [candidate],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 0, establishedPower: 0 },
+      capitalistPower: { diceCount: 0, establishedPower: 100 },
+    };
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    const finalState = client.getStateOrThrow();
+    expect(finalState.G.politicalOffices[0].figureId).toBeUndefined();
+    expect(finalState.G.politicalOffices[0].electionCooldownTurnsRemaining).toBeUndefined();
+    const returnedFigure = finalState.G.players[SocialClass.WorkingClass].figures.find(f => f.id === 'cashier');
+    expect(returnedFigure).toBeDefined();
+    expect(returnedFigure!.exhausted).toBe(true);
+  });
+
+  test('election cooldown decrements by 1 when WC ends their turn', () => {
+    const G = makeActionPhaseState({ figures: [readyWcFigure] });
+    G.politicalOffices[0].electionCooldownTurnsRemaining = 1;
+    const client = clientFromFixture(G);
+
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase();
+
+    const state = client.getStateOrThrow();
+    expect(state.G.politicalOffices[0].electionCooldownTurnsRemaining).toBe(0);
+  });
+
+  test('election cooldown does NOT decrement when CC ends their turn', () => {
+    const G = makeActionPhaseState();
+    G.politicalOffices[0].electionCooldownTurnsRemaining = 1;
+    const client = clientFromFixture(G);
+
+    // Skip to CC's turn
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase();
+    client.moves.collectProduction(); // CC production
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase(); // CC ends turn — should NOT decrement further
+
+    // After WC ends turn (1→0) and then CC ends turn, still 0
+    // Actually WC decrement happened, so it's now 0 after WC ended turn above
+    // The point: the second endReproductionPhase (CC's) should not go below 0
+    const state = client.getStateOrThrow();
+    expect(state.G.politicalOffices[0].electionCooldownTurnsRemaining ?? 0).toBe(0);
+  });
+});
+
+// ── Legislation resolution ────────────────────────────────────────────────────
+
+function makeWcLegislationFixture() {
+  const G = makeActionPhaseState({
+    demands: [playDemandCard('wealth_tax'), null],
+  });
+  G.politicalOffices[0].figureId = 'cashier';
+  G.politicalOffices[0].exhausted = false;
+  return G;
+}
+
+describe('resolveConflict - legislation', () => {
+  function makeWcLegislationResolving(wcWealth = 0) {
+    const G = makeActionPhaseState({
+      demands: [playDemandCard('wealth_tax'), null],
+      wealth: wcWealth,
+    });
+    G.politicalOffices[0].figureId = 'cashier';
+    G.politicalOffices[0].exhausted = false;
+    const client = clientFromFixture(G);
+
+    client.moves.planLegislation(0, 0);
+    expect(client.getStateOrThrow().G.activeConflict).toBeDefined();
+    client.moves.initiateConflict();
+    client.moves.planResponse();
+    expect(client.getStateOrThrow().G.activeConflict!.phase).toBe(ConflictPhase.Resolving);
+    return client;
+  }
+
+  test('resolves legislation and produces a conflictOutcome', () => {
+    const client = makeWcLegislationResolving();
+    client.moves.resolveConflict();
+    const state = client.getStateOrThrow();
+
+    expect(state.G.activeConflict).toBeUndefined();
+    expect(state.G.conflictOutcome).toBeDefined();
+    const outcome = state.G.conflictOutcome!;
+    expect(outcome.conflict.conflictType).toBe(ConflictType.Legislation);
+    expect([SocialClass.WorkingClass, SocialClass.CapitalistClass]).toContain(outcome.winner);
+  });
+
+  test('winning legislation adds demand to laws list', () => {
+    const G = makeWcLegislationFixture();
+    G.activeConflict = {
+      conflictType: ConflictType.Legislation,
+      demandCardId: 'wealth_tax',
+      demandSlotIndex: 0,
+      proposingOfficeIndex: 0,
+      workingClassCards: [{ ...G.politicalOffices[0] }],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 0, establishedPower: 100 },
+      capitalistPower: { diceCount: 0, establishedPower: 0 },
+    };
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+    expect(client.getStateOrThrow().G.laws).toContain('wealth_tax');
+  });
+
+  test('losing legislation does not add demand to laws list', () => {
+    const G = makeWcLegislationFixture();
+    G.activeConflict = {
+      conflictType: ConflictType.Legislation,
+      demandCardId: 'wealth_tax',
+      demandSlotIndex: 0,
+      proposingOfficeIndex: 0,
+      workingClassCards: [{ ...G.politicalOffices[0] }],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 0, establishedPower: 0 },
+      capitalistPower: { diceCount: 0, establishedPower: 100 },
+    };
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+    expect(client.getStateOrThrow().G.laws).not.toContain('wealth_tax');
+  });
+
+  test('state figures are exhausted after legislation resolves', () => {
+    const client = makeWcLegislationResolving();
+    client.moves.resolveConflict();
+    const state = client.getStateOrThrow();
+
+    // All political offices should be exhausted (they all participated)
+    for (const office of state.G.politicalOffices) {
+      expect(office.exhausted).toBe(true);
+    }
+  });
+
+  test('deregulation law shifts $1 from wages to profits at each workplace on win', () => {
+    const G = makeActionPhaseState({
+      demands: [playDemandCard('deregulation'), null],
+    });
+    G.politicalOffices[0].figureId = 'cashier';
+    G.politicalOffices[0].exhausted = false;
+
+    const initialWages = G.workplaces.map(w => w.wages);
+    const initialProfits = G.workplaces.map(w => w.profits);
+
+    // Build a Resolving-phase legislation fixture with overwhelming WC power
+    G.activeConflict = {
+      conflictType: ConflictType.Legislation,
+      demandCardId: 'deregulation',
+      demandSlotIndex: 0,
+      proposingOfficeIndex: 0,
+      workingClassCards: [{ ...G.politicalOffices[0] }],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 0, establishedPower: 100 },
+      capitalistPower: { diceCount: 0, establishedPower: 0 },
+    };
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    const state = client.getStateOrThrow();
+    expect(state.G.laws).toContain('deregulation');
+    const nonEmpty = state.G.workplaces.filter(w => !w.id.startsWith('empty'));
+    const nonEmptyInitialWages = initialWages.filter((_, i) => !G.workplaces[i].id.startsWith('empty'));
+    const nonEmptyInitialProfits = initialProfits.filter((_, i) => !G.workplaces[i].id.startsWith('empty'));
+    nonEmpty.forEach((wp, i) => {
+      expect(wp.wages).toBe(Math.max(1, nonEmptyInitialWages[i] - 1));
+      expect(wp.profits).toBe(nonEmptyInitialProfits[i] + 1);
+    });
+  });
+});
+
+// ── Law effects in production ─────────────────────────────────────────────────
+
+describe('law effects - wealth_tax', () => {
+  test('wealth_tax halves wealth above $20 at production time', () => {
+    const G = makeActionPhaseState();
+    G.laws = ['wealth_tax'];
+    G.turnPhase = TurnPhase.Production;
+    G.players[SocialClass.WorkingClass].wealth = 25; // above threshold
+
+    const client = clientFromFixture(G);
+
+    // WC collects production (corner_store wages=2 + parts_producer wages=3 = 5)
+    // wealth before: 25, after income: 30 → wealth_tax: floor(30/2) = 15
+    client.moves.collectProduction();
+    expect(client.getStateOrThrow().G.players[SocialClass.WorkingClass].wealth).toBe(15);
+  });
+
+  test('wealth_tax does not apply when wealth is exactly $20 after income', () => {
+    const G = makeActionPhaseState();
+    G.laws = ['wealth_tax'];
+    G.turnPhase = TurnPhase.Production;
+    G.players[SocialClass.WorkingClass].wealth = 15; // after +5 wages = 20, not > 20
+
+    const client = clientFromFixture(G);
+
+    client.moves.collectProduction();
+    expect(client.getStateOrThrow().G.players[SocialClass.WorkingClass].wealth).toBe(20);
+  });
+
+  test('wealth_tax applies to both classes when WC collects production', () => {
+    const G = makeActionPhaseState();
+    G.laws = ['wealth_tax'];
+    G.turnPhase = TurnPhase.Production;
+    G.players[SocialClass.WorkingClass].wealth = 20;  // after +5 wages = 25 > 20 → floor(25/2) = 12
+    G.players[SocialClass.CapitalistClass].wealth = 25; // also > 20 → floor(25/2) = 12
+
+    const client = clientFromFixture(G);
+
+    // wealth_tax checks both classes on every collectProduction call
+    client.moves.collectProduction();
+    const state = client.getStateOrThrow();
+    expect(state.G.players[SocialClass.WorkingClass].wealth).toBe(12);
+    expect(state.G.players[SocialClass.CapitalistClass].wealth).toBe(12);
   });
 });

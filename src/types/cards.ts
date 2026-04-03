@@ -187,6 +187,12 @@ export interface StateFigureCardInPlay extends BaseCardInPlay {
   card_type: CardType.DefaultStateFigure;
   figureId?: FigureCardID; // If a player figure was elected
   exhausted: boolean;
+  /**
+   * Turns remaining before this office can be targeted by another election.
+   * Set to 1 when a challenger wins an election. Decremented at the start
+   * of each WC turn. Undefined (or 0) means the office is open to challenge.
+   */
+  electionCooldownTurnsRemaining?: number;
 }
 
 /** All board-only card data types */

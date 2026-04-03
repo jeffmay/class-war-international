@@ -6,7 +6,7 @@ import { type MoveMap } from 'boardgame.io';
 import { pick } from 'lodash';
 import { buildDeck, defaultStateFigureCards, DefaultStateFigureID, defaultWorkplaceCards, getAnyCardData } from '../data/cards';
 import { CardType, type FigureCardInPlay, SocialClass, type StateFigureCardInPlay, type WorkplaceInPlay } from '../types/cards';
-import { ConflictCardInPlay, ConflictPhase, ConflictType, type ElectionConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
+import { ConflictCardInPlay, ConflictPhase, ConflictType, type ElectionConflictState, type LegislationConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
 import { isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard } from '../util/game';
 import { type StrictGameOf } from '../util/typedboardgame';
@@ -52,6 +52,26 @@ function shuffleArray<T>(array: T[], random: () => number): T[] {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
+}
+
+/**
+ * Apply the immediate effect of a demand card becoming law.
+ * Some laws have immediate board effects (e.g. deregulation); others
+ * are checked each production phase (e.g. wealth_tax).
+ */
+function applyLawEffect(demandCardId: string, G: GameState): void {
+  if (demandCardId === 'deregulation') {
+    // Shift $1 from wages to profits at every existing workplace
+    for (const wp of G.workplaces) {
+      if (wp.id.startsWith('empty')) continue;
+      if (wp.wages > 1) {
+        wp.wages -= 1;
+        wp.profits += 1;
+      }
+    }
+  }
+  // wealth_tax and free_health_care effects are checked each production phase
+  // tax_breaks cost reduction is checked when cards are played
 }
 
 /**
@@ -253,6 +273,17 @@ export const Moves = {
 
     player.wealth += totalIncome;
 
+    // Apply wealth_tax law: if a class has >$20, they give half to the bank
+    if (G.laws.includes('wealth_tax')) {
+      const WEALTH_TAX_THRESHOLD = 20;
+      for (const sc of [SocialClass.WorkingClass, SocialClass.CapitalistClass] as const) {
+        const p = G.players[sc];
+        if (p.wealth > WEALTH_TAX_THRESHOLD) {
+          p.wealth = Math.floor(p.wealth / 2);
+        }
+      }
+    }
+
     // Unexhaust all figures for this player
     player.figures.forEach((figure) => {
       figure.exhausted = false;
@@ -378,6 +409,11 @@ export const Moves = {
       return;
     }
 
+    if (targetOffice.electionCooldownTurnsRemaining && targetOffice.electionCooldownTurnsRemaining > 0) {
+      G.errorMessage = `This office cannot be challenged for ${targetOffice.electionCooldownTurnsRemaining} more turn(s).`;
+      return;
+    }
+
     // Remove figure from player's figures — it's now in the conflict
     player.figures.splice(figureIndex, 1);
 
@@ -391,6 +427,148 @@ export const Moves = {
       targetOfficeIndex: officeIndex,
       targetIncumbent: { ...targetOffice },
       candidate,
+      workingClassCards,
+      capitalistCards,
+      active: true,
+      phase: ConflictPhase.Initiating,
+      initiatingClass: currentClass,
+      activeConflictPlayer: currentClass,
+      workingClassPower: powerStats(workingClassCards),
+      capitalistPower: powerStats(capitalistCards),
+    };
+
+    G.activeConflict = conflictState;
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * Propose Legislation: starts a Legislative conflict from a political office
+   * held by the current player's class. The demand card is proposed as a law.
+   * State figures are automatically assigned to sides based on their rules:
+   *   - Populist: sides with the class that has more figures in play
+   *   - Centrist: always opposes legislation (sides with the opposing class)
+   *   - Opportunist: opposes unless the proposing class pays $15
+   *   - Opposing class offices: automatically oppose
+   * Exhausted state figures can participate but cannot propose legislation.
+   *
+   * @param officeIndex - Index of the political office the figure holds
+   * @param demandSlotIndex - Index in the proposing player's demands array (0 or 1)
+   */
+  planLegislation: ({ G, playerID }, officeIndex: number, demandSlotIndex: number) => {
+    if (G.turnPhase !== TurnPhase.Action) return;
+
+    const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    const opposingClass = currentClass === SocialClass.WorkingClass ? SocialClass.CapitalistClass : SocialClass.WorkingClass;
+    const player = G.players[currentClass];
+
+    // Validate the office exists and is held by the current class
+    const office = G.politicalOffices[officeIndex];
+    if (!office) {
+      G.errorMessage = `No political office at index ${officeIndex}.`;
+      return;
+    }
+
+    // The office must have a figure from the current class elected
+    if (!office.figureId) {
+      G.errorMessage = `No elected figure in that office.`;
+      return;
+    }
+
+    // The elected figure must belong to the current class
+    const electedFigureData = getAnyCardData(office.figureId);
+    if (electedFigureData.card_type !== CardType.Figure || electedFigureData.social_class !== currentClass) {
+      G.errorMessage = `The figure in that office does not belong to your class.`;
+      return;
+    }
+
+    // The office figure cannot be exhausted to initiate (but can participate)
+    if (office.exhausted) {
+      G.errorMessage = `The elected figure is exhausted and cannot propose legislation this turn.`;
+      return;
+    }
+
+    // Validate the demand card slot
+    if (demandSlotIndex < 0 || demandSlotIndex > 1) {
+      G.errorMessage = `Invalid demand slot index ${demandSlotIndex}.`;
+      return;
+    }
+    const demandInPlay = player.demands[demandSlotIndex];
+    if (!demandInPlay) {
+      G.errorMessage = `No demand card in slot ${demandSlotIndex}.`;
+      return;
+    }
+
+    const demandCardId = demandInPlay.id;
+
+    // Auto-assign state figures to sides
+    const proposingSideCards: ConflictCardInPlay[] = [];
+    const opposingSideCards: ConflictCardInPlay[] = [];
+
+    const wcFigureCount = G.players[SocialClass.WorkingClass].figures.length;
+    const ccFigureCount = G.players[SocialClass.CapitalistClass].figures.length;
+
+    for (const stateOffice of G.politicalOffices) {
+      // The proposing office's figure is on the proposing side
+      if (G.politicalOffices.indexOf(stateOffice) === officeIndex) {
+        proposingSideCards.push({ ...stateOffice });
+        continue;
+      }
+
+      const stateData = getAnyCardData(stateOffice.id);
+      if (stateData.card_type !== CardType.DefaultStateFigure) continue;
+
+      // Opposing class offices automatically oppose
+      if (stateOffice.figureId) {
+        const figData = getAnyCardData(stateOffice.figureId);
+        if (figData.card_type === CardType.Figure && figData.social_class === opposingClass) {
+          opposingSideCards.push({ ...stateOffice });
+          continue;
+        }
+        if (figData.card_type === CardType.Figure && figData.social_class === currentClass) {
+          proposingSideCards.push({ ...stateOffice });
+          continue;
+        }
+      }
+
+      // Default state figure behavior
+      if (stateOffice.id === 'populist') {
+        // Sides with the class that has more figures in play
+        const proposingCount = currentClass === SocialClass.WorkingClass ? wcFigureCount : ccFigureCount;
+        const opposingCount = currentClass === SocialClass.WorkingClass ? ccFigureCount : wcFigureCount;
+        if (proposingCount >= opposingCount) {
+          proposingSideCards.push({ ...stateOffice });
+        } else {
+          opposingSideCards.push({ ...stateOffice });
+        }
+      } else if (stateOffice.id === 'centrist') {
+        // Always opposes legislation
+        opposingSideCards.push({ ...stateOffice });
+      } else if (stateOffice.id === 'opportunist') {
+        // Opposes unless paid $15
+        const OPPORTUNIST_BRIBE = 15;
+        if (player.wealth >= OPPORTUNIST_BRIBE) {
+          player.wealth -= OPPORTUNIST_BRIBE;
+          proposingSideCards.push({ ...stateOffice });
+        } else {
+          opposingSideCards.push({ ...stateOffice });
+        }
+      } else {
+        // Unknown state figure — default to opposing
+        opposingSideCards.push({ ...stateOffice });
+      }
+    }
+
+    const workingClassCards = currentClass === SocialClass.WorkingClass ? proposingSideCards : opposingSideCards;
+    const capitalistCards = currentClass === SocialClass.CapitalistClass ? proposingSideCards : opposingSideCards;
+
+    // Exhaust the proposing office
+    office.exhausted = true;
+
+    const conflictState: LegislationConflictState = {
+      conflictType: ConflictType.Legislation,
+      demandCardId,
+      demandSlotIndex,
+      proposingOfficeIndex: officeIndex,
       workingClassCards,
       capitalistCards,
       active: true,
@@ -601,8 +779,7 @@ export const Moves = {
         dismissedBy: [],
       };
 
-    } else {
-      // Election
+    } else if (conflict.conflictType === ConflictType.Election) {
       const wcTotal = sum(wcRolls) + wcEstablished;
       const ccTotal = sum(ccRolls) + ccEstablished;
 
@@ -612,14 +789,13 @@ export const Moves = {
 
       if (challengerWins) {
         winner = conflict.initiatingClass;
-        // Place elected candidate in the office; exhaust them
-        const electedCandidate: FigureCardInPlay = { ...conflict.candidate, exhausted: true };
+        // Place elected candidate in the office; exhaust them; set cooldown
         G.politicalOffices[conflict.targetOfficeIndex] = {
           ...G.politicalOffices[conflict.targetOfficeIndex],
-          figureId: electedCandidate.id,
+          figureId: conflict.candidate.id,
           exhausted: true,
+          electionCooldownTurnsRemaining: 1,
         };
-        // Loser (incumbent represented by state figure) stays in office slot (already replaced)
       } else {
         winner = conflict.initiatingClass === SocialClass.WorkingClass
           ? SocialClass.CapitalistClass
@@ -641,6 +817,61 @@ export const Moves = {
             }
           } else if (card.card_type === CardType.Tactic) {
             clasPlayer.dustbin.push(card.id);
+          }
+        }
+      }
+
+      G.conflictOutcome = {
+        conflict: { ...conflict },
+        winner,
+        workingClassPower: { diceCount: conflict.workingClassPower.diceCount, diceRolls: wcRolls, establishedPower: wcEstablished, total: wcTotal },
+        capitalistPower: { diceCount: conflict.capitalistPower.diceCount, diceRolls: ccRolls, establishedPower: ccEstablished, total: ccTotal },
+        dismissedBy: [],
+      };
+
+    } else {
+      // Legislation
+      const wcTotal = sum(wcRolls) + wcEstablished;
+      const ccTotal = sum(ccRolls) + ccEstablished;
+
+      const proposerWins = conflict.initiatingClass === SocialClass.WorkingClass
+        ? wcTotal > ccTotal
+        : ccTotal > wcTotal;
+
+      if (proposerWins) {
+        winner = conflict.initiatingClass;
+        // Demand becomes law — add to laws list if not already present
+        if (!G.laws.includes(conflict.demandCardId)) {
+          G.laws.push(conflict.demandCardId);
+        }
+        // Apply immediate law effects
+        applyLawEffect(conflict.demandCardId, G);
+      } else {
+        winner = conflict.initiatingClass === SocialClass.WorkingClass
+          ? SocialClass.CapitalistClass
+          : SocialClass.WorkingClass;
+      }
+
+      // Exhaust all state figures that participated (they are not removed, just exhausted)
+      for (const card of [...conflict.workingClassCards, ...conflict.capitalistCards]) {
+        if (card.card_type === CardType.DefaultStateFigure) {
+          const officeIdx = G.politicalOffices.findIndex(o => o.id === card.id);
+          if (officeIdx !== -1) {
+            G.politicalOffices[officeIdx].exhausted = true;
+          }
+        } else if (card.card_type === CardType.Figure) {
+          // Player figures that joined the conflict are returned exhausted
+          const socialClass = (() => {
+            const data = getAnyCardData(card.id);
+            return data.card_type === CardType.Figure ? data.social_class : null;
+          })();
+          if (socialClass) {
+            G.players[socialClass].figures.push({ ...card, exhausted: true });
+          }
+        } else if (card.card_type === CardType.Tactic) {
+          const data = getAnyCardData(card.id);
+          if (data.card_type === CardType.Tactic && data.social_class) {
+            G.players[data.social_class].dustbin.push(card.id);
           }
         }
       }
@@ -707,6 +938,12 @@ export const Moves = {
 
     if (ctx.currentPlayer === '0') {
       G.turnNumber += 1;
+      // Decrement election cooldowns at the start of each new round (when WC ends their turn)
+      G.politicalOffices.forEach(office => {
+        if (office.electionCooldownTurnsRemaining && office.electionCooldownTurnsRemaining > 0) {
+          office.electionCooldownTurnsRemaining -= 1;
+        }
+      });
     }
 
     events?.endTurn?.();

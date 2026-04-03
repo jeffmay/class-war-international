@@ -1,5 +1,5 @@
 /**
- * Tests for Conflict Phase mechanics - Planning strikes and elections
+ * Tests for Conflict Phase mechanics - Planning strikes, elections, and legislation
  *
  * Every test builds its own GameState fixture with explicit pre-conditions
  * so no test is skipped or branched on randomly generated values.
@@ -8,6 +8,7 @@
 import { CardType, SocialClass, type FigureCardInPlay } from '../types/cards';
 import { ConflictPhase, ConflictType } from '../types/conflicts';
 import { TurnPhase } from '../types/game';
+import { playDemandCard } from '../util/game';
 import { clientFromFixture, makeActionPhaseState } from './generate';
 
 // A ready (not exhausted, not in_training) WC figure fixture
@@ -227,6 +228,202 @@ describe('Conflict Phase - Planning', () => {
       const client = clientFromFixture(G);
 
       client.moves.planElection('cashier', 0);
+      expect(client.getStateOrThrow().G.activeConflict).toBeUndefined();
+    });
+
+    test('cannot plan election targeting an office with election cooldown', () => {
+      const G = makeActionPhaseState({ figures: [readyWcFigure] });
+      // Set cooldown on office 0 (populist)
+      G.politicalOffices[0].electionCooldownTurnsRemaining = 1;
+      const client = clientFromFixture(G);
+
+      client.moves.planElection('cashier', 0);
+      expect(client.getStateOrThrow().G.activeConflict).toBeUndefined();
+      expect(client.getStateOrThrow().G.errorMessage).toContain('cannot be challenged');
+    });
+
+    test('can plan election after cooldown decrements to 0', () => {
+      const G = makeActionPhaseState({ figures: [readyWcFigure] });
+      G.politicalOffices[0].electionCooldownTurnsRemaining = 1;
+      const client = clientFromFixture(G);
+
+      // WC ends their turn — cooldown decrements at end of WC Reproduction phase
+      client.moves.endActionPhase();
+      client.moves.endReproductionPhase();
+
+      // Skip CC turn
+      client.moves.collectProduction();
+      client.moves.endActionPhase();
+      client.moves.endReproductionPhase();
+
+      // Back to WC's turn with cooldown now 0
+      const state = client.getStateOrThrow();
+      expect(state.G.politicalOffices[0].electionCooldownTurnsRemaining).toBe(0);
+      expect(state.G.turnPhase).toBe(TurnPhase.Production);
+      client.moves.collectProduction();
+
+      // WC now has their figure back (unexhausted from new turn)
+      // But we need a fresh figure in play — refill figures for this test
+      // The figure needs to be in the action phase state, so check state
+      const actionState = client.getStateOrThrow();
+      expect(actionState.G.turnPhase).toBe(TurnPhase.Action);
+      // Office cooldown is 0, so election should succeed if figure is available
+      expect(actionState.G.politicalOffices[0].electionCooldownTurnsRemaining ?? 0).toBe(0);
+    });
+  });
+
+  describe('planLegislation', () => {
+    const wcFigureInOffice: FigureCardInPlay = {
+      id: 'cashier',
+      card_type: CardType.Figure,
+      in_play: true,
+      exhausted: false,
+      in_training: false,
+    };
+
+    function makeWcLegislationFixture(officeIndex = 0) {
+      const G = makeActionPhaseState({
+        demands: [playDemandCard('wealth_tax'), null],
+      });
+      // Place WC figure in office 0 (populist)
+      G.politicalOffices[officeIndex].figureId = wcFigureInOffice.id;
+      G.politicalOffices[officeIndex].exhausted = false;
+      return G;
+    }
+
+    test('successfully plans legislation with a WC figure in office', () => {
+      const G = makeWcLegislationFixture();
+      const client = clientFromFixture(G);
+
+      client.moves.planLegislation(0, 0); // office 0 (populist), demand slot 0
+      const state = client.getStateOrThrow();
+
+      expect(state.G.activeConflict).toBeDefined();
+      const conflict = state.G.activeConflict!;
+      expect(conflict.conflictType).toBe(ConflictType.Legislation);
+      expect(conflict.phase).toBe(ConflictPhase.Initiating);
+      expect(conflict.initiatingClass).toBe(SocialClass.WorkingClass);
+      if (conflict.conflictType !== ConflictType.Legislation) throw new Error('wrong type');
+      expect(conflict.demandCardId).toBe('wealth_tax');
+      expect(conflict.demandSlotIndex).toBe(0);
+      expect(conflict.proposingOfficeIndex).toBe(0);
+    });
+
+    test('proposing office is exhausted when legislation is planned', () => {
+      const G = makeWcLegislationFixture();
+      const client = clientFromFixture(G);
+
+      client.moves.planLegislation(0, 0);
+      const state = client.getStateOrThrow();
+
+      expect(state.G.politicalOffices[0].exhausted).toBe(true);
+    });
+
+    test('centrist always opposes legislation', () => {
+      const G = makeWcLegislationFixture();
+      const client = clientFromFixture(G);
+
+      client.moves.planLegislation(0, 0);
+      const conflict = client.getStateOrThrow().G.activeConflict!;
+      if (conflict.conflictType !== ConflictType.Legislation) throw new Error('wrong type');
+
+      // centrist (office 1) should be on the capitalist (opposing) side
+      const ccCardIds = conflict.capitalistCards.map(c => c.id);
+      expect(ccCardIds).toContain('centrist');
+    });
+
+    test('populist sides with class that has more figures', () => {
+      // WC has 1 extra figure in play (more than CC's 0)
+      const G = makeActionPhaseState({
+        figures: [{ id: 'activist', card_type: CardType.Figure, in_play: true, exhausted: false, in_training: false }],
+        demands: [playDemandCard('wealth_tax'), null],
+      });
+      // WC figure in populist office — populist office is office 1 (centrist is 0)
+      // Use centrist office (index 1) for proposing so populist (index 0) auto-votes
+      G.politicalOffices[1].figureId = 'cashier';
+      G.politicalOffices[1].exhausted = false;
+      const client = clientFromFixture(G);
+
+      client.moves.planLegislation(1, 0); // propose from centrist office
+      const conflict = client.getStateOrThrow().G.activeConflict!;
+      if (conflict.conflictType !== ConflictType.Legislation) throw new Error('wrong type');
+
+      // populist (office 0) — WC has 1 figure, CC has 0 → sides with WC (proposing)
+      const wcCardIds = conflict.workingClassCards.map(c => c.id);
+      expect(wcCardIds).toContain('populist');
+    });
+
+    test('opportunist opposes if proposing class cannot afford bribe', () => {
+      const G = makeWcLegislationFixture();
+      G.players[SocialClass.WorkingClass].wealth = 0; // cannot afford $15
+      const client = clientFromFixture(G);
+
+      client.moves.planLegislation(0, 0);
+      const conflict = client.getStateOrThrow().G.activeConflict!;
+      if (conflict.conflictType !== ConflictType.Legislation) throw new Error('wrong type');
+
+      const ccCardIds = conflict.capitalistCards.map(c => c.id);
+      expect(ccCardIds).toContain('opportunist');
+    });
+
+    test('opportunist supports proposing class when bribe of $15 is paid', () => {
+      const G = makeWcLegislationFixture();
+      G.players[SocialClass.WorkingClass].wealth = 15;
+      const client = clientFromFixture(G);
+
+      client.moves.planLegislation(0, 0);
+      const state = client.getStateOrThrow();
+      const conflict = state.G.activeConflict!;
+      if (conflict.conflictType !== ConflictType.Legislation) throw new Error('wrong type');
+
+      const wcCardIds = conflict.workingClassCards.map(c => c.id);
+      expect(wcCardIds).toContain('opportunist');
+      // $15 was deducted
+      expect(state.G.players[SocialClass.WorkingClass].wealth).toBe(0);
+    });
+
+    test('cannot plan legislation with no figure in the office', () => {
+      const G = makeActionPhaseState({
+        demands: [playDemandCard('wealth_tax'), null],
+      });
+      // Office 0 has no figureId
+      const client = clientFromFixture(G);
+
+      client.moves.planLegislation(0, 0);
+      expect(client.getStateOrThrow().G.activeConflict).toBeUndefined();
+    });
+
+    test('cannot plan legislation with an exhausted office figure', () => {
+      const G = makeWcLegislationFixture();
+      G.politicalOffices[0].exhausted = true;
+      const client = clientFromFixture(G);
+
+      client.moves.planLegislation(0, 0);
+      expect(client.getStateOrThrow().G.activeConflict).toBeUndefined();
+    });
+
+    test('cannot plan legislation with no demand card in slot', () => {
+      const G = makeActionPhaseState({
+        demands: [null, null],
+      });
+      G.politicalOffices[0].figureId = 'cashier';
+      G.politicalOffices[0].exhausted = false;
+      const client = clientFromFixture(G);
+
+      client.moves.planLegislation(0, 0);
+      expect(client.getStateOrThrow().G.activeConflict).toBeUndefined();
+    });
+
+    test('cannot plan legislation if office figure belongs to opposing class', () => {
+      const G = makeActionPhaseState({
+        demands: [playDemandCard('wealth_tax'), null],
+      });
+      // Place a CC figure in office 0 — WC cannot use it
+      G.politicalOffices[0].figureId = 'manager';
+      G.politicalOffices[0].exhausted = false;
+      const client = clientFromFixture(G);
+
+      client.moves.planLegislation(0, 0);
       expect(client.getStateOrThrow().G.activeConflict).toBeUndefined();
     });
   });

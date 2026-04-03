@@ -44,18 +44,31 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
         `The strike was broken at ${wp.name}. Wages unchanged.`,
       ];
     }
-    // Election
-    const candidateName = getAnyCardData(conflict.candidate.id).name;
-    const incumbentName = getAnyCardData(conflict.targetIncumbent.id).name;
+    if (conflict.conflictType === ConflictType.Election) {
+      const candidateName = getAnyCardData(conflict.candidate.id).name;
+      const incumbentName = getAnyCardData(conflict.targetIncumbent.id).name;
+      if (winner === conflict.initiatingClass) {
+        return [
+          `${candidateName} Elected!`,
+          `${candidateName} defeats ${incumbentName} and takes office.`,
+        ];
+      }
+      return [
+        `${incumbentName} Re-Elected!`,
+        `${incumbentName} holds office — ${candidateName} loses.`,
+      ];
+    }
+    // Legislation
+    const demandName = getAnyCardData(conflict.demandCardId).name;
     if (winner === conflict.initiatingClass) {
       return [
-        `${candidateName} Elected!`,
-        `${candidateName} defeats ${incumbentName} and takes office.`,
+        `${demandName} Passed!`,
+        `The demand becomes law and takes effect immediately.`,
       ];
     }
     return [
-      `${incumbentName} Re-Elected!`,
-      `${incumbentName} holds office — ${candidateName} loses.`,
+      `${demandName} Rejected!`,
+      `The legislation failed. The demand remains on the table.`,
     ];
   })();
 

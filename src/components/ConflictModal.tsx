@@ -76,8 +76,12 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   const isResponding = conflict.phase === ConflictPhase.Responding;
   const isResolving = conflict.phase === ConflictPhase.Resolving;
 
-  const conflictTypeLabel = conflict.conflictType === ConflictType.Strike ? "Strike" : "Election";
-  const targetLabel = conflict.conflictType === ConflictType.Strike ? "Workplace" : "Office";
+  const conflictTypeLabel =
+    conflict.conflictType === ConflictType.Strike ? "Strike" :
+    conflict.conflictType === ConflictType.Election ? "Election" : "Legislation";
+  const targetLabel =
+    conflict.conflictType === ConflictType.Strike ? "Workplace" :
+    conflict.conflictType === ConflictType.Election ? "Office" : "Demand";
 
   const phaseLabel = (() => {
     if (isInitiating) return `${conflict.initiatingClass}: Add cards to your side`;
