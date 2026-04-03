@@ -205,10 +205,12 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             `Replace ${wpDisplayCard.name} ($${card.cost})`,
             canAfford ? () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]`); handleCloseInspector(); } : undefined,
           ]);
-          options.push([
-            `Expand ${wpDisplayCard.name} ($${card.cost})`,
-            canAfford ? () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]/expand`); handleCloseInspector(); } : undefined,
-          ]);
+          if (wp.workplaceId === card.id) {
+            options.push([
+              `Expand ${wpDisplayCard.name} ($${card.cost})`,
+              canAfford ? () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]/expand`); handleCloseInspector(); } : undefined,
+            ]);
+          }
         });
       }
 

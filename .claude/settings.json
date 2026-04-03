@@ -11,6 +11,7 @@
       "Bash(git status:*)",
       "Bash(npm run:*)",
       "Bash(npm test:*)",
+      "Bash(CI=true npm test:*)",
       "Bash(grep)"
     ]
   }

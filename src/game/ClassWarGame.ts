@@ -123,6 +123,7 @@ export const Moves = {
       const wpIndex = parseInt(expandMatch[1], 10);
       const existing = G.workplaces[wpIndex];
       if (!existing || existing.id.startsWith('empty')) return;
+      if (existing.workplaceId !== cardId) return;
 
       const wpData = getAnyCardData(cardId);
       if (wpData.card_type !== CardType.Workplace) return;

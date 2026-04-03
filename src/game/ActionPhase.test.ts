@@ -532,5 +532,30 @@ describe('Action Phase - Playing Cards', () => {
       expect(newCcPlayer.wealth).toBe(CC_INCOME);
       expect(newState.G.workplaces[2].expansionCount).toBeUndefined();
     });
+
+    test('cannot expand a workplace with a different card type', () => {
+      // Play fast_food_chain into the empty slot, then try to expand it with superstore.
+      const ccDeck = buildDeck(SocialClass.CapitalistClass);
+      const { hand, deck } = withCardsInHand(ccDeck, ['fast_food_chain', 'superstore']);
+      const client = makeCCActionPhaseClient(
+        allCards.fast_food_chain.cost + allCards.superstore.cost,
+        { hand, deck },
+      );
+
+      // Play fast_food_chain into empty slot (index 2)
+      client.moves.playCardFromHand(0, 'workplaces[-1]');
+      expect(client.getStateOrThrow().G.workplaces[2].workplaceId).toBe('fast_food_chain');
+
+      const wealthBeforeExpand = client.getStateOrThrow().G.players[SocialClass.CapitalistClass].wealth;
+
+      // Attempt to expand fast_food_chain slot with superstore — should be rejected
+      client.moves.playCardFromHand(0, 'workplaces[2]/expand');
+      const newState = client.getStateOrThrow();
+      const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
+
+      expect(newCcPlayer.hand[0]).toBe('superstore');
+      expect(newCcPlayer.wealth).toBe(wealthBeforeExpand);
+      expect(newState.G.workplaces[2].expansionCount).toBeUndefined();
+    });
   });
 });
