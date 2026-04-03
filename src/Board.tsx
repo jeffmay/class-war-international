@@ -16,13 +16,15 @@ import { ConflictType } from './types/conflicts';
 import { GameState, TurnPhase } from './types/game';
 import { Brand, make } from 'ts-brand';
 
-/** Build a WorkplaceCardData for display by substituting current wages/profits from in-play state. */
+/** Build a WorkplaceCardData for display by substituting current wages/profits from in-play state.
+ *  Appends an expansion indicator (x2, x3, …) to the name when the workplace has been expanded. */
 function makeWorkplaceDisplayCard(wp: WorkplaceInPlay): WorkplaceCardData {
   const card = getAnyCardData(wp.id);
   if (card.card_type !== CardType.Workplace) {
     throw new Error(`Expected workplace card for id "${wp.id}", got ${card.card_type}`);
   }
-  return { ...card, starting_wages: wp.wages, starting_profits: wp.profits, established_power: wp.established_power };
+  const expansionSuffix = wp.expansionCount ? ` (x${wp.expansionCount + 1})` : "";
+  return { ...card, name: card.name + expansionSuffix, starting_wages: wp.wages, starting_profits: wp.profits, established_power: wp.established_power };
 }
 
 interface ClassWarBoardProps extends BoardProps<GameState> { }
@@ -187,6 +189,27 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             canAfford ? () => { moves.playCardFromHand(idx, 'institutions[1]'); handleCloseInspector(); } : undefined,
           ]);
         }
+      } else if (card.card_type === CardType.Workplace) {
+        const canAfford = myPlayer.wealth >= card.cost;
+        const hasEmptySlot = G.workplaces.some(w => w.id.startsWith('empty'));
+        if (hasEmptySlot) {
+          options.push([
+            `Open New Workplace ($${card.cost})`,
+            canAfford ? () => { moves.playCardFromHand(idx, 'workplaces[-1]'); handleCloseInspector(); } : undefined,
+          ]);
+        }
+        G.workplaces.forEach((wp, wpIdx) => {
+          if (wp.id.startsWith('empty')) return;
+          const wpDisplayCard = makeWorkplaceDisplayCard(wp);
+          options.push([
+            `Replace ${wpDisplayCard.name} ($${card.cost})`,
+            canAfford ? () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]`); handleCloseInspector(); } : undefined,
+          ]);
+          options.push([
+            `Expand ${wpDisplayCard.name} ($${card.cost})`,
+            canAfford ? () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]/expand`); handleCloseInspector(); } : undefined,
+          ]);
+        });
       }
 
       slotData.set(slotId, { cardId, options });

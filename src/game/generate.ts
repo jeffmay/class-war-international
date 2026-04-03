@@ -6,7 +6,7 @@
  * None of these functions shuffle or otherwise randomise state.
  */
 
-import { buildDeck, DeckCardID } from '../data/cards';
+import { buildDeck, defaultWorkplaceCards, DeckCardID } from '../data/cards';
 import { SocialClass } from '../types/cards';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
 import { ClassWarGame, Moves, setup } from './ClassWarGame';
@@ -125,5 +125,39 @@ export function clientFromFixture(G: GameState): StrictClientOf<typeof ClassWarG
     numPlayers: 2,
   });
   client.start();
+  return client;
+}
+
+/**
+ * Income the Capitalist Class receives from the two default starting workplaces
+ * (corner_store: 6 profits + parts_producer: 9 profits = 15) when collectProduction runs.
+ */
+export const DEFAULT_CC_INCOME_FROM_WORKPLACES =
+  defaultWorkplaceCards.corner_store.starting_profits +
+  defaultWorkplaceCards.parts_producer.starting_profits;
+
+/**
+ * Creates a StrictClient positioned at the start of the Capitalist Class player's
+ * Action phase, after WC has completed their first full turn.
+ *
+ * `initialWealth` is the CC player's wealth **before** collectProduction runs.
+ * After collectProduction, wealth will be `initialWealth + DEFAULT_CC_INCOME_FROM_WORKPLACES`.
+ *
+ * Pass `ccOverrides` for other CC player state overrides (hand, deck, figures, etc.).
+ */
+export function makeCCActionPhaseClient(
+  initialWealth: number,
+  ccOverrides?: Omit<Partial<PlayerState>, "wealth">,
+): StrictClientOf<typeof ClassWarGame> {
+  const G = makeActionPhaseState(undefined, {
+    ...ccOverrides,
+    wealth: initialWealth,
+  });
+  const client = clientFromFixture(G);
+  // Advance through WC's first turn to reach CC's turn
+  client.moves.endActionPhase();
+  client.moves.endReproductionPhase();
+  // Now currentPlayer === '1' (CC) in Production phase
+  client.moves.collectProduction(); // CC collects DEFAULT_CC_INCOME_FROM_WORKPLACES
   return client;
 }

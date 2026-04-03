@@ -134,6 +134,8 @@ export interface WorkplaceInPlay {
   profits: number;
   unionized: boolean;
   established_power: number;
+  /** Number of times this workplace has been expanded (0 = base, 1 = x2, 2 = x3, …) */
+  expansionCount?: number;
 }
 
 // Tactic cards

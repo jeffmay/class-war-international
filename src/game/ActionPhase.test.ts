@@ -9,14 +9,16 @@
  * withCardInHand / withCardsInHand helpers from generate.ts.
  */
 
-import { allCards, buildDeck } from '../data/cards';
+import { allCards, buildDeck, defaultWorkplaceCards } from '../data/cards';
 import { CardType, SocialClass, type FigureCardInPlay } from '../types/cards';
 import { TurnPhase } from '../types/game';
 import {
   clientFromFixture,
+  makeCCActionPhaseClient,
   makeActionPhaseState,
   withCardInHand,
   withCardsInHand,
+  DEFAULT_CC_INCOME_FROM_WORKPLACES as CC_INCOME,
 } from './generate';
 
 describe('Action Phase - Playing Cards', () => {
@@ -321,6 +323,214 @@ describe('Action Phase - Playing Cards', () => {
         in_play: true,
       });
       expect(newPlayer.dustbin).toContain('political_education_group');
+    });
+  });
+
+  describe('playCardFromHand - workplace cards', () => {
+    // Workplace cards belong to CC (player '1').
+    // Use makeCCActionPhaseClient so currentPlayer === '1' when moves are made.
+
+    test('opens a new workplace in the empty slot', () => {
+      // Pre-conditions: CC has 'fast_food_chain' (cost $10) in hand.
+      // CC starts with $0 wealth and collects CC_INCOME ($15) from production.
+      // Default board has one empty slot (index 2).
+      const ccDeck = buildDeck(SocialClass.CapitalistClass);
+      const { hand, deck } = withCardInHand(ccDeck, 'fast_food_chain');
+      const cost = allCards.fast_food_chain.cost;
+      const client = makeCCActionPhaseClient(0, { hand, deck });
+
+      const state = client.getStateOrThrow();
+      const ccPlayer = state.G.players[SocialClass.CapitalistClass];
+      expect(ccPlayer.hand[0]).toBe('fast_food_chain');
+      expect(ccPlayer.wealth).toBe(CC_INCOME);
+      expect(state.G.workplaces[2].id).toMatch(/^empty/);
+
+      client.moves.playCardFromHand(0, 'workplaces[-1]');
+      const newState = client.getStateOrThrow();
+      const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
+
+      // Card removed from hand and cost deducted
+      expect(newCcPlayer.hand).not.toContain('fast_food_chain');
+      expect(newCcPlayer.wealth).toBe(CC_INCOME - cost);
+
+      // Workplace slot filled with new card
+      const newWp = newState.G.workplaces[2];
+      expect(newWp.workplaceId).toBe('fast_food_chain');
+      expect(newWp.wages).toBe(allCards.fast_food_chain.starting_wages);
+      expect(newWp.profits).toBe(allCards.fast_food_chain.starting_profits);
+      expect(newWp.established_power).toBe(allCards.fast_food_chain.established_power);
+    });
+
+    test('cannot open new workplace without enough wealth', () => {
+      // superstore costs $20; CC_INCOME is $15, so CC can never afford it from a $0 start.
+      const ccDeck = buildDeck(SocialClass.CapitalistClass);
+      const { hand, deck } = withCardInHand(ccDeck, 'superstore');
+      const cost = allCards.superstore.cost;
+      const client = makeCCActionPhaseClient(0, { hand, deck });
+
+      const state = client.getStateOrThrow();
+      expect(state.G.players[SocialClass.CapitalistClass].wealth).toBe(CC_INCOME);
+      expect(CC_INCOME).toBeLessThan(cost); // sanity check
+
+      client.moves.playCardFromHand(0, 'workplaces[-1]');
+      const newState = client.getStateOrThrow();
+      const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
+
+      // Move rejected — nothing changed
+      expect(newCcPlayer.hand[0]).toBe('superstore');
+      expect(newCcPlayer.wealth).toBe(CC_INCOME);
+      expect(newState.G.workplaces[2].id).toMatch(/^empty/);
+    });
+
+    test('cannot open new workplace when no empty slots exist', () => {
+      // Fill the empty slot (index 2) before handing to the client
+      const ccDeck = buildDeck(SocialClass.CapitalistClass);
+      const { hand, deck } = withCardInHand(ccDeck, 'fast_food_chain');
+      const G = makeActionPhaseState(undefined, { wealth: 30, hand, deck });
+      G.workplaces[2] = {
+        id: 'extra_corner_store',
+        wages: defaultWorkplaceCards.corner_store.starting_wages,
+        profits: defaultWorkplaceCards.corner_store.starting_profits,
+        established_power: defaultWorkplaceCards.corner_store.established_power,
+        unionized: false,
+      };
+      const client = clientFromFixture(G);
+      // Advance through WC's turn so currentPlayer === '1'
+      client.moves.endActionPhase();
+      client.moves.endReproductionPhase();
+      client.moves.collectProduction();
+
+      const state = client.getStateOrThrow();
+      expect(state.G.workplaces.every(w => !w.id.startsWith('empty'))).toBe(true);
+
+      client.moves.playCardFromHand(0, 'workplaces[-1]');
+      const newState = client.getStateOrThrow();
+      const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
+
+      // Move rejected — hand and workplaces unchanged
+      expect(newCcPlayer.hand[0]).toBe('fast_food_chain');
+      expect(newState.G.workplaces.every(w => !w.id.startsWith('empty'))).toBe(true);
+    });
+
+    test('replaces an existing workplace and moves old workplaceId to dustbin', () => {
+      // Play fast_food_chain ($10) to the empty slot, then replace it with superstore ($20).
+      // CC_INCOME ($15) covers fast_food_chain; add extra pre-income wealth to cover superstore.
+      const ccDeck = buildDeck(SocialClass.CapitalistClass);
+      const { hand, deck } = withCardsInHand(ccDeck, ['fast_food_chain', 'superstore']);
+      // Start with enough pre-income wealth that after CC_INCOME we can afford both cards
+      const client = makeCCActionPhaseClient(
+        allCards.fast_food_chain.cost + allCards.superstore.cost,
+        { hand, deck },
+      );
+
+      // Play fast_food_chain into the empty slot (index 2)
+      client.moves.playCardFromHand(0, 'workplaces[-1]');
+      expect(client.getStateOrThrow().G.workplaces[2].workplaceId).toBe('fast_food_chain');
+
+      // Now replace slot 2 with superstore
+      client.moves.playCardFromHand(0, 'workplaces[2]');
+      const newState = client.getStateOrThrow();
+      const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
+
+      expect(newState.G.workplaces[2].workplaceId).toBe('superstore');
+      expect(newState.G.workplaces[2].wages).toBe(allCards.superstore.starting_wages);
+      expect(newState.G.workplaces[2].profits).toBe(allCards.superstore.starting_profits);
+      // Old card goes to dustbin
+      expect(newCcPlayer.dustbin).toContain('fast_food_chain');
+    });
+
+    test('replacing a default workplace (no workplaceId) does not add to dustbin', () => {
+      // Default workplaces (corner_store, parts_producer) have no workplaceId.
+      // CC_INCOME ($15) > fast_food_chain cost ($10), so $0 pre-income is fine.
+      const ccDeck = buildDeck(SocialClass.CapitalistClass);
+      const { hand, deck } = withCardInHand(ccDeck, 'fast_food_chain');
+      const client = makeCCActionPhaseClient(0, { hand, deck });
+
+      // Replace the corner_store (index 0, no workplaceId) with fast_food_chain
+      client.moves.playCardFromHand(0, 'workplaces[0]');
+      const newState = client.getStateOrThrow();
+      const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
+
+      expect(newState.G.workplaces[0].workplaceId).toBe('fast_food_chain');
+      // No card in dustbin since the replaced workplace had no workplaceId
+      expect(newCcPlayer.dustbin).not.toContain('corner_store');
+    });
+
+    test('expands an existing workplace — stacks wages, profits, established_power, and increments expansionCount', () => {
+      // Two fast_food_chain cards at $10 each. CC_INCOME ($15) < $20 total,
+      // so start with enough pre-income wealth to cover both.
+      const ccDeck = buildDeck(SocialClass.CapitalistClass);
+      const { hand, deck } = withCardsInHand(ccDeck, ['fast_food_chain', 'fast_food_chain']);
+      const cost = allCards.fast_food_chain.cost;
+      const client = makeCCActionPhaseClient(cost, { hand, deck });
+      // After CC_INCOME: wealth = cost + CC_INCOME; after first play: CC_INCOME; after expand: CC_INCOME - cost
+
+      // Play fast_food_chain into empty slot (index 2)
+      client.moves.playCardFromHand(0, 'workplaces[-1]');
+      const afterOpen = client.getStateOrThrow().G.workplaces[2];
+      const baseWages = afterOpen.wages;
+      const baseProfits = afterOpen.profits;
+      const baseEstablishedPower = afterOpen.established_power;
+      expect(afterOpen.expansionCount).toBeUndefined();
+
+      // Expand slot 2 with the second fast_food_chain
+      client.moves.playCardFromHand(0, 'workplaces[2]/expand');
+      const newState = client.getStateOrThrow();
+      const expandedWp = newState.G.workplaces[2];
+      const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
+
+      expect(expandedWp.wages).toBe(baseWages + allCards.fast_food_chain.starting_wages);
+      expect(expandedWp.profits).toBe(baseProfits + allCards.fast_food_chain.starting_profits);
+      expect(expandedWp.established_power).toBe(baseEstablishedPower + allCards.fast_food_chain.established_power);
+      expect(expandedWp.expansionCount).toBe(1);
+      // Card consumed (goes to dustbin)
+      expect(newCcPlayer.dustbin).toContain('fast_food_chain');
+      expect(newCcPlayer.hand).not.toContain('fast_food_chain');
+    });
+
+    test('cannot expand an empty workplace slot', () => {
+      // CC_INCOME ($15) > fast_food_chain cost ($10), $0 pre-income is fine.
+      const ccDeck = buildDeck(SocialClass.CapitalistClass);
+      const { hand, deck } = withCardInHand(ccDeck, 'fast_food_chain');
+      const client = makeCCActionPhaseClient(0, { hand, deck });
+
+      // Attempt to expand the empty slot (index 2) — should be rejected
+      client.moves.playCardFromHand(0, 'workplaces[2]/expand');
+      const newState = client.getStateOrThrow();
+      const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
+
+      expect(newCcPlayer.hand[0]).toBe('fast_food_chain');
+      expect(newState.G.workplaces[2].id).toMatch(/^empty/);
+    });
+
+    test('cannot expand workplace without enough wealth', () => {
+      // Use superstore ($20): after CC_INCOME ($15) CC has $15, not enough to expand.
+      // First play superstore by giving enough pre-income wealth, then attempt expand
+      // with a second superstore card when wealth is insufficient.
+      const ccDeck = buildDeck(SocialClass.CapitalistClass);
+      const { hand, deck } = withCardsInHand(ccDeck, ['superstore', 'superstore']);
+      const cost = allCards.superstore.cost; // $20
+      // Pre-income wealth = cost so after CC_INCOME ($15) we have cost + CC_INCOME = $35;
+      // after first play we have $15 (CC_INCOME), which is less than cost ($20).
+      const client = makeCCActionPhaseClient(cost, { hand, deck });
+
+      // Play first superstore to fill the empty slot
+      client.moves.playCardFromHand(0, 'workplaces[-1]');
+      const afterOpen = client.getStateOrThrow();
+      const ccAfterOpen = afterOpen.G.players[SocialClass.CapitalistClass];
+      // Remaining wealth = CC_INCOME = $15, which is less than $20
+      expect(ccAfterOpen.wealth).toBe(CC_INCOME);
+      expect(CC_INCOME).toBeLessThan(cost); // sanity check
+
+      // Attempt expand — should be rejected
+      client.moves.playCardFromHand(0, 'workplaces[2]/expand');
+      const newState = client.getStateOrThrow();
+      const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
+
+      // Hand still has the card and wealth unchanged
+      expect(newCcPlayer.hand[0]).toBe('superstore');
+      expect(newCcPlayer.wealth).toBe(CC_INCOME);
+      expect(newState.G.workplaces[2].expansionCount).toBeUndefined();
     });
   });
 });

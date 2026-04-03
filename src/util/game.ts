@@ -1,4 +1,4 @@
-import { allCards, allDemandCards, allFigureCards, allInstitutionCards, allTacticCards, CardID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID } from "../data/cards";
+import { allCards, allDeckWorkplaceCards, allDemandCards, allFigureCards, allInstitutionCards, allTacticCards, CardID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID } from "../data/cards";
 import { CardType, DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay, TacticCardInPlay } from "../types/cards";
 
 export function isDemandCardID(cardId: string): cardId is DemandCardID {
@@ -41,6 +41,10 @@ export function playInstitutionCard(cardId: InstitutionCardID): InstitutionCardI
 
 export function isTacticCardID(cardId: string): cardId is TacticCardID {
   return cardId in allTacticCards
+}
+
+export function isWorkplaceCardID(cardId: string): cardId is WorkplaceCardID {
+  return cardId in allDeckWorkplaceCards
 }
 
 export function playTacticCard(cardId: TacticCardID): TacticCardInPlay {

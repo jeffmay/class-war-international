@@ -8,7 +8,7 @@ import { buildDeck, defaultStateFigureCards, DefaultStateFigureID, defaultWorkpl
 import { CardType, type FigureCardInPlay, SocialClass, type StateFigureCardInPlay, type WorkplaceInPlay } from '../types/cards';
 import { ConflictCardInPlay, ConflictPhase, ConflictType, type ElectionConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
-import { isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard } from '../util/game';
+import { isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard } from '../util/game';
 import { type StrictGameOf } from '../util/typedboardgame';
 
 /**
@@ -115,9 +115,32 @@ export const Moves = {
     const cardData = getAnyCardData(cardId);
     const cost = cardData?.cost ?? 0
 
-    const slotMatch = targetSlot.match(/^(figures|demands|institutions)\[(-?\d+)\]$/);
+    const expandMatch = targetSlot.match(/^workplaces\[(\d+)\]\/expand$/);
+    if (expandMatch) {
+      if (!isWorkplaceCardID(cardId)) return;
+      if (player.wealth < cost) return;
+
+      const wpIndex = parseInt(expandMatch[1], 10);
+      const existing = G.workplaces[wpIndex];
+      if (!existing || existing.id.startsWith('empty')) return;
+
+      const wpData = getAnyCardData(cardId);
+      if (wpData.card_type !== CardType.Workplace) return;
+
+      player.wealth -= cost;
+      player.hand.splice(handIndex, 1);
+      player.dustbin.push(cardId);
+
+      existing.wages += wpData.starting_wages;
+      existing.profits += wpData.starting_profits;
+      existing.established_power += wpData.established_power;
+      existing.expansionCount = (existing.expansionCount ?? 0) + 1;
+      return;
+    }
+
+    const slotMatch = targetSlot.match(/^(figures|demands|institutions|workplaces)\[(-?\d+)\]$/);
     if (!slotMatch) return;
-    const slotType = slotMatch[1] as 'figures' | 'demands' | 'institutions';
+    const slotType = slotMatch[1] as 'figures' | 'demands' | 'institutions' | 'workplaces';
     const slotIndex = parseInt(slotMatch[2], 10);
 
     if (slotType === 'figures') {
@@ -167,6 +190,38 @@ export const Moves = {
 
       // "When first played" effect: increase max hand size
       player.maxHandSize += 1;
+
+    } else if (slotType === 'workplaces') {
+      if (!isWorkplaceCardID(cardId)) return;
+      if (player.wealth < cost) return;
+
+      const wpData = getAnyCardData(cardId);
+      if (wpData.card_type !== CardType.Workplace) return;
+
+      let resolvedWpIndex = slotIndex;
+      if (slotIndex === -1) {
+        resolvedWpIndex = G.workplaces.findIndex(w => w.id.startsWith('empty'));
+        if (resolvedWpIndex === -1) return; // no empty slot
+      }
+      if (resolvedWpIndex < 0 || resolvedWpIndex >= G.workplaces.length) return;
+
+      player.wealth -= cost;
+      player.hand.splice(handIndex, 1);
+
+      const existing = G.workplaces[resolvedWpIndex];
+      // If replacing an occupied slot, send old workplace card to dustbin
+      if (existing && !existing.id.startsWith('empty') && existing.workplaceId) {
+        player.dustbin.push(existing.workplaceId);
+      }
+
+      G.workplaces[resolvedWpIndex] = {
+        id: cardId,
+        workplaceId: cardId,
+        wages: wpData.starting_wages,
+        profits: wpData.starting_profits,
+        established_power: wpData.established_power,
+        unionized: false,
+      };
     }
   },
 
