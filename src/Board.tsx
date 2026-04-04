@@ -15,6 +15,7 @@ import { CardType, CardSlotEntity, FigureCardInPlay, SocialClass, WorkplaceCardD
 import { ConflictType } from './types/conflicts';
 import { GameState, TurnPhase } from './types/game';
 import { Brand, make } from 'ts-brand';
+import { pluralize } from './util/text';
 
 /** Build a WorkplaceCardData for display by substituting current wages/profits from in-play state.
  *  Appends an expansion indicator (x2, x3, …) to the name when the workplace has been expanded. */
@@ -794,22 +795,20 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 <div className="shared-area-section-title">Political Offices</div>
                 <div className="offices-section">
                   {G.politicalOffices.map((office, index) => {
-                    const stateCard = getAnyCardData(office.id);
-                    const electedFigureName = stateCard.name;
-                    const cooldown = office.electionCooldownTurnsRemaining;
-                    const statusLine1 = office.card_type === CardType.Figure && office.exhausted ? 'Exhausted' : undefined;
-                    const statusLine2 = cooldown && cooldown > 0
-                      ? `Protected (${cooldown})`
-                      : undefined;
-                    const statusBanner = (statusLine1 || statusLine2 || electedFigureName)
-                      ? { line1: electedFigureName ?? statusLine1 ?? '', line2: electedFigureName ? (statusLine1 ?? statusLine2) : statusLine2 }
-                      : undefined;
+                    // The election cooldown should be a status on the card. The banner should only be used when a card is unusable.
+                    const cooldown = office.card_type === CardType.Figure && office?.electionCooldownTurnsRemaining || 0;
+                    const effects = []
+                    if (cooldown > 0) {
+                      effects.push(`🔒 Safe for ${pluralize(cooldown, 'turn')}`);
+                    }
+                    const statusBanner = office.card_type === CardType.Figure && office.exhausted ? { line1: 'Exhausted' } : undefined;
                     return (
                       <div key={index} className="office-container">
                         <div className="card-slot">
                           <CardComponent
-                            card={stateCard}
+                            card={office}
                             statusBanner={statusBanner}
+                            effects={effects}
                             borderVariant={office.card_type === CardType.Figure ? "in-play" : "other"}
                           />
                         </div>

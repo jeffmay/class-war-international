@@ -14,6 +14,7 @@ export type CardBorderVariant = 'hand' | 'in-play' | 'training' | 'exhausted' | 
 
 interface CardComponentProps {
   card: CardSlotEntity;
+  effects?: string[]; // TODO: Implement effect icons and descriptions
   showAsCardBack?: boolean;
   onClick?: () => void;
   onDoubleClick?: () => void;
@@ -26,6 +27,7 @@ interface CardComponentProps {
 
 export const CardComponent: React.FC<CardComponentProps> = ({
   card,
+  effects = [],
   showAsCardBack = false,
   onClick,
   onDoubleClick,
@@ -49,6 +51,12 @@ export const CardComponent: React.FC<CardComponentProps> = ({
       )}
     </div>
   );
+
+  const effectsEl = effects.length > 0 && <div className="card-effects">{effects.map((effect, i) => (
+    <div key={i} className="card-effect">
+      {effect}
+    </div>
+  ))}</div>;
 
   // ── Card back ───────────────────────────────────────────────────────────────
   if (showAsCardBack) {
@@ -83,6 +91,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
         {statusBannerEl}
         <div className="card-top-left-block">
           <div className="card-name">{cardData.name}</div>
+          {effectsEl}
         </div>
         <div className="card-top-right-float power-color-established">
           {cardData.established_power} ⚫️
@@ -146,6 +155,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
         <div className="card-cost-icon">
           {getCardIcon()}{cardData.cost > 0 && ` $${cardData.cost}`}
         </div>
+        {effectsEl}
       </div>
 
       {/* Top-right: Power indicators — use card_type discriminators only */}
