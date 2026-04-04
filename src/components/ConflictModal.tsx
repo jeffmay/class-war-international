@@ -21,6 +21,7 @@ interface ConflictModalProps {
   players: { [SocialClass.WorkingClass]: PlayerState; [SocialClass.CapitalistClass]: PlayerState };
   /** The card being contested (workplace, office, or demand) */
   targetCard: CardSlotEntity;
+  onClose: () => void;
   onCancel: () => void;
   onInitiate: () => void;
   onAddFigure: (figureId: string) => void;
@@ -64,6 +65,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   activeConflictPlayer,
   players,
   targetCard,
+  onClose,
   onCancel,
   onInitiate,
   onAddFigure,
@@ -108,15 +110,24 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
       <div className="conflict-modal">
         <button
           className="conflict-modal-close-button"
-          onClick={isInitiating ? onCancel : undefined}
-          disabled={!isInitiating}
-          aria-label={isInitiating ? "Cancel conflict" : "Cannot cancel after initiating"}
+          onClick={onClose}
+          aria-label="Close conflict window"
         >
           ✕
         </button>
 
         <div className="conflict-modal-title">{conflictTypeLabel}</div>
         <div className="conflict-modal-phase">{phaseLabel}</div>
+
+        {/* Wealth display */}
+        <div className="conflict-modal-wealth-row">
+          <span className="conflict-modal-wealth-item conflict-modal-wealth-wc">
+            WC: ${players[SocialClass.WorkingClass].wealth}
+          </span>
+          <span className="conflict-modal-wealth-item conflict-modal-wealth-cc">
+            CC: ${players[SocialClass.CapitalistClass].wealth}
+          </span>
+        </div>
 
         {/* Target card */}
         <div className="conflict-modal-target">
@@ -226,13 +237,18 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
                         className="conflict-modal-add-card-button"
                         onClick={canAfford ? () => onAddTactic(idx) : undefined}
                         disabled={!canAfford}
-                        title={canAfford ? undefined : `Need $${data.cost ?? 0} (have $${activePlayer.wealth})`}
                       >
-                        <CardComponent
-                          card={data}
-                          borderVariant="hand"
-                          className={canAfford ? undefined : "card-cannot-afford"}
-                        />
+                        <div className="conflict-tactic-wrapper">
+                          <CardComponent
+                            card={data}
+                            borderVariant={canAfford ? "hand" : "other"}
+                          />
+                          {!canAfford && (
+                            <div className="conflict-tactic-cannot-afford">
+                              Cannot Afford
+                            </div>
+                          )}
+                        </div>
                       </button>
                     );
                   })}

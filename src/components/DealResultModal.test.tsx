@@ -4,11 +4,11 @@
 
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { allFigureCards } from '../data/cards';
+import { figureCardById } from '../data/cards';
 import { DealResultModal } from './DealResultModal';
 
-const cashierCard = allFigureCards.cashier;
-const activistCard = allFigureCards.activist;
+const cashierCard = figureCardById.cashier;
+const activistCard = figureCardById.activist;
 
 describe('DealResultModal', () => {
   const baseProps = {

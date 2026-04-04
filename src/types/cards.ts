@@ -2,7 +2,7 @@
  * Card type definitions for Class War: International
  */
 
-import { CardID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID } from "../data/cards";
+import { CardID, DefaultStateFigureID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID } from "../data/cards";
 
 export enum SocialClass {
   CapitalistClass = 'Capitalist Class',
@@ -76,12 +76,11 @@ export interface FigureCardData extends BaseDeckCardData {
   hero: boolean;
 }
 
-export interface FigureCardInPlay extends BaseCardInPlay {
+export interface FigureCardInPlay extends BaseStateFigureInPlay {
   id: FigureCardID;
   card_type: CardType.Figure;
   exhausted: boolean;
   in_training: boolean;
-  state_office_index?: number; // If elected to office
 }
 
 // Institution cards
@@ -151,14 +150,14 @@ export interface TacticCardInPlay extends BaseCardInPlay {
 }
 
 // Union of all player-deck-legal card data types
-export type DeckCardData =
+export type PlayableCardData =
   | FigureCardData
   | InstitutionCardData
   | DemandCardData
   | WorkplaceCardData
   | TacticCardData;
 
-export type DeckCardInPlay =
+export type CardInPlay =
   | FigureCardInPlay
   | InstitutionCardInPlay
   | DemandCardInPlay
@@ -173,39 +172,55 @@ export interface BaseBoardCardData extends BaseCardData {
 }
 
 /**
- * A political office or other default state figure that is always on the board.
- * Uses card_type: CardType.StateFigure to distinguish it from all player card types.
+ * Properties of any entity in play that can hold political office.
  */
-export interface StateFigureCardData extends BaseBoardCardData {
-  card_type: CardType.DefaultStateFigure;
-  established_power: number;
-  rules: string;
-}
-
-// TODO: Move the id to the container type and replace with figureId
-export interface StateFigureCardInPlay extends BaseCardInPlay {
-  card_type: CardType.DefaultStateFigure;
-  figureId?: FigureCardID; // If a player figure was elected
-  exhausted: boolean;
+export interface BaseStateFigureInPlay extends BaseCardInPlay {
   /**
    * Turns remaining before this office can be targeted by another election.
    * Set to 1 when a challenger wins an election. Decremented at the start
    * of each WC turn. Undefined (or 0) means the office is open to challenge.
    */
   electionCooldownTurnsRemaining?: number;
+
+  /**
+   * If elected to office, the index of the political office.
+   */
+  state_office_index?: number;
 }
 
+/**
+ * A political office or other default state figure that is always on the board.
+ * Uses card_type: CardType.StateFigure to distinguish it from all player card types.
+ */
+export interface DefaultStateFigureCardData extends BaseBoardCardData {
+  card_type: CardType.DefaultStateFigure;
+  established_power: number;
+  rules: string;
+}
+
+export interface DefaultStateFigureCardInPlay extends BaseStateFigureInPlay {
+  id: DefaultStateFigureID;
+  card_type: CardType.DefaultStateFigure;
+  exhausted: boolean;
+}
+
+/** Any card (State Figure) that can run for a Political Office (or occupy) */
+export type StateFigureCardData = DefaultStateFigureCardData | FigureCardData;
+
+/** Any card (State Figure) in play that can occupy a Political Office Card Slot */
+export type StateFigureCardInPlay = DefaultStateFigureCardInPlay | FigureCardInPlay;
+
 /** All board-only card data types */
-export type BoardCardData = StateFigureCardData;
+export type DefaultCardData = DefaultStateFigureCardData;
 
 /** All board-only cards in play */
-export type BoardCardInPlay = StateFigureCardInPlay;
+export type DefaultCardInPlay = DefaultStateFigureCardInPlay;
 
 /** Every card that can be rendered by CardComponent */
-export type AnyCardData = DeckCardData | BoardCardData;
+export type AnyCardData = PlayableCardData | DefaultCardData;
 
 /** Every card that can possibly be in play, whether by default or activated by a player */
-export type AnyCardInPlay = DeckCardInPlay | StateFigureCardInPlay;
+export type AnyCardInPlay = CardInPlay | DefaultCardInPlay;
 
 /** Anything that can be viewed like a card */
 export type AnyCard = AnyCardData | AnyCardInPlay;

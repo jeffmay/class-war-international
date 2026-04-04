@@ -437,6 +437,26 @@ body {
   cursor: not-allowed;
 }
 
+.game-return-to-conflict-button {
+  padding: 8px 16px;
+  background-color: #c05621;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  animation: pulse-conflict 1.5s infinite;
+}
+
+.game-return-to-conflict-button:hover {
+  background-color: #e07140;
+}
+
+@keyframes pulse-conflict {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
 .game-finish-theorizing-button {
   padding: 8px 16px;
   background-color: #744210;
@@ -1833,7 +1853,55 @@ body {
 
 .conflict-modal-add-card-button:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.7;
+}
+
+.conflict-tactic-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.conflict-tactic-cannot-afford {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.3vw solid #e53e3e;
+  border-radius: 0.5vw;
+  background: rgba(229, 62, 62, 0.15);
+  color: #fc8181;
+  font-weight: bold;
+  font-size: 1vw;
+  pointer-events: none;
+  text-align: center;
+  padding: 0.2vw;
+}
+
+.conflict-modal-wealth-row {
+  display: flex;
+  gap: 2vw;
+  justify-content: center;
+  font-size: 1vw;
+  font-weight: bold;
+  margin-bottom: 0.5vw;
+}
+
+.conflict-modal-wealth-item {
+  padding: 0.2vw 0.8vw;
+  border-radius: 0.4vw;
+}
+
+.conflict-modal-wealth-wc {
+  background: rgba(211, 74, 74, 0.3);
+  border: 0.1vw solid rgb(211, 74, 74);
+  color: #fed7d7;
+}
+
+.conflict-modal-wealth-cc {
+  background: rgba(57, 97, 227, 0.3);
+  border: 0.1vw solid rgb(57, 97, 227);
+  color: #bee3f8;
 }
 
 .conflict-modal-actions {
@@ -1902,6 +1970,9 @@ body {
   .conflict-modal-power-source { font-size: 2.2vw; }
   .conflict-modal-button { font-size: 3.5vw; padding: 2vw 5vw; }
   .conflict-modal-close-button { font-size: 3vw; width: 6vw; height: 6vw; }
+  .conflict-modal-wealth-row { font-size: 2.5vw; gap: 4vw; }
+  .conflict-modal-wealth-item { padding: 0.4vw 1.5vw; border-radius: 0.8vw; }
+  .conflict-tactic-cannot-afford { font-size: 2.5vw; border-width: 0.5vw; }
   .conflict-modal-card-row .card-component {
     --card-inner-width: 26vw;
     --card-font-size: calc(var(--card-inner-width) / 14);

@@ -4,11 +4,11 @@
 
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { allFigureCards } from '../data/cards';
+import { figureCardById } from '../data/cards';
 import { SocialClass } from '../types/cards';
 import { ActionMenuBar } from './ActionMenuBar';
 
-const cashierCard = allFigureCards.cashier;
+const cashierCard = figureCardById.cashier;
 
 describe('ActionMenuBar', () => {
   const baseProps = {

@@ -10,7 +10,7 @@ import { ConflictModal } from './components/ConflictModal';
 import { ConflictOutcomeModal } from './components/ConflictOutcomeModal';
 import { DealResultModal } from './components/DealResultModal';
 import { TurnStartModal } from './components/StartGameScreen';
-import { DeckCardID, getAnyCardData } from './data/cards';
+import { DeckCardID, getAnyCardData, getAnyStateFigureDataById, getFigureDataById } from './data/cards';
 import { CardType, CardSlotEntity, FigureCardInPlay, SocialClass, WorkplaceCardData, WorkplaceInPlay } from './types/cards';
 import { ConflictType } from './types/conflicts';
 import { GameState, TurnPhase } from './types/game';
@@ -49,6 +49,16 @@ interface SlotData {
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
   const [boardState, setBoardState] = useState<BoardState>({ mode: 'normal', selectedSlotId: null });
   const [theorizeSelectedIndexes, setTheorizeSelectedIndexes] = useState<number[]>([]);
+  const [conflictModalOpen, setConflictModalOpen] = useState(true);
+
+  // Reopen the modal automatically whenever a new conflict begins
+  const prevConflictRef = React.useRef<typeof G.activeConflict>(G.activeConflict);
+  React.useEffect(() => {
+    if (G.activeConflict && !prevConflictRef.current) {
+      setConflictModalOpen(true);
+    }
+    prevConflictRef.current = G.activeConflict;
+  }, [G.activeConflict]);
 
   // Determine current class
   const isWorkingClass = ctx.currentPlayer === '0';
@@ -246,9 +256,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     const proposingOffices = G.politicalOffices
       .map((office, offIdx) => ({ office, offIdx }))
       .filter(({ office }) => {
-        if (!office.figureId) return false;
-        if (office.exhausted) return false;
-        const figData = getAnyCardData(office.figureId);
+        if (office.card_type === CardType.Figure && office.exhausted) return false;
+        const figData = getAnyCardData(office.id);
         return figData.card_type === CardType.Figure && figData.social_class === myClass;
       });
 
@@ -590,12 +599,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       )}
 
       {/* Active Conflict Modal — shown during Initiating / Responding / Resolving phases */}
-      {G.activeConflict && conflictTargetCard && (
+      {G.activeConflict && conflictTargetCard && conflictModalOpen && (
         <ConflictModal
           conflict={G.activeConflict}
           activeConflictPlayer={G.activeConflict.activeConflictPlayer}
           players={G.players}
           targetCard={conflictTargetCard}
+          onClose={() => setConflictModalOpen(false)}
           onCancel={() => moves.cancelConflict()}
           onInitiate={() => moves.initiateConflict()}
           onAddFigure={(figureId) => moves.addFigureToConflict(figureId)}
@@ -651,7 +661,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         <ActionMenuBar
           title={`Choose an office for ${getAnyCardData(boardState.figure.id).name} to run for`}
           options={G.politicalOffices.map((office, index) => {
-            const stateCard = getAnyCardData(office.id);
+            const stateCard = getAnyStateFigureDataById(office.id);
             const preview = <CardComponent card={stateCard} borderVariant="other" />;
             return [
               stateCard.name,
@@ -669,16 +679,11 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         <ActionMenuBar
           title={`Choose an office to propose legislation from`}
           options={G.politicalOffices.map((office, index) => {
-            const stateCard = getAnyCardData(office.id);
-            const electedName = office.figureId ? getAnyCardData(office.figureId).name : undefined;
-            const label = electedName ? `${stateCard.name} (${electedName})` : stateCard.name;
-            const preview = <CardComponent card={stateCard} borderVariant={office.figureId ? "in-play" : "other"} />;
-            const canPropose = !!(office.figureId && !office.exhausted && (() => {
-              const fd = getAnyCardData(office.figureId!);
-              return fd.card_type === CardType.Figure && fd.social_class === myClass;
-            })());
+            const stateCard = getAnyStateFigureDataById(office.id);
+            const preview = <CardComponent card={stateCard} borderVariant={office.card_type === CardType.DefaultStateFigure ? "other" : "in-play"} />;
+            const canPropose = office.card_type === CardType.Figure && getFigureDataById(office.id).social_class === myClass && !office.exhausted;
             return [
-              label,
+              stateCard.name,
               canPropose ? () => handleSelectLegislationOffice(index) : undefined,
               preview,
             ] as const satisfies MenuOption;
@@ -726,7 +731,15 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 : `⏭ Theorize Cards (${theorizeSelectedIndexes.length})`}
             </button>
           )}
-          {isMyTurn && boardState.mode === 'showingDealtCards' && boardState.modalDismissed && (
+          {G.activeConflict && !conflictModalOpen && (
+            <button
+              className="game-return-to-conflict-button"
+              onClick={() => setConflictModalOpen(true)}
+            >
+              ⚔ Return to Conflict
+            </button>
+          )}
+          {isMyTurn && boardState.mode === 'showingDealtCards' && boardState.modalDismissed && !G.activeConflict && (
             <button
               className="game-end-turn-button"
               onClick={handleEndTurn}
@@ -782,11 +795,9 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 <div className="offices-section">
                   {G.politicalOffices.map((office, index) => {
                     const stateCard = getAnyCardData(office.id);
-                    const electedFigureName = office.figureId
-                      ? getAnyCardData(office.figureId).name
-                      : undefined;
+                    const electedFigureName = stateCard.name;
                     const cooldown = office.electionCooldownTurnsRemaining;
-                    const statusLine1 = office.exhausted ? 'Exhausted' : undefined;
+                    const statusLine1 = office.card_type === CardType.Figure && office.exhausted ? 'Exhausted' : undefined;
                     const statusLine2 = cooldown && cooldown > 0
                       ? `Protected (${cooldown})`
                       : undefined;
@@ -799,7 +810,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                           <CardComponent
                             card={stateCard}
                             statusBanner={statusBanner}
-                            borderVariant={office.figureId ? "in-play" : "other"}
+                            borderVariant={office.card_type === CardType.Figure ? "in-play" : "other"}
                           />
                         </div>
                       </div>

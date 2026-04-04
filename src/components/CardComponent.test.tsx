@@ -4,10 +4,10 @@
 
 import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
-import { allFigureCards } from '../data/cards';
+import { figureCardById } from '../data/cards';
 import { CardBorderVariant, CardComponent } from './CardComponent';
 
-const cashierCard = allFigureCards.cashier;
+const cashierCard = figureCardById.cashier;
 
 describe('CardComponent', () => {
   // --- borderVariant ---

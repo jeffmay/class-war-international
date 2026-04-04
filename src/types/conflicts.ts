@@ -3,7 +3,7 @@
  */
 
 import { DemandCardID } from '../data/cards';
-import { FigureCardInPlay, StateFigureCardInPlay, TacticCardInPlay, WorkplaceInPlay } from './cards';
+import { FigureCardInPlay, DefaultStateFigureCardInPlay, StateFigureCardInPlay, TacticCardInPlay, WorkplaceInPlay } from './cards';
 import { SocialClass } from './cards';
 
 export enum ConflictType {
@@ -24,7 +24,7 @@ export interface PowerStats {
 }
 
 /** Cards that can participate in a conflict */
-export type ConflictCardInPlay = FigureCardInPlay | StateFigureCardInPlay | TacticCardInPlay;
+export type ConflictCardInPlay = FigureCardInPlay | DefaultStateFigureCardInPlay | TacticCardInPlay;
 
 export interface BaseConflictState {
   conflictType: ConflictType;

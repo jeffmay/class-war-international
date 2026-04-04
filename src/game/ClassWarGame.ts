@@ -5,7 +5,7 @@
 import { type MoveMap } from 'boardgame.io';
 import { pick } from 'lodash';
 import { buildDeck, defaultStateFigureCards, DefaultStateFigureID, defaultWorkplaceCards, getAnyCardData } from '../data/cards';
-import { CardType, type FigureCardInPlay, SocialClass, type StateFigureCardInPlay, type WorkplaceInPlay } from '../types/cards';
+import { CardType, type FigureCardInPlay, SocialClass, type DefaultStateFigureCardInPlay, type WorkplaceInPlay } from '../types/cards';
 import { ConflictCardInPlay, ConflictPhase, ConflictType, type ElectionConflictState, type LegislationConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
 import { isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard } from '../util/game';
@@ -468,14 +468,14 @@ export const Moves = {
       return;
     }
 
-    // The office must have a figure from the current class elected
-    if (!office.figureId) {
+    // The office must have a player figure from the current class elected
+    if (office.card_type !== CardType.Figure) {
       G.errorMessage = `No elected figure in that office.`;
       return;
     }
 
     // The elected figure must belong to the current class
-    const electedFigureData = getAnyCardData(office.figureId);
+    const electedFigureData = getAnyCardData(office.id);
     if (electedFigureData.card_type !== CardType.Figure || electedFigureData.social_class !== currentClass) {
       G.errorMessage = `The figure in that office does not belong to your class.`;
       return;
@@ -514,20 +514,15 @@ export const Moves = {
         continue;
       }
 
-      const stateData = getAnyCardData(stateOffice.id);
-      if (stateData.card_type !== CardType.DefaultStateFigure) continue;
-
-      // Opposing class offices automatically oppose
-      if (stateOffice.figureId) {
-        const figData = getAnyCardData(stateOffice.figureId);
+      // If a player figure was elected to this office, align by their social class
+      if (stateOffice.card_type === CardType.Figure) {
+        const figData = getAnyCardData(stateOffice.id);
         if (figData.card_type === CardType.Figure && figData.social_class === opposingClass) {
           opposingSideCards.push({ ...stateOffice });
-          continue;
-        }
-        if (figData.card_type === CardType.Figure && figData.social_class === currentClass) {
+        } else if (figData.card_type === CardType.Figure && figData.social_class === currentClass) {
           proposingSideCards.push({ ...stateOffice });
-          continue;
         }
+        continue;
       }
 
       // Default state figure behavior
@@ -791,8 +786,7 @@ export const Moves = {
         winner = conflict.initiatingClass;
         // Place elected candidate in the office; exhaust them; set cooldown
         G.politicalOffices[conflict.targetOfficeIndex] = {
-          ...G.politicalOffices[conflict.targetOfficeIndex],
-          figureId: conflict.candidate.id,
+          ...conflict.candidate,
           exhausted: true,
           electionCooldownTurnsRemaining: 1,
         };
@@ -984,14 +978,14 @@ export function setup(ctx: any): GameState {
     },
   ];
 
-  const playStateFigure = (stateFigureID: DefaultStateFigureID): StateFigureCardInPlay => ({
+  const playStateFigure = (stateFigureID: DefaultStateFigureID): DefaultStateFigureCardInPlay => ({
     ...pick(defaultStateFigureCards[stateFigureID], 'id', 'card_type', 'established_power'),
     exhausted: false,
     in_play: true,
   })
 
   // Initialize political offices (3 state figures)
-  const politicalOffices: StateFigureCardInPlay[] = [
+  const politicalOffices: DefaultStateFigureCardInPlay[] = [
     playStateFigure('populist'),
     playStateFigure('centrist'),
     playStateFigure('opportunist'),

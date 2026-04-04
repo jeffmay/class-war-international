@@ -3,7 +3,7 @@
  */
 
 import { DeckCardID, DemandCardID } from '../data/cards';
-import { FigureCardInPlay, InstitutionCardInPlay, DemandCardInPlay, WorkplaceInPlay, StateFigureCardInPlay, SocialClass } from './cards';
+import { DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay, SocialClass, StateFigureCardInPlay, WorkplaceInPlay } from './cards';
 import { ConflictOutcome, ConflictState } from './conflicts';
 
 export enum TurnPhase {

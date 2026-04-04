@@ -5,19 +5,19 @@
  * More cards can be added incrementally.
  */
 
+import type { ReadonlyDeep } from 'type-fest';
 import {
   AnyCardData,
-  DeckCardData,
   CardType,
-  SocialClass,
-  StateFigureCardData,
+  PlayableCardData,
+  DemandCardData,
   FigureCardData,
   InstitutionCardData,
-  DemandCardData,
-  WorkplaceCardData,
+  SocialClass,
+  DefaultStateFigureCardData,
   TacticCardData,
+  WorkplaceCardData,
 } from '../types/cards';
-import type { ReadonlyDeep } from 'type-fest';
 
 // ─── Default workplaces (always in play at start, qty: 0 keeps them out of decks) ─
 // TODO: In the future, the choice of deck and default cards should be externalized from the cards themselves.
@@ -73,7 +73,7 @@ export const defaultStateFigureCards = {
     established_power: 2,
     rules: 'Can be influenced with money (not yet implemented)',
   },
-} as const satisfies Record<string, StateFigureCardData>;
+} as const satisfies Record<string, DefaultStateFigureCardData>;
 
 // ─── Working Class Cards ──────────────────────────────────────────────────────
 
@@ -246,7 +246,7 @@ const capitalistInstitutionCards = {
   },
 } as const satisfies Record<string, InstitutionCardData>;
 
-const capitalistWorkplaceCards = {
+const capitalistWorkplaceCardById = {
   fast_food_chain: {
     id: 'fast_food_chain',
     name: 'Fast Food Chain',
@@ -289,30 +289,37 @@ const capitalistTacticCards = {
 
 // ─── Aggregated lookups ───────────────────────────────────────────────────────
 
-export const allFigureCards = {
+export const figureCardById = {
   ...workingClassFigureCards,
   ...capitalistFigureCards,
 } as const satisfies Record<string, FigureCardData>;
 
-export const allDemandCards = {
+export const anyStateFigureCardById = {
+  ...figureCardById,
+  ...defaultStateFigureCards,
+} as const satisfies Record<string, FigureCardData | DefaultStateFigureCardData>;
+
+export const demandCardById = {
   ...workingClassDemandCards,
   ...capitalistDemandCards,
 } as const satisfies Record<string, DemandCardData>;
 
-export const allInstitutionCards = {
+export const institutionCardById = {
   ...workingClassInstitutionCards,
   ...capitalistInstitutionCards,
 } as const satisfies Record<string, InstitutionCardData>;
 
-export const allTacticCards = {
+export const tacticCardById = {
   ...workingClassTacticCards,
   ...capitalistTacticCards,
 } as const satisfies Record<string, TacticCardData>;
 
-export const allDeckWorkplaceCards = capitalistWorkplaceCards;
+/** Any playable workplace card in the deck */
+export const workplaceCardById = capitalistWorkplaceCardById;
 
-export const allWorkplaceCards = {
-  ...capitalistWorkplaceCards,
+/** Any playable or default workplace card (i.e. anything that can occupy a workplace slot on the board) */
+export const anyWorkplaceCardById = {
+  ...capitalistWorkplaceCardById,
   ...defaultWorkplaceCards,
 } as const satisfies Record<string, WorkplaceCardData>
 
@@ -321,13 +328,13 @@ export const allWorkplaceCards = {
  * Default workplaces are included but have qty: 0 so they never appear in
  * a generated deck.
  */
-export const allDeckCards = {
-  ...allFigureCards,
-  ...allDemandCards,
-  ...allInstitutionCards,
-  ...allTacticCards,
-  ...allDeckWorkplaceCards,
-} as const satisfies Record<string, DeckCardData>;
+export const cardById = {
+  ...figureCardById,
+  ...demandCardById,
+  ...institutionCardById,
+  ...tacticCardById,
+  ...workplaceCardById,
+} as const satisfies Record<string, PlayableCardData>;
 
 // TODO: The allDeckCards should not need to be distinct from allCards,
 // it is just a convenience until we support other starting decks, since
@@ -338,21 +345,30 @@ export const allDeckCards = {
  * (state figures) that are never in a player's deck, hand, or figures.
  */
 export const allCards = {
-  ...allDeckCards,
+  ...cardById,
   ...defaultStateFigureCards,
   ...defaultWorkplaceCards,
 } as const satisfies Record<string, ReadonlyDeep<AnyCardData>>;
 
-export type DemandCardID = keyof typeof allDemandCards;
-export type FigureCardID = keyof typeof allFigureCards;
-export type InstitutionCardID = keyof typeof allInstitutionCards;
-export type TacticCardID = keyof typeof allTacticCards;
-export type WorkplaceCardID = keyof typeof allDeckWorkplaceCards;
+export type DemandCardID = keyof typeof demandCardById;
+export type FigureCardID = keyof typeof figureCardById;
+export type AnyStateFigureCardID = keyof typeof anyStateFigureCardById;
+export type InstitutionCardID = keyof typeof institutionCardById;
+export type TacticCardID = keyof typeof tacticCardById;
+export type WorkplaceCardID = keyof typeof workplaceCardById;
 
 export type DefaultStateFigureID = keyof typeof defaultStateFigureCards;
 
-export type DeckCardID = keyof typeof allDeckCards;
+export type DeckCardID = keyof typeof cardById;
 export type CardID = keyof typeof allCards;
+
+export const getDemandDataById = (demandId: DemandCardID): DemandCardData => demandCardById[demandId]
+export const getFigureDataById = (figureId: FigureCardID): FigureCardData => figureCardById[figureId]
+export const getInstitutionById = (institutionId: InstitutionCardID): InstitutionCardData => institutionCardById[institutionId]
+export const getTacticDataById = (tacticId: TacticCardID): TacticCardData => tacticCardById[tacticId]
+export const getWorkplaceDataById = (workplaceId: WorkplaceCardID): WorkplaceCardData => workplaceCardById[workplaceId]
+
+export const getAnyStateFigureDataById = (id: AnyStateFigureCardID): FigureCardData | DefaultStateFigureCardData => anyStateFigureCardById[id];
 
 /** Look up any card (player or board-only) by ID. Throws if not found. */
 export function getAnyCardData(id: string): AnyCardData {
@@ -368,8 +384,8 @@ export function buildDeck(socialClass: SocialClass): DeckCardID[] {
   const deck: DeckCardID[] = [];
 
   let cardID: DeckCardID;
-  for (cardID in allDeckCards) {
-    const cardData = allDeckCards[cardID];
+  for (cardID in cardById) {
+    const cardData = cardById[cardID];
     if (cardData.social_class === socialClass) {
       for (let i = 0; i < cardData.qty; i++) {
         deck.push(cardID);

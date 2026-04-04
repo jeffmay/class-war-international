@@ -8,7 +8,7 @@
 import { CardType, SocialClass, type FigureCardInPlay } from '../types/cards';
 import { ConflictPhase, ConflictType } from '../types/conflicts';
 import { TurnPhase } from '../types/game';
-import { playDemandCard } from '../util/game';
+import { playDemandCard, playFigureCard } from '../util/game';
 import { clientFromFixture, makeActionPhaseState } from './generate';
 
 // A ready (not exhausted, not in_training) WC figure fixture
@@ -285,9 +285,8 @@ describe('Conflict Phase - Planning', () => {
       const G = makeActionPhaseState({
         demands: [playDemandCard('wealth_tax'), null],
       });
-      // Place WC figure in office 0 (populist)
-      G.politicalOffices[officeIndex].figureId = wcFigureInOffice.id;
-      G.politicalOffices[officeIndex].exhausted = false;
+      // Place WC figure in office (populist)
+      G.politicalOffices[officeIndex] = { ...wcFigureInOffice };
       return G;
     }
 
@@ -340,8 +339,7 @@ describe('Conflict Phase - Planning', () => {
       });
       // WC figure in populist office — populist office is office 1 (centrist is 0)
       // Use centrist office (index 1) for proposing so populist (index 0) auto-votes
-      G.politicalOffices[1].figureId = 'cashier';
-      G.politicalOffices[1].exhausted = false;
+      G.politicalOffices[1] = { ...playFigureCard('cashier') };
       const client = clientFromFixture(G);
 
       client.moves.planLegislation(1, 0); // propose from centrist office
@@ -406,8 +404,7 @@ describe('Conflict Phase - Planning', () => {
       const G = makeActionPhaseState({
         demands: [null, null],
       });
-      G.politicalOffices[0].figureId = 'cashier';
-      G.politicalOffices[0].exhausted = false;
+      G.politicalOffices[0] = { ...playFigureCard('cashier') };
       const client = clientFromFixture(G);
 
       client.moves.planLegislation(0, 0);
@@ -419,8 +416,7 @@ describe('Conflict Phase - Planning', () => {
         demands: [playDemandCard('wealth_tax'), null],
       });
       // Place a CC figure in office 0 — WC cannot use it
-      G.politicalOffices[0].figureId = 'manager';
-      G.politicalOffices[0].exhausted = false;
+      G.politicalOffices[0] = { ...playFigureCard('manager') };
       const client = clientFromFixture(G);
 
       client.moves.planLegislation(0, 0);

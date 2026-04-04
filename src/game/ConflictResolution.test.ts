@@ -406,8 +406,10 @@ describe('resolveConflict - election', () => {
     client.moves.resolveConflict();
 
     const finalState = client.getStateOrThrow();
-    expect(finalState.G.politicalOffices[0].figureId).toBe('cashier');
-    expect(finalState.G.politicalOffices[0].electionCooldownTurnsRemaining).toBe(1);
+    const electedOffice = finalState.G.politicalOffices[0];
+    if (electedOffice.card_type !== CardType.Figure) throw new Error('expected elected figure in office');
+    expect(electedOffice.id).toBe('cashier');
+    expect(electedOffice.electionCooldownTurnsRemaining).toBe(1);
     expect(finalState.G.players[SocialClass.WorkingClass].figures.some(f => f.id === 'cashier')).toBe(false);
   });
 
@@ -432,7 +434,7 @@ describe('resolveConflict - election', () => {
     client.moves.resolveConflict();
 
     const finalState = client.getStateOrThrow();
-    expect(finalState.G.politicalOffices[0].figureId).toBeUndefined();
+    expect(finalState.G.politicalOffices[0].card_type).toBe(CardType.DefaultStateFigure);
     expect(finalState.G.politicalOffices[0].electionCooldownTurnsRemaining).toBeUndefined();
     const returnedFigure = finalState.G.players[SocialClass.WorkingClass].figures.find(f => f.id === 'cashier');
     expect(returnedFigure).toBeDefined();
@@ -477,8 +479,7 @@ function makeWcLegislationFixture() {
   const G = makeActionPhaseState({
     demands: [playDemandCard('wealth_tax'), null],
   });
-  G.politicalOffices[0].figureId = 'cashier';
-  G.politicalOffices[0].exhausted = false;
+  G.politicalOffices[0] = { ...playFigureCard('cashier') };
   return G;
 }
 
@@ -488,8 +489,7 @@ describe('resolveConflict - legislation', () => {
       demands: [playDemandCard('wealth_tax'), null],
       wealth: wcWealth,
     });
-    G.politicalOffices[0].figureId = 'cashier';
-    G.politicalOffices[0].exhausted = false;
+    G.politicalOffices[0] = { ...playFigureCard('cashier') };
     const client = clientFromFixture(G);
 
     client.moves.planLegislation(0, 0);
@@ -569,8 +569,7 @@ describe('resolveConflict - legislation', () => {
     const G = makeActionPhaseState({
       demands: [playDemandCard('deregulation'), null],
     });
-    G.politicalOffices[0].figureId = 'cashier';
-    G.politicalOffices[0].exhausted = false;
+    G.politicalOffices[0] = { ...playFigureCard('cashier') };
 
     const initialWages = G.workplaces.map(w => w.wages);
     const initialProfits = G.workplaces.map(w => w.profits);
