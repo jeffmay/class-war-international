@@ -8,7 +8,7 @@ import { figureCardById } from '../data/cards';
 import { DealResultModal } from './DealResultModal';
 
 const cashierCard = figureCardById.cashier;
-const activistCard = figureCardById.activist;
+const activistCard = figureCardById.student_activist;
 
 describe('DealResultModal', () => {
   const baseProps = {

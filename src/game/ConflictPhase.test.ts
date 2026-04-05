@@ -343,7 +343,7 @@ describe('Conflict Phase - Planning', () => {
     test('populist sides with class that has more figures', () => {
       // WC has 1 extra figure in play (more than CC's 0)
       const G = makeActionPhaseState({
-        figures: [{ id: 'activist', card_type: CardType.Figure, in_play: true, exhausted: false, in_training: false }],
+        figures: [{ id: 'student_activist', card_type: CardType.Figure, in_play: true, exhausted: false, in_training: false }],
         demands: [playDemandCard('wealth_tax'), null],
       });
       // WC figure in populist office — populist office is office 1 (centrist is 0)

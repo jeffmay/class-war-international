@@ -17,7 +17,6 @@
     "react-dom": "^19.2.4",
     "react-scripts": "5.0.1",
     "ts-brand": "^0.2.0",
-    "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -25,7 +24,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "typecheck": "tsc --noEmit",
+    "generate": "node --experimental-strip-types scripts/generate-cards.ts",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json",
     "lint": "eslint src"
   },
   "eslintConfig": {
@@ -51,6 +51,7 @@
   },
   "devDependencies": {
     "@types/lodash": "^4.17.24",
-    "type-fest": "^4.41.0"
+    "type-fest": "^4.41.0",
+    "typescript": "^5.9.3"
   }
 }

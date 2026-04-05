@@ -31,7 +31,7 @@ const readyWcFigure: FigureCardInPlay = {
 };
 
 const secondWcFigure: FigureCardInPlay = {
-  id: 'activist',
+  id: 'student_activist',
   card_type: CardType.Figure,
   in_play: true,
   exhausted: false,
@@ -133,12 +133,12 @@ describe('addFigureToConflict', () => {
     const client = clientFromFixture(G);
     client.moves.planStrike('cashier', 0);
 
-    client.moves.addFigureToConflict('activist');
+    client.moves.addFigureToConflict('student_activist');
     const state = client.getStateOrThrow();
 
     expect(state.G.activeConflict!.workingClassCards).toHaveLength(2);
     expect(state.G.players[SocialClass.WorkingClass].figures).toHaveLength(0);
-    // cashier(1 die) + activist(1 die)
+    // cashier(1 die) + student_activist(1 die)
     expect(state.G.activeConflict!.workingClassPower.diceCount).toBe(2);
   });
 
@@ -162,7 +162,7 @@ describe('addFigureToConflict', () => {
     const client = clientFromFixture(G);
     client.moves.planStrike('cashier', 0);
 
-    client.moves.addFigureToConflict('activist');
+    client.moves.addFigureToConflict('student_activist');
     const state = client.getStateOrThrow();
 
     expect(state.G.activeConflict!.workingClassCards).toHaveLength(1);
@@ -176,7 +176,7 @@ describe('addFigureToConflict', () => {
     const client = clientFromFixture(G);
     client.moves.planStrike('cashier', 0);
 
-    client.moves.addFigureToConflict('activist');
+    client.moves.addFigureToConflict('student_activist');
     expect(client.getStateOrThrow().G.activeConflict!.workingClassCards).toHaveLength(1);
   });
 
@@ -194,7 +194,7 @@ describe('addFigureToConflict', () => {
     client.moves.planResponse(); // skip to Resolving
     expect(client.getStateOrThrow().G.activeConflict!.phase).toBe(ConflictPhase.Resolving);
 
-    client.moves.addFigureToConflict('activist');
+    client.moves.addFigureToConflict('student_activist');
     expect(client.getStateOrThrow().G.activeConflict!.workingClassCards).toHaveLength(1);
   });
 });
