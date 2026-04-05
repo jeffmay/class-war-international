@@ -10,8 +10,9 @@
  */
 
 import { allCards, buildDeck, defaultWorkplaceCards } from '../data/cards';
-import { CardType, SocialClass, type FigureCardInPlay } from '../types/cards';
+import { CardType, SocialClass, WorkplaceForSale, type FigureCardInPlay } from '../types/cards';
 import { TurnPhase } from '../types/game';
+import { assertNotEqual } from '../util/assertions';
 import {
   clientFromFixture,
   makeCCActionPhaseClient,
@@ -343,7 +344,7 @@ describe('Action Phase - Playing Cards', () => {
       const ccPlayer = state.G.players[SocialClass.CapitalistClass];
       expect(ccPlayer.hand[0]).toBe('fast_food_chain');
       expect(ccPlayer.wealth).toBe(CC_INCOME);
-      expect(state.G.workplaces[2].id).toMatch(/^empty/);
+      expect(state.G.workplaces[2]).toBe(WorkplaceForSale);
 
       client.moves.playCardFromHand(0, 'workplaces[-1]');
       const newState = client.getStateOrThrow();
@@ -355,6 +356,7 @@ describe('Action Phase - Playing Cards', () => {
 
       // Workplace slot filled with new card
       const newWp = newState.G.workplaces[2];
+      assertNotEqual(newWp, WorkplaceForSale);
       expect(newWp.workplaceId).toBe('fast_food_chain');
       expect(newWp.wages).toBe(allCards.fast_food_chain.starting_wages);
       expect(newWp.profits).toBe(allCards.fast_food_chain.starting_profits);
@@ -379,7 +381,7 @@ describe('Action Phase - Playing Cards', () => {
       // Move rejected — nothing changed
       expect(newCcPlayer.hand[0]).toBe('superstore');
       expect(newCcPlayer.wealth).toBe(CC_INCOME);
-      expect(newState.G.workplaces[2].id).toMatch(/^empty/);
+      expect(newState.G.workplaces[2]).toBe(WorkplaceForSale);
     });
 
     test('cannot open new workplace when no empty slots exist', () => {
@@ -401,7 +403,7 @@ describe('Action Phase - Playing Cards', () => {
       client.moves.collectProduction();
 
       const state = client.getStateOrThrow();
-      expect(state.G.workplaces.every(w => !w.id.startsWith('empty'))).toBe(true);
+      expect(state.G.workplaces.every(w => w !== WorkplaceForSale)).toBe(true);
 
       client.moves.playCardFromHand(0, 'workplaces[-1]');
       const newState = client.getStateOrThrow();
@@ -409,7 +411,7 @@ describe('Action Phase - Playing Cards', () => {
 
       // Move rejected — hand and workplaces unchanged
       expect(newCcPlayer.hand[0]).toBe('fast_food_chain');
-      expect(newState.G.workplaces.every(w => !w.id.startsWith('empty'))).toBe(true);
+      expect(newState.G.workplaces.every(w => w !== WorkplaceForSale)).toBe(true);
     });
 
     test('replaces an existing workplace and moves old workplaceId to dustbin', () => {
@@ -425,16 +427,20 @@ describe('Action Phase - Playing Cards', () => {
 
       // Play fast_food_chain into the empty slot (index 2)
       client.moves.playCardFromHand(0, 'workplaces[-1]');
-      expect(client.getStateOrThrow().G.workplaces[2].workplaceId).toBe('fast_food_chain');
+      const wpAfterFirstPlay = client.getStateOrThrow().G.workplaces[2];
+      assertNotEqual(wpAfterFirstPlay, WorkplaceForSale);
+      expect(wpAfterFirstPlay.id).toBe('fast_food_chain');
 
       // Now replace slot 2 with superstore
       client.moves.playCardFromHand(0, 'workplaces[2]');
       const newState = client.getStateOrThrow();
       const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
 
-      expect(newState.G.workplaces[2].workplaceId).toBe('superstore');
-      expect(newState.G.workplaces[2].wages).toBe(allCards.superstore.starting_wages);
-      expect(newState.G.workplaces[2].profits).toBe(allCards.superstore.starting_profits);
+      const wp2 = newState.G.workplaces[2]
+      assertNotEqual(wp2, WorkplaceForSale);
+      expect(wp2.id).toBe('superstore');
+      expect(wp2.wages).toBe(allCards.superstore.starting_wages);
+      expect(wp2.profits).toBe(allCards.superstore.starting_profits);
       // Old card goes to dustbin
       expect(newCcPlayer.dustbin).toContain('fast_food_chain');
     });
@@ -451,7 +457,8 @@ describe('Action Phase - Playing Cards', () => {
       const newState = client.getStateOrThrow();
       const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
 
-      expect(newState.G.workplaces[0].workplaceId).toBe('fast_food_chain');
+      assertNotEqual(newState.G.workplaces[0], WorkplaceForSale);
+      expect(newState.G.workplaces[0].id).toBe('fast_food_chain');
       // No card in dustbin since the replaced workplace had no workplaceId
       expect(newCcPlayer.dustbin).not.toContain('corner_store');
     });
@@ -468,6 +475,7 @@ describe('Action Phase - Playing Cards', () => {
       // Play fast_food_chain into empty slot (index 2)
       client.moves.playCardFromHand(0, 'workplaces[-1]');
       const afterOpen = client.getStateOrThrow().G.workplaces[2];
+      assertNotEqual(afterOpen, WorkplaceForSale);
       const baseWages = afterOpen.wages;
       const baseProfits = afterOpen.profits;
       const baseEstablishedPower = afterOpen.established_power;
@@ -479,6 +487,7 @@ describe('Action Phase - Playing Cards', () => {
       const expandedWp = newState.G.workplaces[2];
       const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
 
+      assertNotEqual(expandedWp, WorkplaceForSale);
       expect(expandedWp.wages).toBe(baseWages + allCards.fast_food_chain.starting_wages);
       expect(expandedWp.profits).toBe(baseProfits + allCards.fast_food_chain.starting_profits);
       expect(expandedWp.established_power).toBe(baseEstablishedPower + allCards.fast_food_chain.established_power);
@@ -500,7 +509,7 @@ describe('Action Phase - Playing Cards', () => {
       const newCcPlayer = newState.G.players[SocialClass.CapitalistClass];
 
       expect(newCcPlayer.hand[0]).toBe('fast_food_chain');
-      expect(newState.G.workplaces[2].id).toMatch(/^empty/);
+      expect(newState.G.workplaces[2]).toBe(WorkplaceForSale);
     });
 
     test('cannot expand workplace without enough wealth', () => {
@@ -530,7 +539,9 @@ describe('Action Phase - Playing Cards', () => {
       // Hand still has the card and wealth unchanged
       expect(newCcPlayer.hand[0]).toBe('superstore');
       expect(newCcPlayer.wealth).toBe(CC_INCOME);
-      expect(newState.G.workplaces[2].expansionCount).toBeUndefined();
+      const wp2 = newState.G.workplaces[2];
+      assertNotEqual(wp2, WorkplaceForSale);
+      expect(wp2.expansionCount).toBeUndefined();
     });
 
     test('cannot expand a workplace with a different card type', () => {
@@ -544,7 +555,9 @@ describe('Action Phase - Playing Cards', () => {
 
       // Play fast_food_chain into empty slot (index 2)
       client.moves.playCardFromHand(0, 'workplaces[-1]');
-      expect(client.getStateOrThrow().G.workplaces[2].workplaceId).toBe('fast_food_chain');
+      const wpAfterFirstPlay = client.getStateOrThrow().G.workplaces[2];
+      assertNotEqual(wpAfterFirstPlay, WorkplaceForSale);
+      expect(wpAfterFirstPlay.id).toBe('fast_food_chain');
 
       const wealthBeforeExpand = client.getStateOrThrow().G.players[SocialClass.CapitalistClass].wealth;
 
@@ -555,7 +568,9 @@ describe('Action Phase - Playing Cards', () => {
 
       expect(newCcPlayer.hand[0]).toBe('superstore');
       expect(newCcPlayer.wealth).toBe(wealthBeforeExpand);
-      expect(newState.G.workplaces[2].expansionCount).toBeUndefined();
+      const wp2 = newState.G.workplaces[2];
+      assertNotEqual(wp2, WorkplaceForSale);
+      expect(wp2.expansionCount).toBeUndefined();
     });
   });
 });

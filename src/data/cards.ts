@@ -846,8 +846,10 @@ export type AnyStateFigureCardID = keyof typeof anyStateFigureCardById;
 export type InstitutionCardID = keyof typeof institutionCardById;
 export type TacticCardID = keyof typeof tacticCardById;
 export type WorkplaceCardID = keyof typeof workplaceCardById;
+export type AnyWorkplaceCardID = keyof typeof anyWorkplaceCardById;
 
 export type DefaultStateFigureID = keyof typeof defaultStateFigureCardById;
+export type DefaultWorkplaceID = keyof typeof defaultWorkplaceCardById;
 
 export type DeckCardID = keyof typeof cardById;
 export type CardID = keyof typeof allCards;

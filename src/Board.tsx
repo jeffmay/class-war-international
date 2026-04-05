@@ -11,7 +11,7 @@ import { ConflictOutcomeModal } from './components/ConflictOutcomeModal';
 import { DealResultModal } from './components/DealResultModal';
 import { TurnStartModal } from './components/StartGameScreen';
 import { DeckCardID, getAnyCardData, getAnyStateFigureDataById, getFigureDataById } from './data/cards';
-import { CardType, CardSlotEntity, FigureCardInPlay, SocialClass, WorkplaceCardData, WorkplaceInPlay } from './types/cards';
+import { CardType, CardSlotEntity, FigureCardInPlay, SocialClass, WorkplaceCardData, WorkplaceInPlay, WorkplaceForSale } from './types/cards';
 import { ConflictType } from './types/conflicts';
 import { GameState, TurnPhase } from './types/game';
 import { Brand, make } from 'ts-brand';
@@ -210,7 +210,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         }
       } else if (card.card_type === CardType.Workplace) {
         const canAfford = myPlayer.wealth >= card.cost;
-        const hasEmptySlot = G.workplaces.some(w => w.id.startsWith('empty'));
+        const hasEmptySlot = G.workplaces.some(w => w === WorkplaceForSale);
         if (hasEmptySlot) {
           options.push([
             `Open New Workplace ($${card.cost})`,
@@ -218,7 +218,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           ]);
         }
         G.workplaces.forEach((wp, wpIdx) => {
-          if (wp.id.startsWith('empty')) return;
+          if (wp === WorkplaceForSale) return;
           const wpDisplayCard = makeWorkplaceDisplayCard(wp);
           options.push([
             `Replace ${wpDisplayCard.name} ($${card.cost})`,
@@ -351,7 +351,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   // Sidebar income calculation
   const calcIncome = (socialClass: SocialClass): number => {
     return G.workplaces.reduce((sum, wp) => {
-      if (wp.id.startsWith('empty')) return sum;
+      if (wp === WorkplaceForSale) return sum;
       return sum + (socialClass === SocialClass.WorkingClass ? wp.wages : wp.profits);
     }, 0);
   };
@@ -570,7 +570,9 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   const conflictTargetCard: CardSlotEntity | undefined = (() => {
     if (!G.activeConflict) return undefined;
     if (G.activeConflict.conflictType === ConflictType.Strike) {
-      return makeWorkplaceDisplayCard(G.workplaces[G.activeConflict.targetWorkplaceIndex]);
+      const workplaceSlot = G.workplaces[G.activeConflict.targetWorkplaceIndex];
+      if (workplaceSlot === WorkplaceForSale) return undefined;
+      else return makeWorkplaceDisplayCard(workplaceSlot);
     }
     if (G.activeConflict.conflictType === ConflictType.Election) {
       return getAnyCardData(G.activeConflict.targetIncumbent.id);
@@ -643,7 +645,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         <ActionMenuBar
           title={"Plan Strike"}
           options={G.workplaces.map((workplace, index) => {
-            const isEmpty = workplace.id.startsWith('empty');
+            const isEmpty = workplace === WorkplaceForSale;
             const card = isEmpty ? null : makeWorkplaceDisplayCard(workplace);
             const preview = card && <CardComponent card={card} borderVariant="other" />;
             return [
@@ -778,7 +780,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 <div className="workplaces-section">
                   {G.workplaces.map((workplace, index) => (
                     <div key={index} className="card-slot">
-                      {workplace.id.startsWith('empty') ? (
+                      {workplace === WorkplaceForSale ? (
                         <div className="card-slot-placeholder">
                           <div className="workplace-empty-text">FOR SALE</div>
                         </div>

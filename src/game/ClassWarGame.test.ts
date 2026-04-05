@@ -4,7 +4,8 @@
 
 import { setup } from './ClassWarGame';
 import { GameState, TurnPhase } from '../types/game';
-import { SocialClass } from '../types/cards';
+import { SocialClass, WorkplaceCardInPlay, WorkplaceForSale, WorkplaceInPlay } from '../types/cards';
+import { assertDefined, assertEqual, assertFieldValue, assertNotEqual } from '../util/assertions';
 
 describe('ClassWarGame Setup', () => {
   let gameState: GameState;
@@ -54,23 +55,26 @@ describe('ClassWarGame Setup', () => {
     expect(gameState.workplaces.length).toBe(3);
 
     // First workplace: Corner Store
-    expect(gameState.workplaces[0].id).toBe('corner_store');
-    expect(gameState.workplaces[0].wages).toBe(2);
-    expect(gameState.workplaces[0].profits).toBe(6);
-    expect(gameState.workplaces[0].established_power).toBe(1);
-    expect(gameState.workplaces[0].unionized).toBe(false);
+    const wp0 = gameState.workplaces[0];
+    assertNotEqual(wp0, WorkplaceForSale);
+    expect(wp0.id).toBe('corner_store');
+    expect(wp0.wages).toBe(2);
+    expect(wp0.profits).toBe(6);
+    expect(wp0.established_power).toBe(1);
+    expect(wp0.unionized).toBe(false);
 
     // Second workplace: Parts Producer
-    expect(gameState.workplaces[1].id).toBe('parts_producer');
-    expect(gameState.workplaces[1].wages).toBe(3);
-    expect(gameState.workplaces[1].profits).toBe(9);
-    expect(gameState.workplaces[1].established_power).toBe(2);
-    expect(gameState.workplaces[1].unionized).toBe(false);
+    const wp1 = gameState.workplaces[1];
+    assertNotEqual(wp1, WorkplaceForSale);
+    expect(wp1.id).toBe('parts_producer');
+    expect(wp1.wages).toBe(3);
+    expect(wp1.profits).toBe(9);
+    expect(wp1.established_power).toBe(2);
+    expect(wp1.unionized).toBe(false);
 
     // Third workplace: Empty slot
-    expect(gameState.workplaces[2].id).toBe('empty_slot_2');
-    expect(gameState.workplaces[2].wages).toBe(0);
-    expect(gameState.workplaces[2].profits).toBe(0);
+    const wp2 = gameState.workplaces[2];
+    assertEqual(wp2, WorkplaceForSale);
   });
 
   test('initializes three political offices', () => {

@@ -1,5 +1,5 @@
-import { allCards, workplaceCardById, demandCardById, figureCardById, institutionCardById, tacticCardById, CardID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID } from "../data/cards";
-import { CardType, DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay, TacticCardInPlay } from "../types/cards";
+import { AnyWorkplaceCardID, CardID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID, allCards, anyWorkplaceCardById, demandCardById, figureCardById, institutionCardById, tacticCardById, workplaceCardById } from "../data/cards";
+import { CardType, DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay, TacticCardInPlay, WorkplaceCardInPlay } from "../types/cards";
 
 export function isDemandCardID(cardId: string): cardId is DemandCardID {
   return cardId in demandCardById
@@ -48,6 +48,20 @@ export function isTacticCardID(cardId: string): cardId is TacticCardID {
 
 export function isWorkplaceCardID(cardId: string): cardId is WorkplaceCardID {
   return cardId in workplaceCardById
+}
+
+export function playWorkplaceCard(cardId: AnyWorkplaceCardID, props?: Partial<WorkplaceCardInPlay>): WorkplaceCardInPlay {
+  const workplaceData = anyWorkplaceCardById[cardId];
+  return {
+    id: cardId,
+    card_type: CardType.Workplace,
+    in_play: true,
+    established_power: workplaceData.established_power,
+    wages: workplaceData.starting_wages,
+    profits: workplaceData.starting_profits,
+    unionized: false,
+    ...props,
+  };
 }
 
 export function playTacticCard(cardId: TacticCardID, props?: Partial<TacticCardInPlay>): TacticCardInPlay {

@@ -2,7 +2,7 @@
  * Tests for Production Phase mechanics
  */
 
-import { SocialClass } from '../types/cards';
+import { SocialClass, WorkplaceForSale } from '../types/cards';
 import { TurnPhase } from '../types/game';
 import { assertDefined } from '../util/assertions';
 import { StrictClient, type StrictClientOf } from '../util/typedboardgame';
@@ -124,10 +124,8 @@ describe('Production Phase', () => {
   test('empty workplace slots do not generate income', () => {
     const state = client.getStateOrThrow();
     // Verify there's an empty slot
-    const emptySlot = state.G.workplaces.find(w => w.id.startsWith('empty_slot'));
-    assertDefined(emptySlot);
-    expect(emptySlot.wages).toBe(0);
-    expect(emptySlot.profits).toBe(0);
+    const emptySlot = state.G.workplaces.indexOf(WorkplaceForSale);
+    expect(emptySlot).toBeGreaterThanOrEqual(0);
 
     // Collect production
     client.moves.collectProduction();

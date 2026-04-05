@@ -13,7 +13,7 @@
  * play where both players share the same client.
  */
 
-import { CardType, SocialClass, type FigureCardInPlay } from '../types/cards';
+import { CardType, SocialClass, WorkplaceForSale, type FigureCardInPlay } from '../types/cards';
 import { ConflictPhase, ConflictType } from '../types/conflicts';
 import { TurnPhase } from '../types/game';
 import { clientFromFixture, makeActionPhaseState } from './generate';
@@ -583,8 +583,8 @@ describe('resolveConflict - legislation', () => {
     });
     G.politicalOffices[0] = { ...playFigureCard('cashier') };
 
-    const initialWages = G.workplaces.map(w => w.wages);
-    const initialProfits = G.workplaces.map(w => w.profits);
+    const initialWages = G.workplaces.map(w => w === WorkplaceForSale ? 0 : w.wages);
+    const initialProfits = G.workplaces.map(w => w === WorkplaceForSale ? 0 : w.profits);
 
     // Build a Resolving-phase legislation fixture with overwhelming WC power
     G.activeConflict = {
@@ -606,9 +606,9 @@ describe('resolveConflict - legislation', () => {
 
     const state = client.getStateOrThrow();
     expect(state.G.laws).toContain('deregulation');
-    const nonEmpty = state.G.workplaces.filter(w => !w.id.startsWith('empty'));
-    const nonEmptyInitialWages = initialWages.filter((_, i) => !G.workplaces[i].id.startsWith('empty'));
-    const nonEmptyInitialProfits = initialProfits.filter((_, i) => !G.workplaces[i].id.startsWith('empty'));
+    const nonEmpty = state.G.workplaces.filter(w => w !== WorkplaceForSale);
+    const nonEmptyInitialWages = initialWages.filter((_, i) => G.workplaces[i] !== WorkplaceForSale);
+    const nonEmptyInitialProfits = initialProfits.filter((_, i) => G.workplaces[i] !== WorkplaceForSale);
     nonEmpty.forEach((wp, i) => {
       expect(wp.wages).toBe(Math.max(1, nonEmptyInitialWages[i] - 1));
       expect(wp.profits).toBe(nonEmptyInitialProfits[i] + 1);

@@ -2,7 +2,7 @@
  * Card type definitions for Class War: International
  */
 
-import { CardID, DefaultStateFigureID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID } from "../data/cards";
+import { AnyWorkplaceCardID, CardID, DefaultStateFigureID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID } from "../data/cards";
 
 export enum SocialClass {
   CapitalistClass = 'Capitalist Class',
@@ -117,7 +117,7 @@ export interface WorkplaceCardData extends BaseDeckCardData {
 }
 
 export interface WorkplaceCardInPlay extends BaseCardInPlay {
-  id: WorkplaceCardID;
+  id: AnyWorkplaceCardID;
   card_type: CardType.Workplace;
   wages: number;
   profits: number;
@@ -225,6 +225,7 @@ export type AnyCardInPlay = CardInPlay | DefaultCardInPlay;
 /** Anything that can be viewed like a card */
 export type AnyCard = AnyCardData | AnyCardInPlay;
 
+// export const WorkplaceForSale = { id: 'workplace_for_sale', card_type: CardType.Workplace } as const;
 export const WorkplaceForSale = 'workplace_for_sale' as const;
 export type WorkplaceForSale = typeof WorkplaceForSale;
 

@@ -5,10 +5,10 @@
 import { type MoveMap } from 'boardgame.io';
 import { pick } from 'lodash';
 import { buildDeck, defaultStateFigureCards, DefaultStateFigureID, defaultWorkplaceCards, getAnyCardData } from '../data/cards';
-import { CardType, type FigureCardInPlay, SocialClass, type DefaultStateFigureCardInPlay, type WorkplaceInPlay } from '../types/cards';
+import { CardType, type FigureCardInPlay, SocialClass, type DefaultStateFigureCardInPlay, type WorkplaceInPlay, WorkplaceForSale } from '../types/cards';
 import { ConflictCardInPlay, ConflictPhase, ConflictType, type ElectionConflictState, type LegislationConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
-import { isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard } from '../util/game';
+import { isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard, playWorkplaceCard } from '../util/game';
 import { type StrictGameOf } from '../util/typedboardgame';
 
 /**
@@ -63,7 +63,7 @@ function applyLawEffect(demandCardId: string, G: GameState): void {
   if (demandCardId === 'deregulation') {
     // Shift $1 from wages to profits at every existing workplace
     for (const wp of G.workplaces) {
-      if (wp.id.startsWith('empty')) continue;
+      if (wp === WorkplaceForSale) continue;
       if (wp.wages > 1) {
         wp.wages -= 1;
         wp.profits += 1;
@@ -142,7 +142,7 @@ export const Moves = {
 
       const wpIndex = parseInt(expandMatch[1], 10);
       const existing = G.workplaces[wpIndex];
-      if (!existing || existing.id.startsWith('empty')) return;
+      if (!existing || existing === WorkplaceForSale) return;
       if (existing.workplaceId !== cardId) return;
 
       const wpData = getAnyCardData(cardId);
@@ -221,7 +221,7 @@ export const Moves = {
 
       let resolvedWpIndex = slotIndex;
       if (slotIndex === -1) {
-        resolvedWpIndex = G.workplaces.findIndex(w => w.id.startsWith('empty'));
+        resolvedWpIndex = G.workplaces.findIndex(w => w === WorkplaceForSale);
         if (resolvedWpIndex === -1) return; // no empty slot
       }
       if (resolvedWpIndex < 0 || resolvedWpIndex >= G.workplaces.length) return;
@@ -231,7 +231,7 @@ export const Moves = {
 
       const existing = G.workplaces[resolvedWpIndex];
       // If replacing an occupied slot, send old workplace card to dustbin
-      if (existing && !existing.id.startsWith('empty') && existing.workplaceId) {
+      if (existing && existing !== WorkplaceForSale && existing.workplaceId) {
         player.dustbin.push(existing.workplaceId);
       }
 
@@ -261,7 +261,7 @@ export const Moves = {
     // Collect wages (Working Class) or profits (Capitalist Class) from all workplaces
     let totalIncome = 0;
     G.workplaces.forEach((workplace) => {
-      if (workplace.id.startsWith('empty_slot')) {
+      if (workplace === WorkplaceForSale) {
         return; // Skip empty slots
       }
       if (currentClass === SocialClass.WorkingClass) {
@@ -347,7 +347,7 @@ export const Moves = {
     }
 
     const targetWorkplace = G.workplaces[workplaceIndex];
-    if (!targetWorkplace || targetWorkplace.id.startsWith('empty')) {
+    if (!targetWorkplace || targetWorkplace === WorkplaceForSale) {
       G.errorMessage = `No workplace at index ${workplaceIndex}.`;
       return;
     }
@@ -734,6 +734,10 @@ export const Moves = {
 
     if (conflict.conflictType === ConflictType.Strike) {
       const workplace = G.workplaces[conflict.targetWorkplaceIndex];
+      if (workplace === WorkplaceForSale) {
+        G.errorMessage = 'Target workplace does not exist.';
+        return;
+      }
       // Workplace's established_power goes to the capitalist side
       ccEstablished += workplace.established_power ?? 0;
 
@@ -960,28 +964,10 @@ export function setup(ctx: any): GameState {
   const random = ctx.random ? () => ctx.random.Number() : Math.random;
 
   // Initialize workplaces (3 slots: 2 default + 1 empty)
-  const workplaces: WorkplaceInPlay[] = [
-    {
-      id: 'corner_store',
-      wages: defaultWorkplaceCards.corner_store.starting_wages,
-      profits: defaultWorkplaceCards.corner_store.starting_profits,
-      established_power: defaultWorkplaceCards.corner_store.established_power,
-      unionized: false,
-    },
-    {
-      id: 'parts_producer',
-      wages: defaultWorkplaceCards.parts_producer.starting_wages,
-      profits: defaultWorkplaceCards.parts_producer.starting_profits,
-      established_power: defaultWorkplaceCards.parts_producer.established_power,
-      unionized: false,
-    },
-    {
-      id: 'empty_slot_2',
-      wages: 0,
-      profits: 0,
-      established_power: 0,
-      unionized: false,
-    },
+  const workplaces: (WorkplaceInPlay | WorkplaceForSale)[] = [
+    playWorkplaceCard('corner_store'),
+    playWorkplaceCard('parts_producer'),
+    WorkplaceForSale, // empty slot
   ];
 
   const playStateFigure = (stateFigureID: DefaultStateFigureID): DefaultStateFigureCardInPlay => ({
