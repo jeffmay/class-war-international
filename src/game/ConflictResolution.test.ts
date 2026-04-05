@@ -22,29 +22,11 @@ import { playDemandCard, playFigureCard } from '../util/game';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
-const readyWcFigure: FigureCardInPlay = {
-  id: 'cashier',
-  card_type: CardType.Figure,
-  in_play: true,
-  exhausted: false,
-  in_training: false,
-};
+const readyWcFigure = playFigureCard('cashier', { in_training: false });
 
-const secondWcFigure: FigureCardInPlay = {
-  id: 'student_activist',
-  card_type: CardType.Figure,
-  in_play: true,
-  exhausted: false,
-  in_training: false,
-};
+const secondWcFigure = playFigureCard('student_activist', { in_training: false });
 
-const readyCcFigure: FigureCardInPlay = {
-  id: 'manager',
-  card_type: CardType.Figure,
-  in_play: true,
-  exhausted: false,
-  in_training: false,
-};
+const readyCcFigure = playFigureCard('manager', { in_training: false });
 
 /** Returns a client with an active Strike conflict in the Initiating phase. */
 function makeStrikeInitiating() {
@@ -465,14 +447,7 @@ describe('resolveConflict - election', () => {
 
   test('election cooldown does NOT decrement when the opposing class ends their turn', () => {
     // WC wins election — cooldown should only decrement on WC's turn end, not CC's
-    const wcElectedFigure: FigureCardInPlay = {
-      id: 'cashier',
-      card_type: CardType.Figure,
-      in_play: true,
-      exhausted: false,
-      in_training: false,
-      electionCooldownTurnsRemaining: 1,
-    };
+    const wcElectedFigure = playFigureCard('cashier', { in_training: false, electionCooldownTurnsRemaining: 1 });
     const G = makeActionPhaseState();
     G.politicalOffices[0] = wcElectedFigure;
     const client = clientFromFixture(G);
@@ -492,14 +467,7 @@ describe('resolveConflict - election', () => {
 
   test('CC-elected figure cooldown decrements only on CC turn end', () => {
     // CC wins election — their figure is in office; cooldown should decrement on CC turn end
-    const ccElectedFigure: FigureCardInPlay = {
-      id: 'manager',
-      card_type: CardType.Figure,
-      in_play: true,
-      exhausted: false,
-      in_training: false,
-      electionCooldownTurnsRemaining: 1,
-    };
+    const ccElectedFigure = playFigureCard('manager', { electionCooldownTurnsRemaining: 1, in_training: false });
     const G = makeActionPhaseState();
     G.politicalOffices[0] = ccElectedFigure;
     const client = clientFromFixture(G);

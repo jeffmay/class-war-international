@@ -12,38 +12,14 @@ import { playDemandCard, playFigureCard } from '../util/game';
 import { clientFromFixture, makeActionPhaseState } from './generate';
 
 // A ready (not exhausted, not in_training) WC figure fixture
-const readyWcFigure: FigureCardInPlay = {
-  id: 'cashier',
-  card_type: CardType.Figure,
-  in_play: true,
-  exhausted: false,
-  in_training: false,
-};
+const readyWcFigure = playFigureCard('cashier', { in_training: false })
 
-const exhaustedWcFigure: FigureCardInPlay = {
-  id: 'cashier',
-  card_type: CardType.Figure,
-  in_play: true,
-  exhausted: true,
-  in_training: false,
-};
+const exhaustedWcFigure = playFigureCard('cashier', { exhausted: true, in_training: false });
 
-const inTrainingWcFigure: FigureCardInPlay = {
-  id: 'cashier',
-  card_type: CardType.Figure,
-  in_play: true,
-  exhausted: false,
-  in_training: true,
-};
+const inTrainingWcFigure = playFigureCard('cashier', { in_training: true });
 
 // A ready CC figure for election tests
-const readyCcFigure: FigureCardInPlay = {
-  id: 'manager',
-  card_type: CardType.Figure,
-  in_play: true,
-  exhausted: false,
-  in_training: false,
-};
+const readyCcFigure = playFigureCard('manager', { in_training: false });
 
 describe('Conflict Phase - Planning', () => {
   describe('planStrike', () => {
@@ -233,8 +209,12 @@ describe('Conflict Phase - Planning', () => {
 
     test('cannot plan election targeting an office with election cooldown', () => {
       // Place a CC-elected figure in office with cooldown — WC cannot challenge it yet
+<<<<<<< HEAD
       const ccElectedFigure = playFigureCard('manager');
       ccElectedFigure.electionCooldownTurnsRemaining = 1;
+=======
+      const ccElectedFigure = playFigureCard('manager', { electionCooldownTurnsRemaining: 1 });
+>>>>>>> 1b666d5 (Fixed election cooldown and turn count)
       const G = makeActionPhaseState({ figures: [readyWcFigure] });
       G.politicalOffices[0] = ccElectedFigure;
       const client = clientFromFixture(G);
@@ -246,6 +226,7 @@ describe('Conflict Phase - Planning', () => {
 
     test('can plan election after cooldown decrements to 0', () => {
       // CC won office[0] with cooldown=1; it should decrement when CC ends their turn
+<<<<<<< HEAD
       const ccElectedFigure: FigureCardInPlay = {
         id: 'manager',
         card_type: CardType.Figure,
@@ -254,6 +235,9 @@ describe('Conflict Phase - Planning', () => {
         in_training: false,
         electionCooldownTurnsRemaining: 1,
       };
+=======
+      const ccElectedFigure = playFigureCard('manager', { electionCooldownTurnsRemaining: 1 });
+>>>>>>> 1b666d5 (Fixed election cooldown and turn count)
       const G = makeActionPhaseState({ figures: [readyWcFigure] });
       G.politicalOffices[0] = ccElectedFigure;
       const client = clientFromFixture(G);
@@ -282,13 +266,7 @@ describe('Conflict Phase - Planning', () => {
   });
 
   describe('planLegislation', () => {
-    const wcFigureInOffice: FigureCardInPlay = {
-      id: 'cashier',
-      card_type: CardType.Figure,
-      in_play: true,
-      exhausted: false,
-      in_training: false,
-    };
+    const wcFigureInOffice = playFigureCard('cashier');
 
     function makeWcLegislationFixture(officeIndex = 0) {
       const G = makeActionPhaseState({
