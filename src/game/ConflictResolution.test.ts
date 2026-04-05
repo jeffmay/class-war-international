@@ -441,9 +441,19 @@ describe('resolveConflict - election', () => {
     expect(returnedFigure!.exhausted).toBe(true);
   });
 
-  test('election cooldown decrements by 1 when WC ends their turn', () => {
-    const G = makeActionPhaseState({ figures: [readyWcFigure] });
-    G.politicalOffices[0].electionCooldownTurnsRemaining = 1;
+  test('election cooldown decrements by 1 when the elected class ends their turn', () => {
+    // WC wins election and places cashier in office with cooldown=1
+    // Cooldown should decrement when WC ends their turn
+    const wcElectedFigure: FigureCardInPlay = {
+      id: 'cashier',
+      card_type: CardType.Figure,
+      in_play: true,
+      exhausted: false,
+      in_training: false,
+      electionCooldownTurnsRemaining: 1,
+    };
+    const G = makeActionPhaseState();
+    G.politicalOffices[0] = wcElectedFigure;
     const client = clientFromFixture(G);
 
     client.moves.endActionPhase();
@@ -453,23 +463,57 @@ describe('resolveConflict - election', () => {
     expect(state.G.politicalOffices[0].electionCooldownTurnsRemaining).toBe(0);
   });
 
-  test('election cooldown does NOT decrement when CC ends their turn', () => {
+  test('election cooldown does NOT decrement when the opposing class ends their turn', () => {
+    // WC wins election — cooldown should only decrement on WC's turn end, not CC's
+    const wcElectedFigure: FigureCardInPlay = {
+      id: 'cashier',
+      card_type: CardType.Figure,
+      in_play: true,
+      exhausted: false,
+      in_training: false,
+      electionCooldownTurnsRemaining: 1,
+    };
     const G = makeActionPhaseState();
-    G.politicalOffices[0].electionCooldownTurnsRemaining = 1;
+    G.politicalOffices[0] = wcElectedFigure;
     const client = clientFromFixture(G);
 
-    // Skip to CC's turn
+    // Skip WC's turn without ending it — jump straight to CC's turn
+    // by having WC NOT end their turn here; instead fast-forward:
+    // WC ends turn (cooldown: 1 → 0), then CC ends turn (should stay at 0)
     client.moves.endActionPhase();
-    client.moves.endReproductionPhase();
-    client.moves.collectProduction(); // CC production
+    client.moves.endReproductionPhase(); // WC ends turn → cooldown decrements to 0
+    client.moves.collectProduction();    // CC production
     client.moves.endActionPhase();
-    client.moves.endReproductionPhase(); // CC ends turn — should NOT decrement further
+    client.moves.endReproductionPhase(); // CC ends turn — should NOT decrement below 0
 
-    // After WC ends turn (1→0) and then CC ends turn, still 0
-    // Actually WC decrement happened, so it's now 0 after WC ended turn above
-    // The point: the second endReproductionPhase (CC's) should not go below 0
     const state = client.getStateOrThrow();
     expect(state.G.politicalOffices[0].electionCooldownTurnsRemaining ?? 0).toBe(0);
+  });
+
+  test('CC-elected figure cooldown decrements only on CC turn end', () => {
+    // CC wins election — their figure is in office; cooldown should decrement on CC turn end
+    const ccElectedFigure: FigureCardInPlay = {
+      id: 'manager',
+      card_type: CardType.Figure,
+      in_play: true,
+      exhausted: false,
+      in_training: false,
+      electionCooldownTurnsRemaining: 1,
+    };
+    const G = makeActionPhaseState();
+    G.politicalOffices[0] = ccElectedFigure;
+    const client = clientFromFixture(G);
+
+    // WC ends their turn — cooldown should NOT decrement (office held by CC figure)
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase();
+    expect(client.getStateOrThrow().G.politicalOffices[0].electionCooldownTurnsRemaining).toBe(1);
+
+    // CC ends their turn — cooldown should decrement
+    client.moves.collectProduction();
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase();
+    expect(client.getStateOrThrow().G.politicalOffices[0].electionCooldownTurnsRemaining).toBe(0);
   });
 });
 

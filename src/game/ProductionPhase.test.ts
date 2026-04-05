@@ -96,7 +96,7 @@ describe('Production Phase', () => {
     expect(finalState.ctx.currentPlayer).toBe('1'); // Capitalist's turn
   });
 
-  test('turn number increments after Working Class completes their turn', () => {
+  test('turn number increments after both players complete a full round', () => {
     const initialTurn = client.getStateOrThrow().G.turnNumber;
     expect(initialTurn).toBe(0);
 
@@ -105,20 +105,20 @@ describe('Production Phase', () => {
     client.moves.endActionPhase();
     client.moves.endReproductionPhase();
 
-    // Turn number should increment when Working Class ends their turn
-    const afterFirstTurn = client.getStateOrThrow();
-    expect(afterFirstTurn.G.turnNumber).toBe(1);
-    expect(afterFirstTurn.ctx.currentPlayer).toBe('1'); // Now Capitalist's turn
+    // Turn number should stay at 0 until CC also completes their turn
+    const afterWcTurn = client.getStateOrThrow();
+    expect(afterWcTurn.G.turnNumber).toBe(0);
+    expect(afterWcTurn.ctx.currentPlayer).toBe('1'); // Now Capitalist's turn
 
     // Complete Capitalist turn
     client.moves.collectProduction('1');
     client.moves.endActionPhase('1');
     client.moves.endReproductionPhase();
 
-    // Turn number should stay 1 (Capitalist doesn't increment)
-    const afterSecondTurn = client.getStateOrThrow();
-    expect(afterSecondTurn.G.turnNumber).toBe(1);
-    expect(afterSecondTurn.ctx.currentPlayer).toBe('0'); // Back to Working Class
+    // Turn number should increment after CC completes their turn (end of full round)
+    const afterFullRound = client.getStateOrThrow();
+    expect(afterFullRound.G.turnNumber).toBe(1);
+    expect(afterFullRound.ctx.currentPlayer).toBe('0'); // Back to Working Class
   });
 
   test('empty workplace slots do not generate income', () => {

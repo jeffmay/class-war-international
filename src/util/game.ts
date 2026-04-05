@@ -17,13 +17,14 @@ export function isFigureCardID(cardId: string): cardId is FigureCardID {
   return cardId in figureCardById
 }
 
-export function playFigureCard(cardId: FigureCardID): FigureCardInPlay {
+export function playFigureCard(cardId: FigureCardID, props?: Partial<FigureCardInPlay>): FigureCardInPlay {
   return {
     id: cardId,
     card_type: CardType.Figure,
     in_play: true,
     exhausted: false,
     in_training: true,
+    ...props,
   };
 }
 

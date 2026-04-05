@@ -232,9 +232,11 @@ describe('Conflict Phase - Planning', () => {
     });
 
     test('cannot plan election targeting an office with election cooldown', () => {
+      // Place a CC-elected figure in office with cooldown — WC cannot challenge it yet
+      const ccElectedFigure = playFigureCard('manager');
+      ccElectedFigure.electionCooldownTurnsRemaining = 1;
       const G = makeActionPhaseState({ figures: [readyWcFigure] });
-      // Set cooldown on office 0 (populist)
-      G.politicalOffices[0].electionCooldownTurnsRemaining = 1;
+      G.politicalOffices[0] = ccElectedFigure;
       const client = clientFromFixture(G);
 
       client.moves.planElection('cashier', 0);
@@ -243,15 +245,25 @@ describe('Conflict Phase - Planning', () => {
     });
 
     test('can plan election after cooldown decrements to 0', () => {
+      // CC won office[0] with cooldown=1; it should decrement when CC ends their turn
+      const ccElectedFigure: FigureCardInPlay = {
+        id: 'manager',
+        card_type: CardType.Figure,
+        in_play: true,
+        exhausted: false,
+        in_training: false,
+        electionCooldownTurnsRemaining: 1,
+      };
       const G = makeActionPhaseState({ figures: [readyWcFigure] });
-      G.politicalOffices[0].electionCooldownTurnsRemaining = 1;
+      G.politicalOffices[0] = ccElectedFigure;
       const client = clientFromFixture(G);
 
-      // WC ends their turn — cooldown decrements at end of WC Reproduction phase
+      // WC ends their turn — cooldown should NOT decrement (CC holds office)
       client.moves.endActionPhase();
       client.moves.endReproductionPhase();
+      expect(client.getStateOrThrow().G.politicalOffices[0].electionCooldownTurnsRemaining).toBe(1);
 
-      // Skip CC turn
+      // CC ends their turn — cooldown decrements to 0
       client.moves.collectProduction();
       client.moves.endActionPhase();
       client.moves.endReproductionPhase();
@@ -262,12 +274,9 @@ describe('Conflict Phase - Planning', () => {
       expect(state.G.turnPhase).toBe(TurnPhase.Production);
       client.moves.collectProduction();
 
-      // WC now has their figure back (unexhausted from new turn)
-      // But we need a fresh figure in play — refill figures for this test
-      // The figure needs to be in the action phase state, so check state
       const actionState = client.getStateOrThrow();
       expect(actionState.G.turnPhase).toBe(TurnPhase.Action);
-      // Office cooldown is 0, so election should succeed if figure is available
+      // Office cooldown is 0, so WC can now challenge
       expect(actionState.G.politicalOffices[0].electionCooldownTurnsRemaining ?? 0).toBe(0);
     });
   });

@@ -930,14 +930,20 @@ export const Moves = {
 
     G.turnPhase = TurnPhase.Production;
 
-    if (ctx.currentPlayer === '0') {
+    // Decrement election cooldowns only for offices held by the current class's elected figure.
+    // This ensures the opposing class cannot challenge before the winner takes their full turns.
+    G.politicalOffices.forEach(office => {
+      if (!office.electionCooldownTurnsRemaining || office.electionCooldownTurnsRemaining <= 0) return;
+      if (office.card_type !== CardType.Figure) return;
+      const officeData = getAnyCardData(office.id);
+      if (officeData.card_type === CardType.Figure && officeData.social_class === currentClass) {
+        office.electionCooldownTurnsRemaining -= 1;
+      }
+    });
+
+    // Turn number increments after both players complete their turns (at the end of CC's turn)
+    if (ctx.currentPlayer === '1') {
       G.turnNumber += 1;
-      // Decrement election cooldowns at the start of each new round (when WC ends their turn)
-      G.politicalOffices.forEach(office => {
-        if (office.electionCooldownTurnsRemaining && office.electionCooldownTurnsRemaining > 0) {
-          office.electionCooldownTurnsRemaining -= 1;
-        }
-      });
     }
 
     events?.endTurn?.();
