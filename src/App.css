@@ -1030,6 +1030,16 @@ body {
   background-color: transparent;
 }
 
+.card-slot-placeholder-selectable {
+  cursor: pointer;
+  border-color: #a0aec0;
+}
+
+.card-slot-placeholder-selectable:hover {
+  border-color: #4a90e2;
+  background-color: rgba(74, 144, 226, 0.06);
+}
+
 .card-slot-placeholder-add {
   display: flex;
   align-items: center;

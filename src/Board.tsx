@@ -28,7 +28,7 @@ function makeWorkplaceDisplayCard(wp: WorkplaceInPlay): WorkplaceCardData {
   return { ...card, name: card.name + expansionSuffix, starting_wages: wp.wages, starting_profits: wp.profits, established_power: wp.established_power };
 }
 
-interface ClassWarBoardProps extends BoardProps<GameState> { }
+export interface ClassWarBoardProps extends BoardProps<GameState> { }
 
 // TODO: Use the slot type in the brand name? Validate using the number of slots in the game?
 type SelectedSlotID = Brand<string, 'slot_id'>
@@ -45,6 +45,8 @@ interface SlotData {
   cardId?: string;
   figureInPlay?: FigureCardInPlay;
   options: MenuOption[];
+  /** Title shown in ActionMenuBar when no card is selected (e.g. for slot-first selection) */
+  title?: string;
 }
 
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
@@ -251,6 +253,89 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         options.push(['Run for Office', () => setBoardState({ mode: 'selectOfficeTarget', figure })]);
       }
       slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options });
+    });
+
+    // Institution slots: clicking opens hand picker (both empty and occupied for replacement)
+    myPlayer.institutions.forEach((institution, i) => {
+      const slotId = `institution-${myClassKey}-${i}`;
+      const institutionHandCards = myPlayer.hand
+        .map((cardId, handIdx) => ({ cardId, handIdx, card: getAnyCardData(cardId) }))
+        .filter(({ card }) => card.card_type === CardType.Institution);
+      const options: MenuOption[] = institutionHandCards.map(({ card, handIdx }) => {
+        const cost = (card as { cost: number }).cost;
+        const canAfford = myPlayer.wealth >= cost;
+        const label = institution
+          ? `Replace with ${card.name} ($${cost})`
+          : `Build ${card.name} ($${cost})`;
+        return [
+          canAfford ? label : `Cannot Afford ($${cost})`,
+          canAfford ? () => { moves.playCardFromHand(handIdx, `institutions[${i}]`); handleCloseInspector(); } : undefined,
+          <CardComponent key={handIdx} card={card} borderVariant="hand" />,
+        ] as const satisfies MenuOption;
+      });
+      if (options.length === 0) {
+        options.push(['No institution cards in hand', undefined]);
+      }
+      slotData.set(slotId, {
+        cardId: institution?.id,
+        title: institution ? undefined : "Choose an institution to build",
+        options,
+      });
+    });
+
+    // Empty demand slots: clicking opens hand picker
+    myPlayer.demands.forEach((demand, i) => {
+      if (demand !== null) return; // occupied slots handled in the demand section below
+      const slotId = `demand-${myClassKey}-${i}`;
+      const demandHandCards = myPlayer.hand
+        .map((cardId, handIdx) => ({ cardId, handIdx, card: getAnyCardData(cardId) }))
+        .filter(({ card }) => card.card_type === CardType.Demand);
+      const options: MenuOption[] = demandHandCards.map(({ card, handIdx }) => [
+        card.name,
+        () => { moves.playCardFromHand(handIdx, `demands[${i}]`); handleCloseInspector(); },
+        <CardComponent key={handIdx} card={card} borderVariant="hand" />,
+      ] as const satisfies MenuOption);
+      if (options.length === 0) {
+        options.push(['No demand cards in hand', undefined]);
+      }
+      slotData.set(slotId, { title: "Choose a demand to make", options });
+    });
+
+    // Workplace slots: clicking opens hand picker (FOR SALE and occupied)
+    G.workplaces.forEach((workplace, workplaceIdx) => {
+      const slotId = `workplace-${workplaceIdx}`;
+      const workplaceHandCards = myPlayer.hand
+        .map((cardId, handIdx) => ({ cardId, handIdx, card: getAnyCardData(cardId) }))
+        .filter(({ card }) => card.card_type === CardType.Workplace);
+      const options: MenuOption[] = workplaceHandCards.map(({ card, handIdx }) => {
+        const cost = (card as { cost: number }).cost;
+        const canAfford = myPlayer.wealth >= cost;
+        const isForSale = workplace === WorkplaceForSale;
+        const isExpansion = !isForSale && workplace.workplaceId === card.id;
+        const label = isForSale
+          ? `Open ${card.name} ($${cost})`
+          : isExpansion
+            ? `Expand ${card.name} ($${cost})`
+            : `Replace with ${card.name} ($${cost})`;
+        const target = isForSale
+          ? 'workplaces[-1]'
+          : isExpansion
+            ? `workplaces[${workplaceIdx}]/expand`
+            : `workplaces[${workplaceIdx}]`;
+        return [
+          canAfford ? label : `Cannot Afford ($${cost})`,
+          canAfford ? () => { moves.playCardFromHand(handIdx, target); handleCloseInspector(); } : undefined,
+          <CardComponent key={handIdx} card={card} borderVariant="hand" />,
+        ] as const satisfies MenuOption;
+      });
+      if (options.length === 0) {
+        options.push(['No workplace cards in hand', undefined]);
+      }
+      slotData.set(slotId, {
+        cardId: workplace !== WorkplaceForSale ? workplace.id : undefined,
+        title: workplace === WorkplaceForSale ? "Choose a workplace to open" : undefined,
+        options,
+      });
     });
 
     // In-play demand cards: Propose Legislation if player holds an office with a non-exhausted figure
@@ -528,15 +613,29 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           <div className="player-area-section-column">
             <div className="player-area-section-title">Institutions</div>
             <div className="player-area-card-row">
-              {player.institutions.map((institution, i) => (
-                <div key={i} className="card-slot">
-                  {institution ? (
-                    <CardComponent card={getAnyCardData(institution.id)} borderVariant="in-play" />
-                  ) : (
-                    <div className="card-slot-placeholder" />
-                  )}
-                </div>
-              ))}
+              {player.institutions.map((institution, i) => {
+                const institutionSlotId = G.turnPhase === TurnPhase.Action && isMyTurn
+                  ? `institution-${classKey}-${i}`
+                  : undefined;
+                return (
+                  <div key={i} className="card-slot">
+                    {institution ? (
+                      <CardComponent
+                        card={getAnyCardData(institution.id)}
+                        borderVariant="in-play"
+                        onClick={institutionSlotId ? () => handleSelectSlot(institutionSlotId) : undefined}
+                      />
+                    ) : (
+                      <div
+                        className={`card-slot-placeholder${institutionSlotId ? ' card-slot-placeholder-selectable' : ''}`}
+                        onClick={institutionSlotId ? () => handleSelectSlot(institutionSlotId) : undefined}
+                        role={institutionSlotId ? "button" : undefined}
+                        aria-label={institutionSlotId ? `Institution slot ${i + 1}` : undefined}
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
           <div className="player-area-section-column">
@@ -544,7 +643,19 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             <div className="player-area-card-row">
               {player.demands.map((demand, i) => {
                 if (!demand) {
-                  return <div key={i} className="card-slot"><div className="card-slot-placeholder" /></div>;
+                  const emptyDemandSlotId = G.turnPhase === TurnPhase.Action && isMyTurn
+                    ? `demand-${classKey}-${i}`
+                    : undefined;
+                  return (
+                    <div key={i} className="card-slot">
+                      <div
+                        className={`card-slot-placeholder${emptyDemandSlotId ? ' card-slot-placeholder-selectable' : ''}`}
+                        onClick={emptyDemandSlotId ? () => handleSelectSlot(emptyDemandSlotId) : undefined}
+                        role={emptyDemandSlotId ? "button" : undefined}
+                        aria-label={emptyDemandSlotId ? `Demand slot ${i + 1}` : undefined}
+                      />
+                    </div>
+                  );
                 }
                 const demandSlotId = `demand-${classKey}-${i}`;
                 const isLaw = G.laws.includes(demand.id);
@@ -631,6 +742,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       {/* Action Menu Bar - normal card inspector */}
       {boardState.mode === 'normal' && (activeOptions.length > 0 || activeCard) && (
         <ActionMenuBar
+          title={selectedSlot?.title}
           card={activeCard}
           options={activeOptions}
           playerClass={myClass}
@@ -778,17 +890,31 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
               <div className="shared-area-section">
                 <div className="shared-area-section-title">Workplaces</div>
                 <div className="workplaces-section">
-                  {G.workplaces.map((workplace, index) => (
-                    <div key={index} className="card-slot">
-                      {workplace === WorkplaceForSale ? (
-                        <div className="card-slot-placeholder">
-                          <div className="workplace-empty-text">FOR SALE</div>
-                        </div>
-                      ) : (
-                        <CardComponent card={makeWorkplaceDisplayCard(workplace)} borderVariant="other" />
-                      )}
-                    </div>
-                  ))}
+                  {G.workplaces.map((workplace, index) => {
+                    const workplaceSlotId = G.turnPhase === TurnPhase.Action && isMyTurn
+                      ? `workplace-${index}`
+                      : undefined;
+                    return (
+                      <div key={index} className="card-slot">
+                        {workplace === WorkplaceForSale ? (
+                          <div
+                            className={`card-slot-placeholder${workplaceSlotId ? ' card-slot-placeholder-selectable' : ''}`}
+                            onClick={workplaceSlotId ? () => handleSelectSlot(workplaceSlotId) : undefined}
+                            role={workplaceSlotId ? "button" : undefined}
+                            aria-label={workplaceSlotId ? `Workplace slot ${index + 1}` : undefined}
+                          >
+                            <div className="workplace-empty-text">FOR SALE</div>
+                          </div>
+                        ) : (
+                          <CardComponent
+                            card={makeWorkplaceDisplayCard(workplace)}
+                            borderVariant="other"
+                            onClick={workplaceSlotId ? () => handleSelectSlot(workplaceSlotId) : undefined}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
