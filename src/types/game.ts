@@ -3,7 +3,7 @@
  */
 
 import { DeckCardID, DemandCardID } from '../data/cards';
-import { DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay, SocialClass, StateFigureCardInPlay, WorkplaceForSale, WorkplaceInPlay } from './cards';
+import { DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay, SocialClass, StateFigureCardInPlay, WorkplaceCardInPlay, WorkplaceForSale } from './cards';
 import { ConflictOutcome, ConflictState } from './conflicts';
 
 export enum TurnPhase {
@@ -41,7 +41,7 @@ export interface GameState {
   };
 
   // Shared board state
-  workplaces: (WorkplaceInPlay | WorkplaceForSale)[]; // 3 workplace slots
+  workplaces: (WorkplaceCardInPlay | WorkplaceForSale)[]; // 3 workplace slots
   politicalOffices: StateFigureCardInPlay[]; // 3 political offices
   laws: DemandCardID[]; // Passed legislation
 

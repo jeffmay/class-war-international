@@ -1,4 +1,4 @@
-import { AnyWorkplaceCardID, CardID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID, allCards, anyWorkplaceCardById, demandCardById, figureCardById, institutionCardById, tacticCardById, workplaceCardById } from "../data/cards";
+import { AnyWorkplaceCardID, CardID, DefaultWorkplaceID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID, allCards, anyWorkplaceCardById, defaultWorkplaceCardById, demandCardById, figureCardById, institutionCardById, tacticCardById, workplaceCardById } from "../data/cards";
 import { CardType, DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay, TacticCardInPlay, WorkplaceCardInPlay } from "../types/cards";
 
 export function isDemandCardID(cardId: string): cardId is DemandCardID {
@@ -71,6 +71,14 @@ export function playTacticCard(cardId: TacticCardID, props?: Partial<TacticCardI
     in_play: true,
     ...props,
   };
+}
+
+export function isDefaultWorkplaceCard(cardId: string): cardId is DefaultWorkplaceID {
+  return cardId in defaultWorkplaceCardById;
+}
+
+export function isAnyWorkplaceCardID(cardId: string): cardId is AnyWorkplaceCardID {
+  return cardId in anyWorkplaceCardById;
 }
 
 export function isCardID(cardId: string): cardId is CardID {

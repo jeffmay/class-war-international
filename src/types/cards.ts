@@ -123,16 +123,6 @@ export interface WorkplaceCardInPlay extends BaseCardInPlay {
   profits: number;
   unionized: boolean;
   established_power: number;
-}
-
-// TODO: Replace this with WorkplaceCardInPlay and move the slot index to the outer container of this type
-export interface WorkplaceInPlay {
-  id: string;
-  workplaceId?: WorkplaceCardID; // If a workplace card was played here
-  wages: number;
-  profits: number;
-  unionized: boolean;
-  established_power: number;
   /** Number of times this workplace has been expanded (0 = base, 1 = x2, 2 = x3, …) */
   expansionCount?: number;
 }

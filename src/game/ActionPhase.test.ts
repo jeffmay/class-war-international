@@ -9,17 +9,17 @@
  * withCardInHand / withCardsInHand helpers from generate.ts.
  */
 
-import { allCards, buildDeck, defaultWorkplaceCards } from '../data/cards';
+import { allCards, buildDeck, defaultWorkplaceCardById } from '../data/cards';
 import { CardType, SocialClass, WorkplaceForSale, type FigureCardInPlay } from '../types/cards';
 import { TurnPhase } from '../types/game';
 import { assertNotEqual } from '../util/assertions';
 import {
+  DEFAULT_CC_INCOME_FROM_WORKPLACES as CC_INCOME,
   clientFromFixture,
-  makeCCActionPhaseClient,
   makeActionPhaseState,
+  makeCCActionPhaseClient,
   withCardInHand,
   withCardsInHand,
-  DEFAULT_CC_INCOME_FROM_WORKPLACES as CC_INCOME,
 } from './generate';
 
 describe('Action Phase - Playing Cards', () => {
@@ -357,7 +357,7 @@ describe('Action Phase - Playing Cards', () => {
       // Workplace slot filled with new card
       const newWp = newState.G.workplaces[2];
       assertNotEqual(newWp, WorkplaceForSale);
-      expect(newWp.workplaceId).toBe('fast_food_chain');
+      expect(newWp.id).toBe('fast_food_chain');
       expect(newWp.wages).toBe(allCards.fast_food_chain.starting_wages);
       expect(newWp.profits).toBe(allCards.fast_food_chain.starting_profits);
       expect(newWp.established_power).toBe(allCards.fast_food_chain.established_power);
@@ -390,10 +390,12 @@ describe('Action Phase - Playing Cards', () => {
       const { hand, deck } = withCardInHand(ccDeck, 'fast_food_chain');
       const G = makeActionPhaseState(undefined, { wealth: 30, hand, deck });
       G.workplaces[2] = {
-        id: 'extra_corner_store',
-        wages: defaultWorkplaceCards.corner_store.starting_wages,
-        profits: defaultWorkplaceCards.corner_store.starting_profits,
-        established_power: defaultWorkplaceCards.corner_store.established_power,
+        id: 'corner_store',
+        card_type: CardType.Workplace,
+        in_play: true,
+        wages: defaultWorkplaceCardById.corner_store.starting_wages,
+        profits: defaultWorkplaceCardById.corner_store.starting_profits,
+        established_power: defaultWorkplaceCardById.corner_store.established_power,
         unionized: false,
       };
       const client = clientFromFixture(G);

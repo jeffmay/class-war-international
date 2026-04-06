@@ -4,29 +4,27 @@
 
 import { BoardProps } from 'boardgame.io/react';
 import React, { useEffect, useState } from 'react';
+import { Brand, make } from 'ts-brand';
 import { ActionMenuBar, MenuOption } from './components/ActionMenuBar';
 import { CardComponent } from './components/CardComponent';
 import { ConflictModal } from './components/ConflictModal';
 import { ConflictOutcomeModal } from './components/ConflictOutcomeModal';
 import { DealResultModal } from './components/DealResultModal';
 import { TurnStartModal } from './components/StartGameScreen';
-import { DeckCardID, getAnyCardData, getAnyStateFigureDataById, getFigureDataById } from './data/cards';
-import { CardType, CardSlotEntity, FigureCardInPlay, SocialClass, WorkplaceCardData, WorkplaceInPlay, WorkplaceForSale } from './types/cards';
+import { anyWorkplaceCardById, DeckCardID, getAnyCardData, getAnyStateFigureDataById, getAnyWorkplaceCardData, getFigureDataById } from './data/cards';
+import { CardSlotEntity, CardType, FigureCardInPlay, SocialClass, WorkplaceForSale } from './types/cards';
 import { ConflictType } from './types/conflicts';
 import { GameState, TurnPhase } from './types/game';
-import { Brand, make } from 'ts-brand';
+import { filterMap } from './util/fun';
 import { pluralize } from './util/text';
 
 /** Build a WorkplaceCardData for display by substituting current wages/profits from in-play state.
  *  Appends an expansion indicator (x2, x3, …) to the name when the workplace has been expanded. */
-function makeWorkplaceDisplayCard(wp: WorkplaceInPlay): WorkplaceCardData {
-  const card = getAnyCardData(wp.id);
-  if (card.card_type !== CardType.Workplace) {
-    throw new Error(`Expected workplace card for id "${wp.id}", got ${card.card_type}`);
-  }
-  const expansionSuffix = wp.expansionCount ? ` (x${wp.expansionCount + 1})` : "";
-  return { ...card, name: card.name + expansionSuffix, starting_wages: wp.wages, starting_profits: wp.profits, established_power: wp.established_power };
-}
+// TODO: Move to CardComponent
+// function makeWorkplaceDisplayCard(wp: WorkplaceCardInPlay): WorkplaceCardData {
+//   const expansionSuffix = wp.expansionCount ? ` (x${wp.expansionCount + 1})` : "";
+//   return { ...card, name: card.name + expansionSuffix, starting_wages: wp.wages, starting_profits: wp.profits, established_power: wp.established_power };
+// }
 
 export interface ClassWarBoardProps extends BoardProps<GameState> { }
 
@@ -217,10 +215,10 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           }
           G.workplaces.forEach((wp, wpIdx) => {
             if (wp === WorkplaceForSale) return;
-            const wpDisplayCard = makeWorkplaceDisplayCard(wp);
-            options.push([`Replace ${wpDisplayCard.name} ($${card.cost})`, () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]`); handleCloseInspector(); }]);
-            if (wp.workplaceId === card.id) {
-              options.push([`Expand ${wpDisplayCard.name} ($${card.cost})`, () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]/expand`); handleCloseInspector(); }]);
+            const wpData = getAnyWorkplaceCardData(wp.id);
+            options.push([`Replace ${wpData.name} ($${card.cost})`, () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]`); handleCloseInspector(); }]);
+            if (wp.id === card.id) {
+              options.push([`Expand ${wpData.name} ($${card.cost})`, () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]/expand`); handleCloseInspector(); }]);
             }
           });
         }
@@ -302,7 +300,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         const cost = (card as { cost: number }).cost;
         const canAfford = myPlayer.wealth >= cost;
         const isForSale = workplace === WorkplaceForSale;
-        const isExpansion = !isForSale && workplace.workplaceId === card.id;
+        const isExpansion = !isForSale && workplace.id === card.id;
         const label = isForSale
           ? `Open ${card.name} ($${cost})`
           : isExpansion
@@ -672,15 +670,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   const conflictTargetCard: CardSlotEntity | undefined = (() => {
     if (!G.activeConflict) return undefined;
     if (G.activeConflict.conflictType === ConflictType.Strike) {
-      const workplaceSlot = G.workplaces[G.activeConflict.targetWorkplaceIndex];
-      if (workplaceSlot === WorkplaceForSale) return undefined;
-      else return makeWorkplaceDisplayCard(workplaceSlot);
+      return G.workplaces[G.activeConflict.targetWorkplaceIndex];
+    } else if (G.activeConflict.conflictType === ConflictType.Election) {
+      return G.activeConflict.targetIncumbent;
+    } else {
+      // TODO: Return the DemandCardInPlay
+      return getAnyCardData(G.activeConflict.demandCardId);
     }
-    if (G.activeConflict.conflictType === ConflictType.Election) {
-      return getAnyCardData(G.activeConflict.targetIncumbent.id);
-    }
-    // Legislation: show the demand card being proposed
-    return getAnyCardData(G.activeConflict.demandCardId);
   })();
 
   return (
@@ -747,13 +743,15 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       {boardState.mode === 'selectStrikeTarget' && (
         <ActionMenuBar
           title={"Plan Strike"}
-          options={G.workplaces.map((workplace, index) => {
-            const isEmpty = workplace === WorkplaceForSale;
-            const card = isEmpty ? null : makeWorkplaceDisplayCard(workplace);
-            const preview = card && <CardComponent card={card} borderVariant="other" />;
+          options={filterMap(G.workplaces, (workplace, index) => {
+            if (workplace === WorkplaceForSale) {
+              return undefined;
+            }
+            const cardData = anyWorkplaceCardById[workplace.id];
+            const preview = <CardComponent card={workplace} borderVariant="other" />;
             return [
-              isEmpty ? 'Empty Slot' : card!.name,
-              isEmpty ? undefined : () => handleSelectStrikeTarget(index),
+              cardData.name,
+              () => handleSelectStrikeTarget(index),
               preview,
             ] as const satisfies MenuOption;
           })}
@@ -891,6 +889,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                       : undefined;
                     return (
                       <div key={index} className="card-slot">
+                        {/* TODO: Move this to CardComponent */}
                         {workplace === WorkplaceForSale ? (
                           <div
                             className={`card-slot-placeholder${workplaceSlotId ? ' card-slot-placeholder-selectable' : ''}`}
@@ -902,7 +901,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                           </div>
                         ) : (
                           <CardComponent
-                            card={makeWorkplaceDisplayCard(workplace)}
+                            card={workplace}
                             borderVariant="other"
                             onClick={workplaceSlotId ? () => handleSelectSlot(workplaceSlotId) : undefined}
                           />

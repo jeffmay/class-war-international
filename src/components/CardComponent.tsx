@@ -145,13 +145,18 @@ export const CardComponent: React.FC<CardComponentProps> = ({
     .filter(Boolean)
     .join(' ');
 
+
+  const cardName = cardProps?.card_type === CardType.Workplace && (cardProps.expansionCount ?? 0) > 0
+    ? `${cardData.name} (x${cardProps.expansionCount})`
+    : cardData.name;
+
   return (
     <div className={cardClasses} data-testid="card-component" onClick={onClick} onDoubleClick={onDoubleClick}>
       {statusBannerEl}
 
       {/* Top-left: Name and Cost */}
       <div className="card-top-left-block">
-        <div className="card-name">{cardData.name}</div>
+        <div className="card-name">{cardName}</div>
         <div className="card-cost-icon">
           {getCardIcon()}{cardData.cost > 0 && ` $${cardData.cost}`}
         </div>

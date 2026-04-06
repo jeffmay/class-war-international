@@ -3,8 +3,7 @@
  */
 
 import { DemandCardID } from '../data/cards';
-import { FigureCardInPlay, DefaultStateFigureCardInPlay, StateFigureCardInPlay, TacticCardInPlay, WorkplaceInPlay } from './cards';
-import { SocialClass } from './cards';
+import { DefaultStateFigureCardInPlay, FigureCardInPlay, SocialClass, StateFigureCardInPlay, TacticCardInPlay, WorkplaceCardInPlay } from './cards';
 
 export enum ConflictType {
   Election = 'Election',
@@ -42,7 +41,7 @@ export interface BaseConflictState {
 export interface StrikeConflictState extends BaseConflictState {
   conflictType: ConflictType.Strike;
   targetWorkplaceIndex: number;
-  targetWorkplace: WorkplaceInPlay;
+  targetWorkplace: WorkplaceCardInPlay;
   strikeLeader: FigureCardInPlay;
 }
 
@@ -53,6 +52,7 @@ export interface ElectionConflictState extends BaseConflictState {
   candidate: FigureCardInPlay;
 }
 
+// TODO: Pass the DemandCardInPlay instead of the ID to track the mutable effects.
 export interface LegislationConflictState extends BaseConflictState {
   conflictType: ConflictType.Legislation;
   /** The demand card being proposed as law */

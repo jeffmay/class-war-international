@@ -4,11 +4,11 @@
 
 import { type MoveMap } from 'boardgame.io';
 import { pick } from 'lodash';
-import { buildDeck, defaultStateFigureCards, DefaultStateFigureID, getAnyCardData } from '../data/cards';
-import { CardType, type DefaultStateFigureCardInPlay, type FigureCardInPlay, SocialClass, WorkplaceForSale, type WorkplaceInPlay } from '../types/cards';
+import { buildDeck, defaultStateFigureCardById, DefaultStateFigureID, getAnyCardData, getWorkplaceDataById } from '../data/cards';
+import { CardType, type DefaultStateFigureCardInPlay, type FigureCardInPlay, SocialClass, WorkplaceCardInPlay, WorkplaceForSale } from '../types/cards';
 import { ConflictCardInPlay, ConflictPhase, ConflictType, type ElectionConflictState, type LegislationConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
-import { isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard, playWorkplaceCard } from '../util/game';
+import { isAnyWorkplaceCardID, isDefaultWorkplaceCard, isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard, playWorkplaceCard } from '../util/game';
 import { type StrictGameOf } from '../util/typedboardgame';
 
 /**
@@ -162,15 +162,16 @@ export const Moves = {
 
     const expandMatch = targetSlot.match(/^workplaces\[(\d+)\]\/expand$/);
     if (expandMatch) {
-      if (!isWorkplaceCardID(cardId)) return;
+      // TODO: Allow expanding default workplaces?
+      if (!isAnyWorkplaceCardID(cardId)) return;
       if (player.wealth < cost) return;
 
       const wpIndex = parseInt(expandMatch[1], 10);
       const existing = G.workplaces[wpIndex];
       if (!existing || existing === WorkplaceForSale) return;
-      if (existing.workplaceId !== cardId) return;
+      if (existing.id !== cardId) return;
 
-      const wpData = getAnyCardData(cardId);
+      const wpData = getWorkplaceDataById(cardId);
       if (wpData.card_type !== CardType.Workplace) return;
 
       saveUndo(G, 'Expand Workplace');
@@ -261,13 +262,14 @@ export const Moves = {
 
       const existing = G.workplaces[resolvedWpIndex];
       // If replacing an occupied slot, send old workplace card to dustbin
-      if (existing && existing !== WorkplaceForSale && existing.workplaceId) {
-        player.dustbin.push(existing.workplaceId);
+      if (existing && existing !== WorkplaceForSale && !isDefaultWorkplaceCard(existing.id)) {
+        player.dustbin.push(existing.id);
       }
 
       G.workplaces[resolvedWpIndex] = {
         id: cardId,
-        workplaceId: cardId,
+        card_type: CardType.Workplace,
+        in_play: true,
         wages: wpData.starting_wages,
         profits: wpData.starting_profits,
         established_power: wpData.established_power,
@@ -1020,14 +1022,14 @@ export function setup(ctx: any): GameState {
   const random = ctx.random ? () => ctx.random.Number() : Math.random;
 
   // Initialize workplaces (3 slots: 2 default + 1 empty)
-  const workplaces: (WorkplaceInPlay | WorkplaceForSale)[] = [
+  const workplaces: (WorkplaceCardInPlay | WorkplaceForSale)[] = [
     playWorkplaceCard('corner_store'),
     playWorkplaceCard('parts_producer'),
     WorkplaceForSale, // empty slot
   ];
 
   const playStateFigure = (stateFigureID: DefaultStateFigureID): DefaultStateFigureCardInPlay => ({
-    ...pick(defaultStateFigureCards[stateFigureID], 'id', 'card_type', 'established_power'),
+    ...pick(defaultStateFigureCardById[stateFigureID], 'id', 'card_type', 'established_power'),
     exhausted: false,
     in_play: true,
   })

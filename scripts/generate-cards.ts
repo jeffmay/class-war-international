@@ -360,14 +360,6 @@ export const allCards = {
   ...defaultWorkplaceCardById,
 } as const satisfies Record<string, ReadonlyDeep<AnyCardData>>;
 
-// ─── Backward-compatible aliases ───────────────────────────────────────────────
-// These preserve old export names used throughout the codebase.
-
-/** @deprecated Use defaultStateFigureCardById */
-export const defaultStateFigureCards = defaultStateFigureCardById;
-/** @deprecated Use defaultWorkplaceCardById */
-export const defaultWorkplaceCards = defaultWorkplaceCardById;
-
 // ─── Type definitions ──────────────────────────────────────────────────────────
 
 export type DemandCardID = keyof typeof demandCardById;

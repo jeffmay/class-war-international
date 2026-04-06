@@ -6,11 +6,11 @@
  * None of these functions shuffle or otherwise randomise state.
  */
 
-import { buildDeck, defaultWorkplaceCards, DeckCardID } from '../data/cards';
+import { buildDeck, DeckCardID, defaultWorkplaceCardById } from '../data/cards';
 import { SocialClass } from '../types/cards';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
-import { ClassWarGame, Moves, setup } from './ClassWarGame';
 import { StrictClient, type StrictClientOf, type StrictGameOf } from '../util/typedboardgame';
+import { ClassWarGame, Moves, setup } from './ClassWarGame';
 
 /**
  * Builds a PlayerState for the given class using the unshuffled deck from
@@ -133,8 +133,8 @@ export function clientFromFixture(G: GameState): StrictClientOf<typeof ClassWarG
  * (corner_store: 6 profits + parts_producer: 9 profits = 15) when collectProduction runs.
  */
 export const DEFAULT_CC_INCOME_FROM_WORKPLACES =
-  defaultWorkplaceCards.corner_store.starting_profits +
-  defaultWorkplaceCards.parts_producer.starting_profits;
+  defaultWorkplaceCardById.corner_store.starting_profits +
+  defaultWorkplaceCardById.parts_producer.starting_profits;
 
 /**
  * Creates a StrictClient positioned at the start of the Capitalist Class player's
