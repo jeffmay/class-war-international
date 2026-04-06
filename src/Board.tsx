@@ -816,7 +816,11 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       {/* Current Player Controls Bar */}
       <div className="game-player-controls">
         <div className="game-player-controls-left">
-          <button className="game-undo-button" disabled={!canUndo}>
+          <button
+            className="game-undo-button"
+            disabled={!canUndo}
+            onClick={canUndo ? () => moves.undoMove() : undefined}
+          >
             {undoLabel}
           </button>
           {isMyTurn && G.turnPhase === TurnPhase.Action && (

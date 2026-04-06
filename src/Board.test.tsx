@@ -39,6 +39,7 @@ const mockMoves = {
   dismissConflictOutcome: jest.fn(),
   planElection: jest.fn(),
   planLegislation: jest.fn(),
+  undoMove: jest.fn(),
 };
 
 const mockEvents = { endGame: jest.fn() };

@@ -55,6 +55,31 @@ function shuffleArray<T>(array: T[], random: () => number): T[] {
 }
 
 /**
+ * Snapshot the current game state so the player can undo the next action.
+ * Call this at the very start of any undoable move, before mutating G.
+ *
+ * Moves that involve randomness (resolveConflict), the opponent's decisions
+ * (initiateConflict, planResponse), or card draws (endReproductionPhase,
+ * collectProduction) must NOT call saveUndo — undo is not permitted after those.
+ */
+function saveUndo(G: GameState, actionName: string): void {
+  // Deep-clone via JSON round-trip (all GameState values are JSON-serializable)
+  const snapshot: GameState = JSON.parse(JSON.stringify(G));
+  // Strip out the previous undoState from the snapshot so restoring doesn't
+  // re-enable undo of the snapshot itself (undo is one-level deep)
+  snapshot.undoState = undefined;
+  G.undoState = { canUndo: true, previousActionName: actionName, previousState: snapshot };
+}
+
+/**
+ * Clear undo after an action that cannot be reversed (randomness, opponent
+ * decisions, or card draws).
+ */
+function clearUndo(G: GameState, reason: string): void {
+  G.undoState = { canUndo: false, reason };
+}
+
+/**
  * Apply the immediate effect of a demand card becoming law.
  * Some laws have immediate board effects (e.g. deregulation); others
  * are checked each production phase (e.g. wealth_tax).
@@ -148,6 +173,7 @@ export const Moves = {
       const wpData = getAnyCardData(cardId);
       if (wpData.card_type !== CardType.Workplace) return;
 
+      saveUndo(G, 'Expand Workplace');
       player.wealth -= cost;
       player.hand.splice(handIndex, 1);
       player.dustbin.push(cardId);
@@ -168,6 +194,7 @@ export const Moves = {
       if (!isFigureCardID(cardId)) return;
       if (player.wealth < cost) return;
 
+      saveUndo(G, 'Train Figure');
       player.wealth -= cost;
       player.hand.splice(handIndex, 1);
 
@@ -183,6 +210,7 @@ export const Moves = {
       }
       if (resolvedDemandIndex < 0 || resolvedDemandIndex > 1) return;
 
+      saveUndo(G, 'Make Demand');
       player.hand.splice(handIndex, 1);
 
       const existing = player.demands[resolvedDemandIndex];
@@ -201,6 +229,7 @@ export const Moves = {
       if (resolvedInstIndex < 0 || resolvedInstIndex > 1) return;
       if (player.wealth < cost) return;
 
+      saveUndo(G, 'Build Institution');
       player.wealth -= cost;
       player.hand.splice(handIndex, 1);
 
@@ -226,6 +255,7 @@ export const Moves = {
       }
       if (resolvedWpIndex < 0 || resolvedWpIndex >= G.workplaces.length) return;
 
+      saveUndo(G, 'Open Workplace');
       player.wealth -= cost;
       player.hand.splice(handIndex, 1);
 
@@ -257,6 +287,8 @@ export const Moves = {
     // Determine current player's class
     const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
     const player = G.players[currentClass];
+
+    clearUndo(G, 'Cannot undo after collecting production');
 
     // Collect wages (Working Class) or profits (Capitalist Class) from all workplaces
     let totalIncome = 0;
@@ -305,6 +337,7 @@ export const Moves = {
     if (G.turnPhase !== TurnPhase.Action) {
       return;
     }
+    saveUndo(G, 'End Action Phase');
     G.turnPhase = TurnPhase.Reproduction;
   },
 
@@ -353,6 +386,7 @@ export const Moves = {
     }
 
     // Remove figure from player's figures — it's now in the conflict
+    saveUndo(G, 'Plan Strike');
     player.figures.splice(figureIndex, 1);
 
     const strikeLeader: FigureCardInPlay = { ...figure };
@@ -415,6 +449,7 @@ export const Moves = {
     }
 
     // Remove figure from player's figures — it's now in the conflict
+    saveUndo(G, 'Plan Election');
     player.figures.splice(figureIndex, 1);
 
     const candidate: FigureCardInPlay = { ...figure };
@@ -501,6 +536,7 @@ export const Moves = {
     const demandCardId = demandInPlay.id;
 
     // Auto-assign state figures to sides
+    saveUndo(G, 'Propose Legislation');
     const proposingSideCards: ConflictCardInPlay[] = [];
     const opposingSideCards: ConflictCardInPlay[] = [];
 
@@ -615,6 +651,8 @@ export const Moves = {
     if (!G.activeConflict) return;
     if (G.activeConflict.phase !== ConflictPhase.Initiating) return;
 
+    clearUndo(G, 'Cannot undo after initiating conflict');
+
     const opposingClass = G.activeConflict.initiatingClass === SocialClass.WorkingClass
       ? SocialClass.CapitalistClass
       : SocialClass.WorkingClass;
@@ -650,6 +688,7 @@ export const Moves = {
       return;
     }
 
+    saveUndo(G, 'Add Figure to Conflict');
     player.figures.splice(figureIndex, 1);
     if (actingClass === SocialClass.WorkingClass) {
       G.activeConflict.workingClassCards.push({ ...figure });
@@ -685,6 +724,7 @@ export const Moves = {
       return;
     }
 
+    saveUndo(G, 'Add Tactic to Conflict');
     player.wealth -= cost;
     player.hand.splice(handIndex, 1);
     const tacticInPlay = playTacticCard(cardId);
@@ -707,6 +747,7 @@ export const Moves = {
     if (!G.activeConflict) return;
     if (G.activeConflict.phase !== ConflictPhase.Responding) return;
 
+    clearUndo(G, 'Cannot undo after responding to conflict');
     G.activeConflict.phase = ConflictPhase.Resolving;
     G.activeConflict.activeConflictPlayer = G.activeConflict.initiatingClass;
     G.errorMessage = undefined;
@@ -720,6 +761,7 @@ export const Moves = {
     if (!G.activeConflict) return;
     if (G.activeConflict.phase !== ConflictPhase.Resolving) return;
 
+    clearUndo(G, 'Cannot undo after resolving conflict');
     const conflict = G.activeConflict;
     const rng = Math.random;
 
@@ -906,11 +948,25 @@ export const Moves = {
   },
 
   /**
+   * Undo the last undoable action by restoring the saved snapshot.
+   */
+  undoMove: ({ G }) => {
+    if (!G.undoState?.canUndo) return;
+    const previousState = G.undoState.previousState;
+    // Delete all keys first so optional fields absent from the snapshot are cleared
+    for (const key of Object.keys(G)) {
+      delete (G as unknown as Record<string, unknown>)[key];
+    }
+    Object.assign(G, previousState);
+  },
+
+  /**
    * End Reproduction Phase and move to next player's Production
    */
   endReproductionPhase: ({ G, ctx, events }, handIndexesToTheorize?: number[]) => {
     if (G.turnPhase !== TurnPhase.Reproduction) return;
 
+    clearUndo(G, 'Cannot undo after ending turn');
     const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
     const player = G.players[currentClass];
 
