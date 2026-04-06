@@ -29,10 +29,10 @@ function powerStats(cards: ConflictCardInPlay[]): PowerStats {
 }
 
 /**
- * Roll N six-sided dice, returning the individual results.
+ * Roll N custom dice, each with equal odds of rolling 0 (❌), 1 (•), or 2 (••).
  */
 function rollDice(numDice: number, random: () => number): number[] {
-  return Array.from({ length: numDice }, () => Math.floor(random() * 6) + 1);
+  return Array.from({ length: numDice }, () => Math.floor(random() * 3));
 }
 
 /**

@@ -271,6 +271,18 @@ describe('resolveConflict', () => {
     expect(outcome.dismissedBy).toHaveLength(0);
   });
 
+  test('each die roll is 0, 1, or 2 (custom die faces)', () => {
+    // Run several resolutions and assert every roll value is in {0, 1, 2}
+    for (let i = 0; i < 20; i++) {
+      const client = makeStrikeResolving();
+      client.moves.resolveConflict();
+      const outcome = client.getStateOrThrow().G.conflictOutcome!;
+      for (const roll of [...outcome.workingClassPower.diceRolls, ...outcome.capitalistPower.diceRolls]) {
+        expect([0, 1, 2]).toContain(roll);
+      }
+    }
+  });
+
   test('exhausts all participating figures and returns them to in-play area', () => {
     const client = makeStrikeResolving();
     client.moves.resolveConflict();

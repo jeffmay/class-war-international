@@ -72,6 +72,12 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
     ];
   })();
 
+  const dieFaceLabel = (value: number): string => {
+    if (value === 0) return "❌";
+    if (value === 1) return "•";
+    return "••";
+  };
+
   const renderPowerSection = (
     label: string,
     power: ConflictOutcome["workingClassPower"],
@@ -82,7 +88,7 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
       <div className="conflict-outcome-dice-row">
         <span className="conflict-outcome-dice-label">🎲 {power.diceCount} dice:</span>
         <span className="conflict-outcome-dice-rolls">
-          {power.diceRolls.length > 0 ? power.diceRolls.join(", ") : "—"}
+          {power.diceRolls.length > 0 ? power.diceRolls.map(dieFaceLabel).join(" ") : "—"}
         </span>
         <span className="conflict-outcome-dice-sum">
           = {power.diceRolls.reduce((a, b) => a + b, 0)}
