@@ -4,8 +4,8 @@
 
 import { type MoveMap } from 'boardgame.io';
 import { pick } from 'lodash';
-import { buildDeck, defaultStateFigureCards, DefaultStateFigureID, defaultWorkplaceCards, getAnyCardData } from '../data/cards';
-import { CardType, type FigureCardInPlay, SocialClass, type DefaultStateFigureCardInPlay, type WorkplaceInPlay, WorkplaceForSale } from '../types/cards';
+import { buildDeck, defaultStateFigureCards, DefaultStateFigureID, getAnyCardData } from '../data/cards';
+import { CardType, type DefaultStateFigureCardInPlay, type FigureCardInPlay, SocialClass, WorkplaceForSale, type WorkplaceInPlay } from '../types/cards';
 import { ConflictCardInPlay, ConflictPhase, ConflictType, type ElectionConflictState, type LegislationConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
 import { isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard, playWorkplaceCard } from '../util/game';

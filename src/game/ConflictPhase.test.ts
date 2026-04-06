@@ -5,7 +5,7 @@
  * so no test is skipped or branched on randomly generated values.
  */
 
-import { CardType, SocialClass, WorkplaceForSale, type FigureCardInPlay } from '../types/cards';
+import { CardType, SocialClass, WorkplaceForSale } from '../types/cards';
 import { ConflictPhase, ConflictType } from '../types/conflicts';
 import { TurnPhase } from '../types/game';
 import { playDemandCard, playFigureCard } from '../util/game';

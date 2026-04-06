@@ -1,5 +1,4 @@
 
-import { InvariantOf } from 'type-fest';
 
 export class AssertionError extends Error {
   public constructor(public expectation: string) {

@@ -13,12 +13,13 @@
  * play where both players share the same client.
  */
 
+import { buildDeck } from '../data/cards';
 import { CardType, SocialClass, WorkplaceForSale, type FigureCardInPlay } from '../types/cards';
 import { ConflictPhase, ConflictType } from '../types/conflicts';
 import { TurnPhase } from '../types/game';
-import { clientFromFixture, makeActionPhaseState } from './generate';
-import { buildDeck } from '../data/cards';
+import { filterMap } from '../util/fun';
 import { playDemandCard, playFigureCard } from '../util/game';
+import { clientFromFixture, makeActionPhaseState } from './generate';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -618,7 +619,8 @@ describe('resolveConflict - legislation', () => {
 
     const state = client.getStateOrThrow();
     expect(state.G.laws).toContain('deregulation');
-    const nonEmpty = state.G.workplaces.filter(w => w !== WorkplaceForSale);
+
+    const nonEmpty = filterMap(state.G.workplaces, (w) => w === WorkplaceForSale ? undefined : w);
     const nonEmptyInitialWages = initialWages.filter((_, i) => G.workplaces[i] !== WorkplaceForSale);
     const nonEmptyInitialProfits = initialProfits.filter((_, i) => G.workplaces[i] !== WorkplaceForSale);
     nonEmpty.forEach((wp, i) => {

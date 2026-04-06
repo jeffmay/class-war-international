@@ -4,7 +4,6 @@
 
 import { SocialClass, WorkplaceForSale } from '../types/cards';
 import { TurnPhase } from '../types/game';
-import { assertDefined } from '../util/assertions';
 import { StrictClient, type StrictClientOf } from '../util/typedboardgame';
 import { ClassWarGame } from './ClassWarGame';
 

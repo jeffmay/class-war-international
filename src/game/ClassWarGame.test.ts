@@ -2,10 +2,10 @@
  * Tests for Class War: International game setup and basic mechanics
  */
 
-import { setup } from './ClassWarGame';
+import { SocialClass, WorkplaceForSale } from '../types/cards';
 import { GameState, TurnPhase } from '../types/game';
-import { SocialClass, WorkplaceCardInPlay, WorkplaceForSale, WorkplaceInPlay } from '../types/cards';
-import { assertDefined, assertEqual, assertFieldValue, assertNotEqual } from '../util/assertions';
+import { assertEqual, assertNotEqual } from '../util/assertions';
+import { setup } from './ClassWarGame';
 
 describe('ClassWarGame Setup', () => {
   let gameState: GameState;

@@ -915,7 +915,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 <div className="offices-section">
                   {G.politicalOffices.map((office, index) => {
                     // The election cooldown should be a status on the card. The banner should only be used when a card is unusable.
-                    const cooldown = office.card_type === CardType.Figure && office?.electionCooldownTurnsRemaining || 0;
+                    const cooldown = (office.card_type === CardType.Figure && office?.electionCooldownTurnsRemaining) || 0;
                     const effects = []
                     if (cooldown > 0) {
                       effects.push(`🔒 Safe for ${pluralize(cooldown, 'turn')}`);
