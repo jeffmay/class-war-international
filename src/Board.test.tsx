@@ -40,6 +40,7 @@ const mockMoves = {
   planElection: jest.fn(),
   planLegislation: jest.fn(),
   undoMove: jest.fn(),
+  sealReproductionPreview: jest.fn(),
 };
 
 const mockEvents = { endGame: jest.fn() };

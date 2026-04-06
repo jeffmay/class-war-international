@@ -63,12 +63,22 @@ function shuffleArray<T>(array: T[], random: () => number): T[] {
  * collectProduction) must NOT call saveUndo — undo is not permitted after those.
  */
 function saveUndo(G: GameState, actionName: string): void {
-  // Deep-clone via JSON round-trip (all GameState values are JSON-serializable)
+  // Deep-clone via JSON round-trip (all GameState values are JSON-serializable).
+  // The snapshot preserves any prior undoState so the player can continue undoing
+  // further back through a chain of actions.
   const snapshot: GameState = JSON.parse(JSON.stringify(G));
-  // Strip out the previous undoState from the snapshot so restoring doesn't
-  // re-enable undo of the snapshot itself (undo is one-level deep)
-  snapshot.undoState = undefined;
   G.undoState = { canUndo: true, previousActionName: actionName, previousState: snapshot };
+}
+
+/**
+ * Replace the entire GameState with the given snapshot in-place, deleting any
+ * keys absent from the snapshot so optional fields are properly cleared.
+ */
+function restoreSnapshot(G: GameState, snapshot: GameState): void {
+  for (const key of Object.keys(G)) {
+    delete (G as unknown as Record<string, unknown>)[key];
+  }
+  Object.assign(G, snapshot);
 }
 
 /**
@@ -618,30 +628,16 @@ export const Moves = {
 
   /**
    * Cancel a conflict that is still in the Initiating phase.
-   * Returns all initiating-side cards back to the player's in-play area / hand.
-   * Uses activeConflictPlayer from game state (not boardgame.io playerID) so this
-   * works correctly in single-device mode where both players share the same client.
+   * Restores the game state snapshot saved when the conflict was planned, which
+   * returns all figures and other state to exactly what it was before the plan.
+   * This is equivalent to clicking Undo on the plan-conflict action.
    */
   cancelConflict: ({ G }) => {
     if (!G.activeConflict) return;
     if (G.activeConflict.phase !== ConflictPhase.Initiating) return;
+    if (!G.undoState?.canUndo) return;
 
-    const initiatingClass = G.activeConflict.initiatingClass;
-    const player = G.players[initiatingClass];
-    const conflict = G.activeConflict;
-
-    // Return all initiating-side figures to the player's figures area (un-exhausted)
-    const initiatingCards = initiatingClass === SocialClass.WorkingClass
-      ? conflict.workingClassCards
-      : conflict.capitalistCards;
-    for (const card of initiatingCards) {
-      if (card.card_type === CardType.Figure) {
-        player.figures.push({ ...card, exhausted: false });
-      }
-      // Tactics during Initiating phase: none can be added yet, so nothing to refund
-    }
-
-    G.activeConflict = undefined;
+    restoreSnapshot(G, G.undoState.previousState);
     G.errorMessage = undefined;
   },
 
@@ -690,7 +686,8 @@ export const Moves = {
       return;
     }
 
-    saveUndo(G, 'Add Figure to Conflict');
+    // No saveUndo here — the plan-conflict snapshot covers the whole setup phase.
+    // Cancel conflict restores that snapshot, undoing all figure/tactic additions at once.
     player.figures.splice(figureIndex, 1);
     if (actingClass === SocialClass.WorkingClass) {
       G.activeConflict.workingClassCards.push({ ...figure });
@@ -726,7 +723,7 @@ export const Moves = {
       return;
     }
 
-    saveUndo(G, 'Add Tactic to Conflict');
+    // No saveUndo here — the plan-conflict snapshot covers the whole setup phase.
     player.wealth -= cost;
     player.hand.splice(handIndex, 1);
     const tacticInPlay = playTacticCard(cardId);
@@ -936,11 +933,13 @@ export const Moves = {
    * dismissed it, conflictOutcome is cleared from game state.
    * The dismissingClass must be passed explicitly because this move may be called
    * by either player on a single device without changing the boardgame.io turn.
+   * Dismissal is undoable so the opposing player can reopen the outcome screen.
    */
   dismissConflictOutcome: ({ G }, dismissingClass: SocialClass) => {
     if (!G.conflictOutcome) return;
     if (G.conflictOutcome.dismissedBy.includes(dismissingClass)) return;
 
+    saveUndo(G, 'Dismiss Conflict Outcome');
     G.conflictOutcome.dismissedBy.push(dismissingClass);
 
     if (G.conflictOutcome.dismissedBy.length >= 2) {
@@ -950,16 +949,19 @@ export const Moves = {
   },
 
   /**
+   * Lock undo when the player has previewed the dealt cards in the DealResultModal.
+   * Once the new cards are visible, the end-of-turn sequence cannot be reversed.
+   */
+  sealReproductionPreview: ({ G }) => {
+    clearUndo(G, 'Cannot undo after viewing new cards');
+  },
+
+  /**
    * Undo the last undoable action by restoring the saved snapshot.
    */
   undoMove: ({ G }) => {
     if (!G.undoState?.canUndo) return;
-    const previousState = G.undoState.previousState;
-    // Delete all keys first so optional fields absent from the snapshot are cleared
-    for (const key of Object.keys(G)) {
-      delete (G as unknown as Record<string, unknown>)[key];
-    }
-    Object.assign(G, previousState);
+    restoreSnapshot(G, G.undoState.previousState);
   },
 
   /**

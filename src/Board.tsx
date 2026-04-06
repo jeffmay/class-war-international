@@ -140,12 +140,15 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     });
   };
 
-  // Show the deal result modal — does NOT yet execute the move
+  // Show the deal result modal — does NOT yet execute the move.
+  // Also seals undo so the player cannot undo back through End Action Phase
+  // after previewing the new cards.
   const handleFinishTheorizing = () => {
     const remainingHand = myPlayer.hand.filter((_, i) => !theorizeSelectedIndexes.includes(i));
     const drawCount = myPlayer.maxHandSize - remainingHand.length;
     const theorizedCardIds = theorizeSelectedIndexes.map(i => myPlayer.hand[i]);
     const newCardIds = myPlayer.deck.slice(0, drawCount);
+    moves.sealReproductionPreview();
     setBoardState({ mode: 'showingDealtCards', theorizedCardIds, newCardIds, modalDismissed: false });
   };
 
@@ -681,8 +684,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
   return (
     <div className="game-board">
-      {/* Turn Start Modal - shown during Production phase */}
-      {G.turnPhase === TurnPhase.Production && !G.conflictOutcome && (
+      {/* Turn Start Modal - shown during Production phase (even if conflict outcome is pending) */}
+      {G.turnPhase === TurnPhase.Production && (
         <TurnStartModal
           turnNumber={G.turnNumber}
           currentClass={currentClass}
@@ -690,8 +693,9 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         />
       )}
 
-      {/* Conflict Outcome Modal — shown after resolution; each player dismisses independently */}
-      {G.conflictOutcome && !G.conflictOutcome.dismissedBy.includes(myClass) && (
+      {/* Conflict Outcome Modal — shown after the player starts their turn (Action phase).
+          This ensures the Turn Start Interstitial always appears first. */}
+      {G.turnPhase !== TurnPhase.Production && G.conflictOutcome && !G.conflictOutcome.dismissedBy.includes(myClass) && (
         <ConflictOutcomeModal
           outcome={G.conflictOutcome}
           viewingClass={myClass}
@@ -821,7 +825,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           >
             {undoLabel}
           </button>
-          {isMyTurn && G.turnPhase === TurnPhase.Action && (
+          {isMyTurn && G.turnPhase === TurnPhase.Action && !G.activeConflict && (
             <button
               className="game-end-turn-button"
               onClick={() => moves.endActionPhase()}
@@ -839,7 +843,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 : `⏭ Theorize Cards (${theorizeSelectedIndexes.length})`}
             </button>
           )}
-          {G.activeConflict && !conflictModalOpen && (
+          {G.activeConflict && (
             <button
               className="game-return-to-conflict-button"
               onClick={() => setConflictModalOpen(true)}
