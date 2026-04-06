@@ -170,10 +170,11 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
       if (card.card_type === CardType.Figure) {
         const canAfford = myPlayer.wealth >= card.cost;
-        options.push([
-          `Train ($${card.cost})`,
-          canAfford ? () => { moves.playCardFromHand(idx, 'figures[-1]'); handleCloseInspector(); } : undefined,
-        ]);
+        if (canAfford) {
+          options.push([`Train ($${card.cost})`, () => { moves.playCardFromHand(idx, 'figures[-1]'); handleCloseInspector(); }]);
+        } else {
+          options.push([`Cannot Afford ($${card.cost})`, undefined]);
+        }
       } else if (card.card_type === CardType.Demand) {
         const slot0 = myPlayer.demands[0];
         const slot1 = myPlayer.demands[1];
@@ -191,48 +192,38 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         const slot0 = myPlayer.institutions[0];
         const slot1 = myPlayer.institutions[1];
         const canAfford = myPlayer.wealth >= card.cost;
-        const hasEmptySlot = slot0 === null || slot1 === null;
-        if (hasEmptySlot) {
-          options.push([
-            `Build New Institution ($${card.cost})`,
-            canAfford ? () => { moves.playCardFromHand(idx, 'institutions[-1]'); handleCloseInspector(); } : undefined,
-          ]);
-        }
-        if (slot0 !== null) {
-          options.push([
-            `Replace ${getAnyCardData(slot0.id).name} ($${card.cost})`,
-            canAfford ? () => { moves.playCardFromHand(idx, 'institutions[0]'); handleCloseInspector(); } : undefined,
-          ]);
-        }
-        if (slot1 !== null) {
-          options.push([
-            `Replace ${getAnyCardData(slot1.id).name} ($${card.cost})`,
-            canAfford ? () => { moves.playCardFromHand(idx, 'institutions[1]'); handleCloseInspector(); } : undefined,
-          ]);
+        if (!canAfford) {
+          options.push([`Cannot Afford ($${card.cost})`, undefined]);
+        } else {
+          const hasEmptySlot = slot0 === null || slot1 === null;
+          if (hasEmptySlot) {
+            options.push([`Build New Institution ($${card.cost})`, () => { moves.playCardFromHand(idx, 'institutions[-1]'); handleCloseInspector(); }]);
+          }
+          if (slot0 !== null) {
+            options.push([`Replace ${getAnyCardData(slot0.id).name} ($${card.cost})`, () => { moves.playCardFromHand(idx, 'institutions[0]'); handleCloseInspector(); }]);
+          }
+          if (slot1 !== null) {
+            options.push([`Replace ${getAnyCardData(slot1.id).name} ($${card.cost})`, () => { moves.playCardFromHand(idx, 'institutions[1]'); handleCloseInspector(); }]);
+          }
         }
       } else if (card.card_type === CardType.Workplace) {
         const canAfford = myPlayer.wealth >= card.cost;
-        const hasEmptySlot = G.workplaces.some(w => w === WorkplaceForSale);
-        if (hasEmptySlot) {
-          options.push([
-            `Open New Workplace ($${card.cost})`,
-            canAfford ? () => { moves.playCardFromHand(idx, 'workplaces[-1]'); handleCloseInspector(); } : undefined,
-          ]);
-        }
-        G.workplaces.forEach((wp, wpIdx) => {
-          if (wp === WorkplaceForSale) return;
-          const wpDisplayCard = makeWorkplaceDisplayCard(wp);
-          options.push([
-            `Replace ${wpDisplayCard.name} ($${card.cost})`,
-            canAfford ? () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]`); handleCloseInspector(); } : undefined,
-          ]);
-          if (wp.workplaceId === card.id) {
-            options.push([
-              `Expand ${wpDisplayCard.name} ($${card.cost})`,
-              canAfford ? () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]/expand`); handleCloseInspector(); } : undefined,
-            ]);
+        if (!canAfford) {
+          options.push([`Cannot Afford ($${card.cost})`, undefined]);
+        } else {
+          const hasEmptySlot = G.workplaces.some(w => w === WorkplaceForSale);
+          if (hasEmptySlot) {
+            options.push([`Open New Workplace ($${card.cost})`, () => { moves.playCardFromHand(idx, 'workplaces[-1]'); handleCloseInspector(); }]);
           }
-        });
+          G.workplaces.forEach((wp, wpIdx) => {
+            if (wp === WorkplaceForSale) return;
+            const wpDisplayCard = makeWorkplaceDisplayCard(wp);
+            options.push([`Replace ${wpDisplayCard.name} ($${card.cost})`, () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]`); handleCloseInspector(); }]);
+            if (wp.workplaceId === card.id) {
+              options.push([`Expand ${wpDisplayCard.name} ($${card.cost})`, () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]/expand`); handleCloseInspector(); }]);
+            }
+          });
+        }
       }
 
       slotData.set(slotId, { cardId, options });

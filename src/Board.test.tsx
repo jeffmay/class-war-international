@@ -68,6 +68,44 @@ function renderBoard(G = makeActionPhaseState(), currentPlayer = "0") {
 
 beforeEach(() => jest.clearAllMocks());
 
+// ─── Cannot Afford label ───────────────────────────────────────────────────────
+
+describe("cannot afford label", () => {
+  test("figure card shows 'Cannot Afford' when wealth is too low", () => {
+    const wcDeck = buildDeck(SocialClass.WorkingClass);
+    const { hand, deck } = withCardInHand(wcDeck, "cashier"); // costs $2
+    const G = makeActionPhaseState({ hand, deck, wealth: 0 });
+    renderBoard(G);
+
+    fireEvent.click(screen.getByText("Cashier"));
+    expect(screen.getByRole("button", { name: /Cannot Afford/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Train/ })).not.toBeInTheDocument();
+  });
+
+  test("figure card shows 'Train' label when player can afford it", () => {
+    const wcDeck = buildDeck(SocialClass.WorkingClass);
+    const { hand, deck } = withCardInHand(wcDeck, "cashier"); // costs $2
+    const G = makeActionPhaseState({ hand, deck, wealth: 10 });
+    renderBoard(G);
+
+    fireEvent.click(screen.getByText("Cashier"));
+    expect(screen.getByRole("button", { name: /Train/ })).not.toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Cannot Afford/ })).not.toBeInTheDocument();
+  });
+
+  test("institution shows single 'Cannot Afford' when wealth is too low", () => {
+    const wcDeck = buildDeck(SocialClass.WorkingClass);
+    const { hand, deck } = withCardInHand(wcDeck, "political_education_group"); // costs $4
+    const G = makeActionPhaseState({ hand, deck, wealth: 0 });
+    renderBoard(G);
+
+    fireEvent.click(screen.getByText("Political Education Group"));
+    const cannotAffordButtons = screen.getAllByRole("button", { name: /Cannot Afford/ });
+    expect(cannotAffordButtons).toHaveLength(1);
+    expect(cannotAffordButtons[0]).toBeDisabled();
+  });
+});
+
 // ─── Institution slots ─────────────────────────────────────────────────────────
 
 describe("institution slot selection", () => {

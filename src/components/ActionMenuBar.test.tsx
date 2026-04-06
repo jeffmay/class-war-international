@@ -59,7 +59,7 @@ describe('ActionMenuBar', () => {
   test('renders an enabled option', () => {
     const handler = jest.fn();
     render(<ActionMenuBar {...baseProps} options={[['Train ($5)', handler]]} />);
-    expect(screen.getByText('Train ($5)')).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Train ($5)' })).not.toBeDisabled();
   });
 
   test('enabled option calls handler when clicked', () => {
