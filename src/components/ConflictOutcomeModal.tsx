@@ -11,6 +11,7 @@ import { CardType, SocialClass } from '../types/cards';
 import { ConflictOutcome, ConflictType } from '../types/conflicts';
 import { getAnyCardData } from '../data/cards';
 import { CardComponent } from './CardComponent';
+import { Die } from './Die';
 
 interface ConflictOutcomeModalProps {
   outcome: ConflictOutcome;
@@ -72,14 +73,9 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
     ];
   })();
 
-  const dieFaceLabel = (value: number): string => {
-    if (value === 0) return "❌";
-    if (value === 1) return "•";
-    return "••";
-  };
-
   const renderPowerSection = (
     label: string,
+    socialClass: SocialClass,
     power: ConflictOutcome["workingClassPower"],
     cards: typeof conflict.workingClassCards,
   ) => (
@@ -88,7 +84,11 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
       <div className="conflict-outcome-dice-row">
         <span className="conflict-outcome-dice-label">🎲 {power.diceCount} dice:</span>
         <span className="conflict-outcome-dice-rolls">
-          {power.diceRolls.length > 0 ? power.diceRolls.map(dieFaceLabel).join(" ") : "—"}
+          {power.diceRolls.length > 0
+            ? power.diceRolls.map((v, i) => (
+                <Die key={i} value={v} socialClass={socialClass} />
+              ))
+            : "—"}
         </span>
         <span className="conflict-outcome-dice-sum">
           = {power.diceRolls.reduce((a, b) => a + b, 0)}
@@ -131,8 +131,8 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
         <div className="conflict-outcome-detail">{outcomeDetail}</div>
 
         <div className="conflict-outcome-powers">
-          {renderPowerSection("Working Class", workingClassPower, conflict.workingClassCards)}
-          {renderPowerSection("Capitalist Class", capitalistPower, conflict.capitalistCards)}
+          {renderPowerSection("Working Class", SocialClass.WorkingClass, workingClassPower, conflict.workingClassCards)}
+          {renderPowerSection("Capitalist Class", SocialClass.CapitalistClass, capitalistPower, conflict.capitalistCards)}
         </div>
 
         {alreadyDismissed ? (

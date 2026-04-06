@@ -35,6 +35,7 @@ function renderPowerBreakdown(
   diceCount: number,
   establishedPower: number,
   label: string,
+  workplaceEstablishedPower?: number,
 ): React.ReactNode {
   const sources: string[] = [];
   for (const card of cards) {
@@ -45,12 +46,18 @@ function renderPowerBreakdown(
       sources.push(`${data.name}: ${data.dice} 🎲`);
     }
   }
+  const totalEstablished = establishedPower + (workplaceEstablishedPower ?? 0);
   return (
     <div className="conflict-modal-power-breakdown">
       <div className="conflict-modal-power-label">{label}</div>
       <div className="conflict-modal-power-total">
-        {diceCount} 🎲 + {establishedPower} ⚫ established
+        {diceCount} 🎲 + {totalEstablished} ⚫ established
       </div>
+      {workplaceEstablishedPower !== undefined && workplaceEstablishedPower > 0 && (
+        <div className="conflict-modal-power-source">
+          Workplace: {workplaceEstablishedPower} ⚫
+        </div>
+      )}
       {sources.length > 0 && (
         <div className="conflict-modal-power-sources">
           {sources.map((s, i) => <div key={i} className="conflict-modal-power-source">{s}</div>)}
@@ -167,6 +174,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
               conflict.workingClassPower.establishedPower,
               "WC Power",
             )}
+
           </div>
 
           {/* Capitalist Class side */}
@@ -198,6 +206,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
               conflict.capitalistPower.diceCount,
               conflict.capitalistPower.establishedPower,
               "CC Power",
+              conflict.conflictType === ConflictType.Strike ? conflict.targetWorkplace.established_power : undefined,
             )}
           </div>
         </div>
