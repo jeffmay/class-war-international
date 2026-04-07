@@ -5,6 +5,7 @@ import type { ReadonlyDeep } from "type-fest";
 import {
   AnyCardData,
   CardType,
+  ConflictType,
   DemandCardData,
   DefaultStateFigureCardData,
   FigureCardData,
@@ -206,6 +207,7 @@ export const cardById = {
     cost: 5,
     qty: 3,
     dice: 2,
+    enabled_by_conflict: [ConflictType.Strike],
     rules: '"React to a strike: Roll 2 extra dice. Bonus: If you win, shift $1 from wages to profits at the Workplace."',
     quote: '"Getting the job done for pennies on the dollar while driving a wedge into the working class? Fist bump, bro!"',
   },
@@ -227,6 +229,7 @@ export const cardById = {
     cost: 9,
     qty: 3,
     established_power: 2,
+    enabled_by_conflict: [ConflictType.Strike, ConflictType.Election, ConflictType.Legislation],
     rules: "Support a conflict on any turn: Add 2 extra points to your score.",
     quote: '"Officer! Officer! There are communists in my office, and they look aggrieved!"',
   },
@@ -248,6 +251,7 @@ export const cardById = {
     cost: 15,
     qty: 2,
     dice: 3,
+    enabled_by_conflict: [ConflictType.Strike, ConflictType.Election, ConflictType.Legislation],
     rules: `"Support a conflict on any turn: Roll 3 extra dice. Bonus: If you win by 3 points or more, put opponent's leader in the Dustbin."`,
     quote: "You know the guy's good when they have a bounty on him in both Iraq and Afghanistan.",
   },
@@ -581,6 +585,7 @@ export const cardById = {
     cost: 3,
     qty: 2,
     dice: 2,
+    enabled_by_conflict: [ConflictType.Strike, ConflictType.Election, ConflictType.Legislation],
     rules: "Support a conflict on any turn: Roll 2 extra dice.",
     quote: '"How do you do, fellow worker? Have you ever read the work of Slavoj Žižek?"',
   },
@@ -592,6 +597,7 @@ export const cardById = {
     cost: 4,
     qty: 2,
     dice: 3,
+    enabled_by_conflict: [ConflictType.Strike],
     rules: '"Support a strike on your turn: Roll 3 extra dice. If you win, unionize the Workplace."',
     quote: '"Remember when I asked you to replace my desk chair with a yoga ball and you said no? Well, buddy, tell it to the union!"',
   },
@@ -602,6 +608,7 @@ export const cardById = {
     card_type: CardType.Tactic,
     cost: 4,
     qty: 2,
+    enabled_by_conflict: [ConflictType.Strike, ConflictType.Election, ConflictType.Legislation],
     rules: "Support a conflict on your turn: Roll 1 extra die for each of your participating Figures.",
     quote: `"If we can't organize slam poets, podcasters, and MSNBC pundits, we can't organize America!"`,
   },
@@ -613,6 +620,7 @@ export const cardById = {
     cost: 5,
     qty: 1,
     dice: 3,
+    enabled_by_conflict: [ConflictType.Strike, ConflictType.Election, ConflictType.Legislation],
     rules: "Support a conflict on any turn: Roll 3 extra dice.",
     quote: "Do you thinkn it's too much if I wear both my Guy Fawkes mask and my pussyhat at the same time?",
   },
@@ -838,13 +846,13 @@ export type AnyStateFigureCardID = keyof typeof anyStateFigureCardById;
 export type InstitutionCardID = keyof typeof institutionCardById;
 export type TacticCardID = keyof typeof tacticCardById;
 export type WorkplaceCardID = keyof typeof workplaceCardById;
-export type AnyWorkplaceCardID = keyof typeof anyWorkplaceCardById;
 
 export type DefaultStateFigureID = keyof typeof defaultStateFigureCardById;
-export type DefaultWorkplaceID = keyof typeof defaultWorkplaceCardById;
 
 export type DeckCardID = keyof typeof cardById;
 export type CardID = keyof typeof allCards;
+export type AnyWorkplaceCardID = keyof typeof anyWorkplaceCardById;
+export type DefaultWorkplaceID = keyof typeof defaultWorkplaceCardById;
 
 // ─── Helper functions ──────────────────────────────────────────────────────────
 
@@ -853,8 +861,8 @@ export const getFigureDataById = (figureId: FigureCardID): FigureCardData => fig
 export const getInstitutionById = (institutionId: InstitutionCardID): InstitutionCardData => institutionCardById[institutionId];
 export const getTacticDataById = (tacticId: TacticCardID): TacticCardData => tacticCardById[tacticId];
 export const getWorkplaceDataById = (workplaceId: WorkplaceCardID): WorkplaceCardData => workplaceCardById[workplaceId];
-
 export const getAnyWorkplaceCardData = (id: AnyWorkplaceCardID): WorkplaceCardData => anyWorkplaceCardById[id];
+
 export const getAnyStateFigureDataById = (id: AnyStateFigureCardID): FigureCardData | DefaultStateFigureCardData => anyStateFigureCardById[id];
 
 /** Look up any card (player or board-only) by ID. Throws if not found. */

@@ -4,9 +4,9 @@
 
 import { type MoveMap } from 'boardgame.io';
 import { pick } from 'lodash';
-import { buildDeck, defaultStateFigureCardById, DefaultStateFigureID, getAnyCardData, getWorkplaceDataById } from '../data/cards';
-import { CardType, type DefaultStateFigureCardInPlay, type FigureCardInPlay, SocialClass, WorkplaceCardInPlay, WorkplaceForSale } from '../types/cards';
-import { ConflictCardInPlay, ConflictPhase, ConflictType, type ElectionConflictState, type LegislationConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
+import { buildDeck, defaultStateFigureCardById, DefaultStateFigureID, getAnyCardData, getAnyStateFigureDataById, getTacticDataById, getWorkplaceDataById } from '../data/cards';
+import { CardType, ConflictType, type DefaultStateFigureCardInPlay, type FigureCardInPlay, SocialClass, WorkplaceCardInPlay, WorkplaceForSale } from '../types/cards';
+import { ConflictCardInPlay, ConflictPhase, type ElectionConflictState, type LegislationConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
 import { isAnyWorkplaceCardID, isDefaultWorkplaceCard, isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard, playWorkplaceCard } from '../util/game';
 import { type StrictGameOf } from '../util/typedboardgame';
@@ -716,7 +716,12 @@ export const Moves = {
       return;
     }
 
-    const cardData = getAnyCardData(cardId);
+    const cardData = getTacticDataById(cardId);
+    const enabledConflicts = cardData.enabled_by_conflict;
+    if (!enabledConflicts || !enabledConflicts.includes(G.activeConflict.conflictType)) {
+      G.errorMessage = `${cardData.name} cannot be played in a ${G.activeConflict.conflictType} conflict.`;
+      return;
+    }
     const cost = cardData.cost ?? 0;
     if (player.wealth < cost) {
       G.errorMessage = `Not enough wealth to play ${cardData.name} (costs $${cost}).`;
@@ -820,6 +825,17 @@ export const Moves = {
       };
 
     } else if (conflict.conflictType === ConflictType.Election) {
+      // The incumbent sides with the class defending the seat (opposing the initiating class).
+      const incumbentData = getAnyStateFigureDataById(conflict.targetIncumbent.id);
+      const incumbentPower = incumbentData.card_type === CardType.DefaultStateFigure
+        ? incumbentData.established_power
+        : 0;
+      if (conflict.initiatingClass === SocialClass.WorkingClass) {
+        ccEstablished += incumbentPower;
+      } else {
+        wcEstablished += incumbentPower;
+      }
+
       const wcTotal = sum(wcRolls) + wcEstablished;
       const ccTotal = sum(ccRolls) + ccEstablished;
 

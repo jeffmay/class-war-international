@@ -675,3 +675,106 @@ describe('law effects - wealth_tax', () => {
     expect(state.G.players[SocialClass.CapitalistClass].wealth).toBe(12);
   });
 });
+
+// ── Tactic conflict filtering (enabled_by_conflict) ───────────────────────────
+
+describe('addTacticToConflict - enabled_by_conflict filtering', () => {
+  test('rejects a strike-only tactic during an election conflict', () => {
+    // union_drive is enabled only for Strike conflicts
+    const wcDeck = buildDeck(SocialClass.WorkingClass);
+    const hand: typeof wcDeck = ['union_drive', ...wcDeck.filter(id => id !== 'union_drive').slice(0, 3)];
+    const deck = wcDeck.filter(id => !hand.includes(id));
+    const candidate = playFigureCard('cashier', { in_training: false });
+    const G = makeActionPhaseState({ figures: [candidate], hand, deck, wealth: 100 });
+    const client = clientFromFixture(G);
+
+    client.moves.planElection('cashier', 0);
+    expect(client.getStateOrThrow().G.activeConflict?.conflictType).toBe(ConflictType.Election);
+
+    client.moves.addTacticToConflict(0); // union_drive index 0
+    const state = client.getStateOrThrow();
+
+    // union_drive should be rejected — only the candidate is in the conflict
+    expect(state.G.activeConflict!.workingClassCards).toHaveLength(1);
+    expect(state.G.errorMessage).toContain('cannot be played');
+  });
+
+  test('accepts a tactic enabled for the active conflict type', () => {
+    // propagandize is enabled for Strike, Election, and Legislation
+    const wcDeck = buildDeck(SocialClass.WorkingClass);
+    const hand: typeof wcDeck = ['propagandize', ...wcDeck.filter(id => id !== 'propagandize').slice(0, 3)];
+    const deck = wcDeck.filter(id => !hand.includes(id));
+    const candidate = playFigureCard('cashier', { in_training: false });
+    const G = makeActionPhaseState({ figures: [candidate], hand, deck, wealth: 100 });
+    const client = clientFromFixture(G);
+
+    client.moves.planElection('cashier', 0);
+    client.moves.addTacticToConflict(0); // propagandize at index 0
+    const state = client.getStateOrThrow();
+
+    expect(state.G.activeConflict!.workingClassCards).toHaveLength(2);
+    expect(state.G.errorMessage).toBeUndefined();
+  });
+});
+
+// ── Election: incumbent established power ─────────────────────────────────────
+
+describe('resolveConflict - election incumbent power', () => {
+  test('incumbent established power is added to the defending class', () => {
+    const candidate = playFigureCard('cashier', { in_training: false });
+    const G = makeActionPhaseState({ figures: [candidate] });
+
+    // Office 0 holds a DefaultStateFigure with established_power: 1 (centrist has 3, populist 1)
+    // We'll use office index 1 (centrist: established_power = 3) for a clear test.
+    // WC is challenging so CC defends — centrist established_power goes to CC.
+    G.activeConflict = {
+      conflictType: ConflictType.Election,
+      targetOfficeIndex: 1,
+      targetIncumbent: { ...G.politicalOffices[1] },
+      candidate,
+      workingClassCards: [candidate],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      // Give WC overwhelming dice to determine the winner, but we can still check established power
+      workingClassPower: { diceCount: 0, establishedPower: 0 },
+      capitalistPower: { diceCount: 0, establishedPower: 0 },
+    };
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    const outcome = client.getStateOrThrow().G.conflictOutcome!;
+    // centrist has established_power: 3 and sides with CC (the defender when WC challenges)
+    expect(outcome.capitalistPower.establishedPower).toBe(3);
+    expect(outcome.workingClassPower.establishedPower).toBe(0);
+  });
+
+  test('incumbent power goes to WC when CC is the challenger', () => {
+    const ccCandidate = playFigureCard('manager', { in_training: false });
+    const G = makeActionPhaseState(undefined, { figures: [ccCandidate] });
+
+    // CC challenges office 1 (centrist: established_power = 3), WC defends
+    G.activeConflict = {
+      conflictType: ConflictType.Election,
+      targetOfficeIndex: 1,
+      targetIncumbent: { ...G.politicalOffices[1] },
+      candidate: ccCandidate,
+      workingClassCards: [],
+      capitalistCards: [ccCandidate],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.CapitalistClass,
+      activeConflictPlayer: SocialClass.CapitalistClass,
+      workingClassPower: { diceCount: 0, establishedPower: 0 },
+      capitalistPower: { diceCount: 0, establishedPower: 0 },
+    };
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    const outcome = client.getStateOrThrow().G.conflictOutcome!;
+    expect(outcome.workingClassPower.establishedPower).toBe(3);
+    expect(outcome.capitalistPower.establishedPower).toBe(0);
+  });
+});

@@ -739,6 +739,14 @@ body {
   border-color: #4a5568;
 }
 
+.card-component.card-border-wc {
+  border-color: #cc5555;
+}
+
+.card-component.card-border-cc {
+  border-color: #5588cc;
+}
+
 /* Cursor States */
 .card-slot.cursor-default {
   cursor: default;

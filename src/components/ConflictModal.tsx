@@ -7,11 +7,12 @@
  */
 
 import React from 'react';
-import { CardSlotEntity, CardType, SocialClass } from '../types/cards';
-import { ConflictCardInPlay, ConflictPhase, ConflictState, ConflictType } from '../types/conflicts';
+import { CardSlotEntity, CardType, ConflictType, SocialClass } from '../types/cards';
+import { ConflictCardInPlay, ConflictPhase, ConflictState } from '../types/conflicts';
 import { PlayerState } from '../types/game';
-import { getAnyCardData } from '../data/cards';
-import { CardComponent } from './CardComponent';
+import { getAnyCardData, getTacticDataById } from '../data/cards';
+import { isTacticCardID } from '../util/game';
+import { CardBorderVariant, CardComponent } from './CardComponent';
 
 interface ConflictModalProps {
   conflict: ConflictState;
@@ -35,7 +36,7 @@ function renderPowerBreakdown(
   diceCount: number,
   establishedPower: number,
   label: string,
-  workplaceEstablishedPower?: number,
+  extras?: { workplacePower?: number; incumbentPower?: number },
 ): React.ReactNode {
   const sources: string[] = [];
   for (const card of cards) {
@@ -46,16 +47,23 @@ function renderPowerBreakdown(
       sources.push(`${data.name}: ${data.dice} 🎲`);
     }
   }
-  const totalEstablished = establishedPower + (workplaceEstablishedPower ?? 0);
+  const totalEstablished = establishedPower
+    + (extras?.workplacePower ?? 0)
+    + (extras?.incumbentPower ?? 0);
   return (
     <div className="conflict-modal-power-breakdown">
       <div className="conflict-modal-power-label">{label}</div>
       <div className="conflict-modal-power-total">
         {diceCount} 🎲 + {totalEstablished} ⚫ established
       </div>
-      {workplaceEstablishedPower !== undefined && workplaceEstablishedPower > 0 && (
+      {extras?.workplacePower !== undefined && extras.workplacePower > 0 && (
         <div className="conflict-modal-power-source">
-          Workplace: {workplaceEstablishedPower} ⚫
+          Workplace: {extras.workplacePower} ⚫
+        </div>
+      )}
+      {extras?.incumbentPower !== undefined && extras.incumbentPower > 0 && (
+        <div className="conflict-modal-power-source">
+          Incumbent: {extras.incumbentPower} ⚫
         </div>
       )}
       {sources.length > 0 && (
@@ -108,9 +116,24 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   const handTactics = activePlayer.hand
     .map((cardId, idx) => ({ cardId, idx }))
     .filter(({ cardId }) => {
-      const data = getAnyCardData(cardId);
-      return data.card_type === CardType.Tactic;
+      if (!isTacticCardID(cardId)) return false;
+      const data = getTacticDataById(cardId);
+      return data.enabled_by_conflict?.includes(conflict.conflictType) ?? false;
     });
+
+  // For elections: the incumbent sides with the class opposing the challenger.
+  // Compute the incumbent's established power and which class it benefits.
+  const incumbentData = conflict.conflictType === ConflictType.Election
+    ? getAnyCardData(conflict.targetIncumbent.id)
+    : undefined;
+  const incumbentPower = incumbentData?.card_type === CardType.DefaultStateFigure
+    ? incumbentData.established_power
+    : 0;
+  const incumbentDefendingClass = conflict.conflictType === ConflictType.Election
+    ? (conflict.initiatingClass === SocialClass.WorkingClass ? SocialClass.CapitalistClass : SocialClass.WorkingClass)
+    : undefined;
+  const incumbentBorderVariant: CardBorderVariant =
+    incumbentDefendingClass === SocialClass.WorkingClass ? 'wc' : 'cc';
 
   return (
     <div className="conflict-modal-overlay" role="dialog" aria-label="Active conflict">
@@ -136,10 +159,13 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
           </span>
         </div>
 
-        {/* Target card */}
+        {/* Target card — for elections the incumbent sides with the defending class */}
         <div className="conflict-modal-target">
           <div className="conflict-modal-section-label">{targetLabel}</div>
-          <CardComponent card={targetCard} borderVariant="other" />
+          <CardComponent
+            card={targetCard}
+            borderVariant={conflict.conflictType === ConflictType.Election ? incumbentBorderVariant : "other"}
+          />
         </div>
 
         {/* Both sides */}
@@ -173,6 +199,9 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
               conflict.workingClassPower.diceCount,
               conflict.workingClassPower.establishedPower,
               "WC Power",
+              {
+                incumbentPower: incumbentDefendingClass === SocialClass.WorkingClass ? incumbentPower : undefined,
+              },
             )}
 
           </div>
@@ -206,7 +235,10 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
               conflict.capitalistPower.diceCount,
               conflict.capitalistPower.establishedPower,
               "CC Power",
-              conflict.conflictType === ConflictType.Strike ? conflict.targetWorkplace.established_power : undefined,
+              {
+                workplacePower: conflict.conflictType === ConflictType.Strike ? conflict.targetWorkplace.established_power : undefined,
+                incumbentPower: incumbentDefendingClass === SocialClass.CapitalistClass ? incumbentPower : undefined,
+              },
             )}
           </div>
         </div>

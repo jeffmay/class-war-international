@@ -9,6 +9,12 @@ export enum SocialClass {
   WorkingClass = 'Working Class'
 }
 
+export enum ConflictType {
+  Election = 'Election',
+  Strike = 'Strike',
+  Legislation = 'Legislation',
+}
+
 export enum CardType {
   Figure = 'Figure',
   Institution = 'Institution',
@@ -132,6 +138,8 @@ export interface TacticCardData extends BaseDeckCardData {
   card_type: CardType.Tactic;
   dice?: number;
   established_power?: number;
+  /** Whitelist of conflict types this tactic can be played in. Empty/absent means non-combat only. */
+  enabled_by_conflict?: ConflictType[];
 }
 
 export interface TacticCardInPlay extends BaseCardInPlay {

@@ -3,13 +3,9 @@
  */
 
 import { DemandCardID } from '../data/cards';
-import { DefaultStateFigureCardInPlay, FigureCardInPlay, SocialClass, StateFigureCardInPlay, TacticCardInPlay, WorkplaceCardInPlay } from './cards';
+import { ConflictType, DefaultStateFigureCardInPlay, FigureCardInPlay, SocialClass, StateFigureCardInPlay, TacticCardInPlay, WorkplaceCardInPlay } from './cards';
 
-export enum ConflictType {
-  Election = 'Election',
-  Strike = 'Strike',
-  Legislation = 'Legislation',
-}
+export { ConflictType };
 
 export enum ConflictPhase {
   Initiating = 'initiating',

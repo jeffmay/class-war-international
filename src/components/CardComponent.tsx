@@ -9,8 +9,10 @@ import { CardSlotEntity, CardType, SocialClass, WorkplaceForSale } from '../type
  * - 'training': light grey — figure in training
  * - 'exhausted': red — exhausted figure
  * - 'other': dark grey — opponent card, shared board card, or non-actionable card
+ * - 'wc': red — card is aligned with / defending the Working Class
+ * - 'cc': blue — card is aligned with / defending the Capitalist Class
  */
-export type CardBorderVariant = 'hand' | 'in-play' | 'training' | 'exhausted' | 'other';
+export type CardBorderVariant = 'hand' | 'in-play' | 'training' | 'exhausted' | 'other' | 'wc' | 'cc';
 
 interface CardComponentProps {
   card: CardSlotEntity;

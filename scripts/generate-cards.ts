@@ -139,6 +139,17 @@ function buildCardProps(card: CardRow): string[] {
   if (type === "Tactic") {
     if (dice !== null) props.push(`dice: ${dice}`);
     if (power !== null) props.push(`established_power: ${power}`);
+    const conflictsRaw = card["Conflicts"];
+    if (conflictsRaw) {
+      const conflictList = conflictsRaw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((c) => `ConflictType.${c}`);
+      if (conflictList.length > 0) {
+        props.push(`enabled_by_conflict: [${conflictList.join(", ")}]`);
+      }
+    }
   }
   if (type === "Workplace") {
     props.push(`established_power: ${power !== null ? power : 0}`);
@@ -198,6 +209,7 @@ import type { ReadonlyDeep } from "type-fest";
 import {
   AnyCardData,
   CardType,
+  ConflictType,
   DemandCardData,
   DefaultStateFigureCardData,
   FigureCardData,
@@ -373,6 +385,8 @@ export type DefaultStateFigureID = keyof typeof defaultStateFigureCardById;
 
 export type DeckCardID = keyof typeof cardById;
 export type CardID = keyof typeof allCards;
+export type AnyWorkplaceCardID = keyof typeof anyWorkplaceCardById;
+export type DefaultWorkplaceID = keyof typeof defaultWorkplaceCardById;
 
 // ─── Helper functions ──────────────────────────────────────────────────────────
 
@@ -381,6 +395,7 @@ export const getFigureDataById = (figureId: FigureCardID): FigureCardData => fig
 export const getInstitutionById = (institutionId: InstitutionCardID): InstitutionCardData => institutionCardById[institutionId];
 export const getTacticDataById = (tacticId: TacticCardID): TacticCardData => tacticCardById[tacticId];
 export const getWorkplaceDataById = (workplaceId: WorkplaceCardID): WorkplaceCardData => workplaceCardById[workplaceId];
+export const getAnyWorkplaceCardData = (id: AnyWorkplaceCardID): WorkplaceCardData => anyWorkplaceCardById[id];
 
 export const getAnyStateFigureDataById = (id: AnyStateFigureCardID): FigureCardData | DefaultStateFigureCardData => anyStateFigureCardById[id];
 

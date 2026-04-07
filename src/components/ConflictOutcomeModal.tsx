@@ -7,8 +7,8 @@
  */
 
 import React from 'react';
-import { CardType, SocialClass } from '../types/cards';
-import { ConflictOutcome, ConflictType } from '../types/conflicts';
+import { CardType, ConflictType, SocialClass } from '../types/cards';
+import { ConflictOutcome } from '../types/conflicts';
 import { getAnyCardData } from '../data/cards';
 import { CardComponent } from './CardComponent';
 import { Die } from './Die';
@@ -73,46 +73,62 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
     ];
   })();
 
+  // For elections, the incumbent sides with the class opposing the challenger.
+  const incumbentDefendingClass = conflict.conflictType === ConflictType.Election
+    ? (conflict.initiatingClass === SocialClass.WorkingClass ? SocialClass.CapitalistClass : SocialClass.WorkingClass)
+    : undefined;
+
   const renderPowerSection = (
     label: string,
     socialClass: SocialClass,
     power: ConflictOutcome["workingClassPower"],
     cards: typeof conflict.workingClassCards,
-  ) => (
-    <div className="conflict-outcome-section">
-      <div className="conflict-outcome-section-title">{label}</div>
-      <div className="conflict-outcome-dice-row">
-        <span className="conflict-outcome-dice-label">🎲 {power.diceCount} dice:</span>
-        <span className="conflict-outcome-dice-rolls">
-          {power.diceRolls.length > 0
-            ? power.diceRolls.map((v, i) => (
-                <Die key={i} value={v} socialClass={socialClass} />
-              ))
-            : "—"}
-        </span>
-        <span className="conflict-outcome-dice-sum">
-          = {power.diceRolls.reduce((a, b) => a + b, 0)}
-        </span>
+  ) => {
+    const showIncumbent = conflict.conflictType === ConflictType.Election
+      && incumbentDefendingClass === socialClass;
+    const incumbentBorderVariant = socialClass === SocialClass.WorkingClass ? "wc" as const : "cc" as const;
+    return (
+      <div className="conflict-outcome-section">
+        <div className="conflict-outcome-section-title">{label}</div>
+        <div className="conflict-outcome-dice-row">
+          <span className="conflict-outcome-dice-label">🎲 {power.diceCount} dice:</span>
+          <span className="conflict-outcome-dice-rolls">
+            {power.diceRolls.length > 0
+              ? power.diceRolls.map((v, i) => (
+                  <Die key={i} value={v} socialClass={socialClass} />
+                ))
+              : "—"}
+          </span>
+          <span className="conflict-outcome-dice-sum">
+            = {power.diceRolls.reduce((a, b) => a + b, 0)}
+          </span>
+        </div>
+        {power.establishedPower > 0 && (
+          <div className="conflict-outcome-established">
+            ⚫ Established power: +{power.establishedPower}
+          </div>
+        )}
+        <div className="conflict-outcome-total">Total: {power.total}</div>
+        {(cards.length > 0 || showIncumbent) && (
+          <div className="conflict-outcome-cards">
+            {cards.map((card, i) => (
+              <CardComponent
+                key={i}
+                card={getAnyCardData(card.id)}
+                borderVariant={card.card_type === CardType.Figure ? "in-play" : "other"}
+              />
+            ))}
+            {showIncumbent && (
+              <CardComponent
+                card={getAnyCardData(conflict.targetIncumbent.id)}
+                borderVariant={incumbentBorderVariant}
+              />
+            )}
+          </div>
+        )}
       </div>
-      {power.establishedPower > 0 && (
-        <div className="conflict-outcome-established">
-          ⚫ Established power: +{power.establishedPower}
-        </div>
-      )}
-      <div className="conflict-outcome-total">Total: {power.total}</div>
-      {cards.length > 0 && (
-        <div className="conflict-outcome-cards">
-          {cards.map((card, i) => (
-            <CardComponent
-              key={i}
-              card={getAnyCardData(card.id)}
-              borderVariant={card.card_type === CardType.Figure ? "in-play" : "other"}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="conflict-outcome-overlay" role="dialog" aria-label="Conflict outcome">
