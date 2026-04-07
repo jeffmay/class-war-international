@@ -453,8 +453,15 @@ body {
 }
 
 @keyframes pulse-conflict {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.75; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.75;
+  }
 }
 
 .game-finish-theorizing-button {
@@ -1832,7 +1839,7 @@ body {
   font-family: Arial, sans-serif;
   font-size: 0.9vw;
   color: #a0aec0;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 4px;
   padding: 0.2vw 0.5vw;
 }
@@ -1979,18 +1986,60 @@ body {
 }
 
 @media (max-width: 1000px) {
-  .conflict-modal-title { font-size: 5vw; }
-  .conflict-modal-phase { font-size: 3vw; }
-  .conflict-modal-side-title { font-size: 3vw; }
-  .conflict-modal-section-label { font-size: 2.5vw; }
-  .conflict-modal-power-label { font-size: 2.2vw; }
-  .conflict-modal-power-total { font-size: 2.8vw; }
-  .conflict-modal-power-source { font-size: 2.2vw; }
-  .conflict-modal-button { font-size: 3.5vw; padding: 2vw 5vw; }
-  .conflict-modal-close-button { font-size: 3vw; width: 6vw; height: 6vw; }
-  .conflict-modal-wealth-row { font-size: 2.5vw; gap: 4vw; }
-  .conflict-modal-wealth-item { padding: 0.4vw 1.5vw; border-radius: 0.8vw; }
-  .conflict-tactic-cannot-afford { font-size: 2.5vw; border-width: 0.5vw; }
+  .conflict-modal-title {
+    font-size: 5vw;
+  }
+
+  .conflict-modal-phase {
+    font-size: 3vw;
+  }
+
+  .conflict-modal-side-title {
+    font-size: 3vw;
+  }
+
+  .conflict-modal-section-label {
+    font-size: 2.5vw;
+  }
+
+  .conflict-modal-power-label {
+    font-size: 2.2vw;
+  }
+
+  .conflict-modal-power-total {
+    font-size: 2.8vw;
+  }
+
+  .conflict-modal-power-source {
+    font-size: 2.2vw;
+  }
+
+  .conflict-modal-button {
+    font-size: 3.5vw;
+    padding: 2vw 5vw;
+  }
+
+  .conflict-modal-close-button {
+    font-size: 3vw;
+    width: 6vw;
+    height: 6vw;
+  }
+
+  .conflict-modal-wealth-row {
+    font-size: 2.5vw;
+    gap: 4vw;
+  }
+
+  .conflict-modal-wealth-item {
+    padding: 0.4vw 1.5vw;
+    border-radius: 0.8vw;
+  }
+
+  .conflict-tactic-cannot-afford {
+    font-size: 2.5vw;
+    border-width: 0.5vw;
+  }
+
   .conflict-modal-card-row .card-component {
     --card-inner-width: 26vw;
     --card-font-size: calc(var(--card-inner-width) / 14);
@@ -2230,16 +2279,50 @@ body {
 }
 
 @media (max-width: 1000px) {
-  .conflict-outcome-title { font-size: 5.5vw; }
-  .conflict-outcome-winner { font-size: 3.5vw; }
-  .conflict-outcome-detail { font-size: 3vw; max-width: 88vw; }
-  .conflict-outcome-section-title { font-size: 3vw; }
-  .conflict-outcome-dice-row { font-size: 2.5vw; }
-  .conflict-outcome-established { font-size: 2.5vw; }
-  .conflict-outcome-total { font-size: 3.2vw; }
-  .conflict-outcome-waiting { font-size: 2.8vw; }
-  .conflict-outcome-dismiss-button { font-size: 3.5vw; padding: 2vw 5vw; }
-  .conflict-outcome-close-button { font-size: 3vw; width: 6vw; height: 6vw; }
+  .conflict-outcome-title {
+    font-size: 5.5vw;
+  }
+
+  .conflict-outcome-winner {
+    font-size: 3.5vw;
+  }
+
+  .conflict-outcome-detail {
+    font-size: 3vw;
+    max-width: 88vw;
+  }
+
+  .conflict-outcome-section-title {
+    font-size: 3vw;
+  }
+
+  .conflict-outcome-dice-row {
+    font-size: 2.5vw;
+  }
+
+  .conflict-outcome-established {
+    font-size: 2.5vw;
+  }
+
+  .conflict-outcome-total {
+    font-size: 3.2vw;
+  }
+
+  .conflict-outcome-waiting {
+    font-size: 2.8vw;
+  }
+
+  .conflict-outcome-dismiss-button {
+    font-size: 3.5vw;
+    padding: 2vw 5vw;
+  }
+
+  .conflict-outcome-close-button {
+    font-size: 3vw;
+    width: 6vw;
+    height: 6vw;
+  }
+
   .conflict-outcome-cards .card-component {
     --card-inner-width: 24vw;
     --card-font-size: calc(var(--card-inner-width) / 14);
