@@ -14,7 +14,8 @@
       "Bash(npm test:*)",
       "Bash(CI=true npm test:*)",
       "Bash(find)",
-      "Bash(grep)"
+      "Bash(grep)",
+      "Bash(sed)"
     ]
   }
 }
