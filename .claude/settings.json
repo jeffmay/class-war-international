@@ -10,6 +10,7 @@
       "Bash(git diff:*)",
       "Bash(git status:*)",
       "Bash(npm install:*)",
+      "Bash(npm list:*)",
       "Bash(npm run:*)",
       "Bash(npm test:*)",
       "Bash(CI=true npm test:*)",
