@@ -25,7 +25,9 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "generate": "node --experimental-strip-types scripts/generate-cards.ts",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json",
+    "host": "node --no-experimental-require-module --import tsx server/index.ts",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json && tsc -p tsconfig.server.json",
     "lint": "eslint src"
   },
   "eslintConfig": {
@@ -50,7 +52,9 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/lodash": "^4.17.24",
+    "tsx": "^4.21.0",
     "type-fest": "^4.41.0",
     "typescript": "~5.8"
   }

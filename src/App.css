@@ -3064,3 +3064,121 @@ body {
     font-size: 12px;
   }
 }
+
+/* ─── Setup / mode-selection screen ─────────────────────────────────────────── */
+
+.setup-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #1a1a2e;
+  color: #e2e8f0;
+  padding: 4vw 2vw;
+}
+
+.setup-screen-content {
+  width: 100%;
+  max-width: 52vw;
+  display: flex;
+  flex-direction: column;
+  gap: 4vw;
+}
+
+.setup-screen-title {
+  font-size: 8vw;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-align: center;
+  color: #fff;
+  line-height: 1;
+}
+
+.setup-screen-subtitle {
+  font-size: 3vw;
+  text-align: center;
+  color: #a0aec0;
+  margin-top: -3vw;
+}
+
+.setup-section {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1vw;
+  padding: 2vw;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2vw;
+}
+
+.setup-section-title {
+  font-size: 2vw;
+  font-weight: 700;
+  margin: 0;
+  color: #e2e8f0;
+}
+
+.setup-section-description {
+  font-size: 1.4vw;
+  color: #a0aec0;
+  margin: 0;
+}
+
+.setup-section-description code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.2em 0.5em;
+  border-radius: 0.3em;
+  font-size: 0.9em;
+}
+
+.setup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4vw;
+}
+
+.setup-field-label {
+  font-size: 1.2vw;
+  color: #a0aec0;
+  font-weight: 600;
+}
+
+.setup-field-input {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid #4a5568;
+  border-radius: 0.5vw;
+  color: #e2e8f0;
+  padding: 0.8vw 1vw;
+  font-size: 1.4vw;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.setup-field-input:focus {
+  outline: none;
+  border-color: #5588cc;
+}
+
+.setup-button {
+  padding: 1.2vw 2vw;
+  border: none;
+  border-radius: 0.6vw;
+  font-size: 1.8vw;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.setup-button:hover {
+  opacity: 0.85;
+}
+
+.setup-button-local {
+  background: #cc5555;
+  color: #fff;
+}
+
+.setup-button-host {
+  background: #5588cc;
+  color: #fff;
+}
