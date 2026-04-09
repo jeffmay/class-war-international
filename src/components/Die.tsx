@@ -13,10 +13,10 @@ export interface DieProps {
   socialClass: SocialClass;
 }
 
-const dieFace = (value: number): string => {
-  if (value === 0) return "✕";
-  if (value === 1) return "•";
-  return "••";
+const dieFace = (value: number): React.ReactNode => {
+  if (value === 0) return "X";
+  if (value === 1) return "●";
+  return <><sub>●</sub><sup>●</sup></>;
 };
 
 export const Die: React.FC<DieProps> = ({ value, socialClass }) => {
