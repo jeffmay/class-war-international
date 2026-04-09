@@ -45,7 +45,7 @@ export default defineConfig({
         "PORT=" + E2E_SERVER_PORT,
         "API_PORT=" + E2E_API_PORT,
         "ORIGINS=http://localhost:" + E2E_APP_PORT,
-        "node --experimental-strip-types --no-warnings server/index.ts",
+        "node --no-experimental-require-module --import tsx server/index.ts",
       ].join(" "),
       port: E2E_SERVER_PORT,
       reuseExistingServer: false,
@@ -56,7 +56,7 @@ export default defineConfig({
        * React dev server — uses a non-standard port so it does not clash with
        * the default `npm start` on port 3000.
        */
-      command: "PORT=" + E2E_APP_PORT + " BROWSER=none react-scripts start",
+      command: "PORT=" + E2E_APP_PORT + " npx vite",
       port: E2E_APP_PORT,
       reuseExistingServer: false,
       timeout: 60_000,

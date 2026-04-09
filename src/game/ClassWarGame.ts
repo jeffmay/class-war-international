@@ -291,7 +291,7 @@ export const Moves = {
   /**
    * Production Phase: Collect wages/profits and unexhaust figures
    */
-  collectProduction: ({ G, ctx, playerID }) => {
+  collectProduction: ({ G, playerID }) => {
     if (G.turnPhase !== TurnPhase.Production) {
       return; // Can only collect during production phase
     }
@@ -345,7 +345,7 @@ export const Moves = {
   /**
    * End Action Phase and move to Reproduction
    */
-  endActionPhase: ({ G, ctx }) => {
+  endActionPhase: ({ G }) => {
     if (G.turnPhase !== TurnPhase.Action) {
       return;
     }
@@ -1032,12 +1032,17 @@ export const Moves = {
 
 export type PluginAPIs = Record<string, unknown>
 
+interface SetupContext {
+  random?: { Number: () => number };
+}
+
 /**
  * Setup function - initializes the game state
  */
-export function setup(ctx: any): GameState {
+export function setup(ctx: SetupContext): GameState {
   // Use Math.random by default, or ctx.random if available
-  const random = ctx.random ? () => ctx.random.Number() : Math.random;
+  const randomPlugin = ctx.random;
+  const random = randomPlugin ? () => randomPlugin.Number() : Math.random;
 
   // Initialize workplaces (3 slots: 2 default + 1 empty)
   const workplaces: (WorkplaceCardInPlay | WorkplaceForSale)[] = [
@@ -1084,7 +1089,7 @@ export const ClassWarGame: StrictGameOf<typeof Moves> = {
 
   setup,
 
-  playerView: ({ G, playerID }) => {
+  playerView: ({ G }) => {
     // Both players can see all game state (local play)
     return G;
   },
@@ -1099,7 +1104,7 @@ export const ClassWarGame: StrictGameOf<typeof Moves> = {
 
   moves: Moves,
 
-  endIf: ({ G, ctx }) => {
+  endIf: () => {
     // Win conditions will be implemented later
     // For now, the game continues indefinitely
     return undefined;

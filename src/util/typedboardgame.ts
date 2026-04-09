@@ -73,6 +73,6 @@ export type StrictBoardProps<G, M extends MoveMap> =
   }
 
 export type StrictBoardPropsOf<Game> =
-  Game extends StrictGame<infer G, any, infer M extends MoveMap>
+  Game extends StrictGame<infer G, Record<string, unknown>, infer M extends MoveMap>
   ? StrictBoardProps<G, M>
   : never

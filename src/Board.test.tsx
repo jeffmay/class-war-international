@@ -25,25 +25,25 @@ const mockCtx = {
 };
 
 const mockMoves = {
-  collectProduction: jest.fn(),
-  playCardFromHand: jest.fn(),
-  endActionPhase: jest.fn(),
-  endReproductionPhase: jest.fn(),
-  planStrike: jest.fn(),
-  initiateConflict: jest.fn(),
-  cancelConflict: jest.fn(),
-  addFigureToConflict: jest.fn(),
-  addTacticToConflict: jest.fn(),
-  planResponse: jest.fn(),
-  resolveConflict: jest.fn(),
-  dismissConflictOutcome: jest.fn(),
-  planElection: jest.fn(),
-  planLegislation: jest.fn(),
-  undoMove: jest.fn(),
-  sealReproductionPreview: jest.fn(),
+  collectProduction: vi.fn(),
+  playCardFromHand: vi.fn(),
+  endActionPhase: vi.fn(),
+  endReproductionPhase: vi.fn(),
+  planStrike: vi.fn(),
+  initiateConflict: vi.fn(),
+  cancelConflict: vi.fn(),
+  addFigureToConflict: vi.fn(),
+  addTacticToConflict: vi.fn(),
+  planResponse: vi.fn(),
+  resolveConflict: vi.fn(),
+  dismissConflictOutcome: vi.fn(),
+  planElection: vi.fn(),
+  planLegislation: vi.fn(),
+  undoMove: vi.fn(),
+  sealReproductionPreview: vi.fn(),
 };
 
-const mockEvents = { endGame: jest.fn() };
+const mockEvents = { endGame: vi.fn() };
 
 // Board.tsx only destructures { G, ctx, moves, playerID } from BoardProps.
 // All other boardgame.io state fields are unused by the component.
@@ -68,7 +68,7 @@ function renderBoard(G = makeActionPhaseState(), currentPlayer = "0") {
   return render(<ClassWarBoard {...makeBoardProps(G, currentPlayer)} />);
 }
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => vi.clearAllMocks());
 
 // ─── Cannot Afford label ───────────────────────────────────────────────────────
 

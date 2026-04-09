@@ -26,7 +26,7 @@ import { pluralize } from './util/text';
 //   return { ...card, name: card.name + expansionSuffix, starting_wages: wp.wages, starting_profits: wp.profits, established_power: wp.established_power };
 // }
 
-export interface ClassWarBoardProps extends BoardProps<GameState> { }
+export type ClassWarBoardProps = BoardProps<GameState>;
 
 // TODO: Use the slot type in the brand name? Validate using the number of slots in the game?
 type SelectedSlotID = Brand<string, 'slot_id'>
@@ -96,7 +96,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [boardState, G.conflictOutcome, myClass, moves]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [boardState, G.conflictOutcome, myClass, moves]);
 
   const handleSelectSlot = (slotId: string) => {
     if (boardState.mode === 'normal' && boardState.selectedSlotId === slotId) {

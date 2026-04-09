@@ -14,11 +14,11 @@ describe('DealResultModal', () => {
   const baseProps = {
     theorizedCards: [],
     newCards: [],
-    onEndTurn: jest.fn(),
-    onClose: jest.fn(),
+    onEndTurn: vi.fn(),
+    onClose: vi.fn(),
   };
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   // --- Structure ---
 
@@ -80,14 +80,14 @@ describe('DealResultModal', () => {
   // --- Interactions ---
 
   test('calls onClose when close button is clicked', () => {
-    const onClose = jest.fn();
+    const onClose = vi.fn();
     render(<DealResultModal {...baseProps} onClose={onClose} />);
     fireEvent.click(screen.getByLabelText('Close deal result'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   test('calls onEndTurn when End Turn button is clicked', () => {
-    const onEndTurn = jest.fn();
+    const onEndTurn = vi.fn();
     render(<DealResultModal {...baseProps} onEndTurn={onEndTurn} />);
     fireEvent.click(screen.getByText(/End Turn/));
     expect(onEndTurn).toHaveBeenCalledTimes(1);

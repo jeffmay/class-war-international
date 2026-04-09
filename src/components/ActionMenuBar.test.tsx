@@ -16,7 +16,7 @@ describe('ActionMenuBar', () => {
     options: [] as Array<[string, (() => void) | undefined]>,
   };
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => vi.clearAllMocks());
 
   // --- Basic rendering ---
 
@@ -26,7 +26,7 @@ describe('ActionMenuBar', () => {
   });
 
   test('renders close button when onClose is provided', () => {
-    render(<ActionMenuBar {...baseProps} onClose={jest.fn()} />);
+    render(<ActionMenuBar {...baseProps} onClose={vi.fn()} />);
     expect(screen.getByLabelText('Close action menu')).toBeInTheDocument();
   });
 
@@ -36,7 +36,7 @@ describe('ActionMenuBar', () => {
   });
 
   test('calls onClose when close button is clicked', () => {
-    const onClose = jest.fn();
+    const onClose = vi.fn();
     render(<ActionMenuBar {...baseProps} onClose={onClose} />);
     fireEvent.click(screen.getByLabelText('Close action menu'));
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -57,13 +57,13 @@ describe('ActionMenuBar', () => {
   // --- Options rendering ---
 
   test('renders an enabled option', () => {
-    const handler = jest.fn();
+    const handler = vi.fn();
     render(<ActionMenuBar {...baseProps} options={[['Train ($5)', handler]]} />);
     expect(screen.getByRole('button', { name: 'Train ($5)' })).not.toBeDisabled();
   });
 
   test('enabled option calls handler when clicked', () => {
-    const handler = jest.fn();
+    const handler = vi.fn();
     render(<ActionMenuBar {...baseProps} options={[['Do Something', handler]]} />);
     fireEvent.click(screen.getByText('Do Something'));
     expect(handler).toHaveBeenCalledTimes(1);
@@ -79,8 +79,8 @@ describe('ActionMenuBar', () => {
       <ActionMenuBar
         {...baseProps}
         options={[
-          ['Lead Strike', jest.fn()],
-          ['Run for Office', jest.fn()],
+          ['Lead Strike', vi.fn()],
+          ['Run for Office', vi.fn()],
         ]}
       />,
     );
@@ -97,7 +97,7 @@ describe('ActionMenuBar', () => {
 
   test('renders preview content above button when provided as 3rd tuple element', () => {
     const preview = <span data-testid="target-preview">Corner Store</span>;
-    render(<ActionMenuBar {...baseProps} options={[['Strike Here', jest.fn(), preview]]} />);
+    render(<ActionMenuBar {...baseProps} options={[['Strike Here', vi.fn(), preview]]} />);
     expect(screen.getByTestId('target-preview')).toBeInTheDocument();
     // Preview appears before the button in the DOM
     const previewEl = screen.getByTestId('target-preview');
@@ -106,7 +106,7 @@ describe('ActionMenuBar', () => {
   });
 
   test('does not render preview wrapper when 3rd tuple element is omitted', () => {
-    render(<ActionMenuBar {...baseProps} options={[['No Preview', jest.fn()]]} />);
+    render(<ActionMenuBar {...baseProps} options={[['No Preview', vi.fn()]]} />);
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
     // Just the button should be there
     expect(screen.getByText('No Preview')).toBeInTheDocument();
@@ -127,37 +127,37 @@ describe('ActionMenuBar', () => {
   // --- Navigation buttons ---
 
   test('renders prev/next buttons when onPrev and onNext are provided', () => {
-    render(<ActionMenuBar {...baseProps} onPrev={jest.fn()} onNext={jest.fn()} />);
+    render(<ActionMenuBar {...baseProps} onPrev={vi.fn()} onNext={vi.fn()} />);
     expect(screen.getByLabelText('Previous card')).toBeInTheDocument();
     expect(screen.getByLabelText('Next card')).toBeInTheDocument();
   });
 
   test('renders nav buttons when only onPrev is provided', () => {
-    render(<ActionMenuBar {...baseProps} onPrev={jest.fn()} />);
+    render(<ActionMenuBar {...baseProps} onPrev={vi.fn()} />);
     expect(screen.getByLabelText('Previous card')).toBeInTheDocument();
     expect(screen.getByLabelText('Next card')).toBeInTheDocument();
   });
 
   test('prev button is enabled when onPrev is provided', () => {
-    render(<ActionMenuBar {...baseProps} onPrev={jest.fn()} onNext={jest.fn()} />);
+    render(<ActionMenuBar {...baseProps} onPrev={vi.fn()} onNext={vi.fn()} />);
     expect(screen.getByLabelText('Previous card')).not.toBeDisabled();
   });
 
   test('next button is disabled when onNext is undefined', () => {
-    render(<ActionMenuBar {...baseProps} onPrev={jest.fn()} onNext={undefined} />);
+    render(<ActionMenuBar {...baseProps} onPrev={vi.fn()} onNext={undefined} />);
     expect(screen.getByLabelText('Next card')).toBeDisabled();
   });
 
   test('calls onPrev when prev button is clicked', () => {
-    const onPrev = jest.fn();
-    render(<ActionMenuBar {...baseProps} onPrev={onPrev} onNext={jest.fn()} />);
+    const onPrev = vi.fn();
+    render(<ActionMenuBar {...baseProps} onPrev={onPrev} onNext={vi.fn()} />);
     fireEvent.click(screen.getByLabelText('Previous card'));
     expect(onPrev).toHaveBeenCalledTimes(1);
   });
 
   test('calls onNext when next button is clicked', () => {
-    const onNext = jest.fn();
-    render(<ActionMenuBar {...baseProps} onPrev={jest.fn()} onNext={onNext} />);
+    const onNext = vi.fn();
+    render(<ActionMenuBar {...baseProps} onPrev={vi.fn()} onNext={onNext} />);
     fireEvent.click(screen.getByLabelText('Next card'));
     expect(onNext).toHaveBeenCalledTimes(1);
   });
@@ -169,7 +169,7 @@ describe('ActionMenuBar', () => {
   });
 
   test('nav buttons and card are all inside the card area when both card and nav props are provided', () => {
-    render(<ActionMenuBar {...baseProps} card={cashierCard} onPrev={jest.fn()} onNext={jest.fn()} />);
+    render(<ActionMenuBar {...baseProps} card={cashierCard} onPrev={vi.fn()} onNext={vi.fn()} />);
     const cardArea = screen.getByTestId('menu-bar-card-area');
     // Both nav buttons and the card are contained in the flanking area
     expect(within(cardArea).getByLabelText('Previous card')).toBeInTheDocument();

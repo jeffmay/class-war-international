@@ -2,7 +2,7 @@
  * Card type definitions for Class War: International
  */
 
-import { AnyWorkplaceCardID, CardID, DefaultStateFigureID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID } from "../data/cards";
+import { AnyWorkplaceCardID, CardID, DefaultStateFigureID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID } from "../data/cards";
 
 export enum SocialClass {
   CapitalistClass = 'Capitalist Class',

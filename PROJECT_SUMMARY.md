@@ -159,10 +159,11 @@ Component tests use React Testing Library with `@testing-library/jest-dom` match
 
 ### Technology Stack
 - **Game Engine**: boardgame.io v0.50.2
+- **Backend**: Node with TypeScript (erasable syntax only)
 - **Frontend**: React 18 with TypeScript
 - **State Management**: boardgame.io (G object with Immer mutations)
 - **Testing**: Jest + React Testing Library
-- **Build**: Create React App
+- **Build**: Vite (front-end)
 
 ### File Structure
 ```

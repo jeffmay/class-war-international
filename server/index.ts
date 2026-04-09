@@ -24,7 +24,7 @@ const origins: string[] = rawOrigins
   ? rawOrigins.split(",").map((s) => s.trim())
   : ["http://localhost:3000"];
 
-const server = new Server({
+const server = Server({
   games: [ClassWarGame],
   origins: [...origins, Origins.LOCALHOST],
 });

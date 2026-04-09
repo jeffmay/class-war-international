@@ -12,7 +12,7 @@ export function assertDefined<V>(val: V | null | undefined, name?: string): asse
   }
 }
 
-export function assertFieldValue<O extends {}, F extends keyof O, V extends O[F]>(obj: O, field: F, expectedValue: V, name?: string): asserts obj is O & { [K in F]: V } {
+export function assertFieldValue<O extends object, F extends keyof O, V extends O[F]>(obj: O, field: F, expectedValue: V, name?: string): asserts obj is O & { [K in F]: V } {
   if (obj[field] !== expectedValue) {
     throw new AssertionError(`expected ${name ?? 'val'} to be ${expectedValue}, not ${obj[field]}!`)
   }

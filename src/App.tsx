@@ -27,7 +27,7 @@ const LocalClient = Client({
   game: ClassWarGame,
   board: ClassWarBoard,
   numPlayers: 2,
-  debug: process.env["NODE_ENV"] === "development",
+  debug: import.meta.env.DEV,
   multiplayer: Local(),
 });
 
@@ -124,6 +124,19 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onLocal, onHost }) => {
   );
 };
 
+// ─── Remote mode wrapper ──────────────────────────────────────────────────────
+
+// The client component must be created once per server and stored, not recreated
+// on every render — otherwise the boardgame.io connection resets each render.
+function RemoteMode({ server, matchID, playerID }: { server: string; matchID: string; playerID: "0" | "1" }) {
+  const [RemoteClient] = useState(() => makeRemoteClient(server));
+  return (
+    <div className="App">
+      <RemoteClient matchID={matchID} playerID={playerID} />
+    </div>
+  );
+}
+
 // ─── App root ─────────────────────────────────────────────────────────────────
 
 function App() {
@@ -148,13 +161,7 @@ function App() {
     );
   }
 
-  // Remote host mode — create a fresh client bound to the chosen server
-  const RemoteClient = makeRemoteClient(mode.server);
-  return (
-    <div className="App">
-      <RemoteClient matchID={mode.matchID} playerID={mode.playerID} />
-    </div>
-  );
+  return <RemoteMode server={mode.server} matchID={mode.matchID} playerID={mode.playerID} />;
 }
 
 export default App;

@@ -3,59 +3,46 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^13.5.0",
-    "@types/jest": "^27.5.2",
-    "@types/node": "^16.18.126",
-    "@types/react": "^19.2.13",
-    "@types/react-dom": "^19.2.3",
     "boardgame.io": "^0.50.2",
-    "lodash": "^4.17.23",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-scripts": "5.0.1",
-    "ts-brand": "^0.2.0",
-    "web-vitals": "^2.1.4"
+    "lodash": "^4.18.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "ts-brand": "^0.2.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "generate": "node --experimental-strip-types scripts/generate-cards.ts",
     "host": "node --no-experimental-require-module --import tsx server/index.ts",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json && tsc -p tsconfig.server.json",
     "lint": "eslint src"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ],
-    "rules": {
-      "@typescript-eslint/no-redeclare": "off"
-    }
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.59.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/lodash": "^4.17.24",
+    "@types/node": "^25.5.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.2.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.4.0",
+    "jsdom": "^29.0.2",
     "tsx": "^4.21.0",
-    "type-fest": "^4.41.0",
-    "typescript": "~5.8"
+    "type-fest": "^5.5.0",
+    "typescript": "~5.8",
+    "typescript-eslint": "^8.58.1",
+    "vite": "^8.0.7",
+    "vitest": "^4.1.3"
   }
 }
