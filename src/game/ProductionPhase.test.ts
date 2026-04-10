@@ -1,11 +1,59 @@
 /**
- * Tests for Production Phase mechanics
+ * Tests for Production Phase and Reproduction Phase mechanics
  */
 
 import { SocialClass, WorkplaceForSale } from '../types/cards';
 import { TurnPhase } from '../types/game';
 import { StrictClient, type StrictClientOf } from '../util/typedboardgame';
 import { ClassWarGame } from './ClassWarGame';
+
+describe('Reproduction Phase - Theorizing', () => {
+  test('theorizing moves selected card to dustbin and draws a replacement', () => {
+    const client = StrictClient({ game: ClassWarGame, numPlayers: 2 });
+    client.start();
+
+    client.moves.collectProduction();
+    const actionState = client.getStateOrThrow();
+    const hand = [...actionState.G.players[SocialClass.WorkingClass].hand];
+    const deck = [...actionState.G.players[SocialClass.WorkingClass].deck];
+    const cardToTheorize = hand[0];
+    const expectedNewCard = deck[0];
+
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase([0]);
+
+    const state = client.getStateOrThrow();
+    const wc = state.G.players[SocialClass.WorkingClass];
+
+    // Card moved to dustbin
+    expect(wc.dustbin).toContain(cardToTheorize);
+    // Hand still full (one theorized, one drawn)
+    expect(wc.hand).toHaveLength(4);
+    // New card drawn from deck
+    expect(wc.hand).toContain(expectedNewCard);
+  });
+
+  test('skipping theorizing (no indexes) still draws 0 cards if hand is full', () => {
+    const client = StrictClient({ game: ClassWarGame, numPlayers: 2 });
+    client.start();
+
+    client.moves.collectProduction();
+    const actionState = client.getStateOrThrow();
+    const handBefore = [...actionState.G.players[SocialClass.WorkingClass].hand];
+
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase(); // no indexes — skip theorizing
+
+    const state = client.getStateOrThrow();
+    const wc = state.G.players[SocialClass.WorkingClass];
+
+    // Dustbin stays empty (nothing theorized)
+    expect(wc.dustbin).toHaveLength(0);
+    // Hand unchanged (was already full)
+    expect(wc.hand).toHaveLength(4);
+    expect(wc.hand).toEqual(handBefore);
+  });
+});
 
 describe('Production Phase', () => {
   let client: StrictClientOf<typeof ClassWarGame>;
@@ -130,6 +178,27 @@ describe('Production Phase', () => {
     client.moves.collectProduction();
     const newState = client.getStateOrThrow();
     // Should only collect from non-empty workplaces (2 + 3 = 5)
+    expect(newState.G.players[SocialClass.WorkingClass].wealth).toBe(5);
+  });
+
+  test('collectProduction uses ctx.currentPlayer (not playerID) for class determination', () => {
+    // Advance to CC's turn
+    client.moves.collectProduction(); // WC collects
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase();
+
+    const state = client.getStateOrThrow();
+    expect(state.ctx.currentPlayer).toBe('1');
+    expect(state.G.turnPhase).toBe(TurnPhase.Production);
+    const ccWealthBefore = state.G.players[SocialClass.CapitalistClass].wealth;
+
+    // Call without passing playerID — relies on ctx.currentPlayer
+    client.moves.collectProduction();
+    const newState = client.getStateOrThrow();
+
+    // CC should have collected profits (6 + 9 = 15)
+    expect(newState.G.players[SocialClass.CapitalistClass].wealth).toBe(ccWealthBefore + 15);
+    // WC wealth should be unchanged
     expect(newState.G.players[SocialClass.WorkingClass].wealth).toBe(5);
   });
 });

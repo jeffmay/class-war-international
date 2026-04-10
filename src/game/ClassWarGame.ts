@@ -291,13 +291,13 @@ export const Moves = {
   /**
    * Production Phase: Collect wages/profits and unexhaust figures
    */
-  collectProduction: ({ G, playerID }) => {
+  collectProduction: ({ G, ctx }) => {
     if (G.turnPhase !== TurnPhase.Production) {
       return; // Can only collect during production phase
     }
 
-    // Determine current player's class
-    const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    // Determine current player's class by ctx.currentPlayer (not playerID, which is undefined in local/debug mode)
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
     const player = G.players[currentClass];
 
     clearUndo(G, 'Cannot undo after collecting production');
@@ -644,8 +644,10 @@ export const Moves = {
   /**
    * Confirm the initiating player's cards and move to the Responding phase.
    * The opposing player now gets to add their cards in secret.
+   * Calls endTurn({ next }) to transfer boardgame.io move rights to the opposing player.
+   * This works in both local (single-device) and multiplayer modes.
    */
-  initiateConflict: ({ G }) => {
+  initiateConflict: ({ G, ctx, events }) => {
     if (!G.activeConflict) return;
     if (G.activeConflict.phase !== ConflictPhase.Initiating) return;
 
@@ -658,6 +660,11 @@ export const Moves = {
     G.activeConflict.phase = ConflictPhase.Responding;
     G.activeConflict.activeConflictPlayer = opposingClass;
     G.errorMessage = undefined;
+
+    // Pass boardgame.io move rights to the opposing player so they can respond.
+    // endTurn({ next }) switches currentPlayer without advancing the game-level turn.
+    const opposingPlayerID = ctx.currentPlayer === '0' ? '1' : '0';
+    events?.endTurn?.({ next: opposingPlayerID });
   },
 
   /**
@@ -746,8 +753,9 @@ export const Moves = {
   /**
    * The activeConflictPlayer is done adding cards.
    * During Responding: passes back to the initiating class (→ Resolving phase).
+   * Calls endTurn({ next }) to transfer boardgame.io move rights back to the initiating player.
    */
-  planResponse: ({ G }) => {
+  planResponse: ({ G, events }) => {
     if (!G.activeConflict) return;
     if (G.activeConflict.phase !== ConflictPhase.Responding) return;
 
@@ -755,6 +763,10 @@ export const Moves = {
     G.activeConflict.phase = ConflictPhase.Resolving;
     G.activeConflict.activeConflictPlayer = G.activeConflict.initiatingClass;
     G.errorMessage = undefined;
+
+    // Return move rights to the initiating player so they can resolve the conflict.
+    const initiatingPlayerID = G.activeConflict.initiatingClass === SocialClass.WorkingClass ? '0' : '1';
+    events?.endTurn?.({ next: initiatingPlayerID });
   },
 
   /**

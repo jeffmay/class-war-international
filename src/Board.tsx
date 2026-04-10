@@ -10,7 +10,7 @@ import { CardComponent } from './components/CardComponent';
 import { ConflictModal } from './components/ConflictModal';
 import { ConflictOutcomeModal } from './components/ConflictOutcomeModal';
 import { DealResultModal } from './components/DealResultModal';
-import { TurnStartModal } from './components/StartGameScreen';
+import { TurnStartModal, WaitingInterstitial } from './components/StartGameScreen';
 import { anyWorkplaceCardById, DeckCardID, getAnyCardData, getAnyStateFigureDataById, getAnyWorkplaceCardData, getFigureDataById } from './data/cards';
 import { CardSlotEntity, CardType, FigureCardInPlay, SocialClass, WorkplaceForSale } from './types/cards';
 import { ConflictType } from './types/conflicts';
@@ -51,6 +51,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   const [boardState, setBoardState] = useState<BoardState>({ mode: 'normal', selectedSlotId: null });
   const [theorizeSelectedIndexes, setTheorizeSelectedIndexes] = useState<number[]>([]);
   const [conflictModalOpen, setConflictModalOpen] = useState(true);
+  const [waitingDismissed, setWaitingDismissed] = useState(false);
 
   // Reopen the modal automatically whenever a new conflict begins
   const prevConflictRef = React.useRef<typeof G.activeConflict>(G.activeConflict);
@@ -60,6 +61,15 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     }
     prevConflictRef.current = G.activeConflict;
   }, [G.activeConflict]);
+
+  // Reset the waiting-dismissed flag whenever the current player changes
+  const prevCurrentPlayerRef = React.useRef(ctx.currentPlayer);
+  React.useEffect(() => {
+    if (ctx.currentPlayer !== prevCurrentPlayerRef.current) {
+      setWaitingDismissed(false);
+      prevCurrentPlayerRef.current = ctx.currentPlayer;
+    }
+  }, [ctx.currentPlayer]);
 
   // Determine current class
   const isWorkingClass = ctx.currentPlayer === '0';
@@ -354,6 +364,16 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         options.push(['No office held to propose legislation', undefined]);
       }
       slotData.set(slotId, { cardId: demand.id, options });
+    });
+  } else if (!isMyTurn && playerID !== undefined) {
+    // In multiplayer, clicking any hand/figure card shows a disabled "wait your turn" message
+    myPlayer.hand.forEach((cardId, idx) => {
+      const slotId = `hand-${myClassKey}-${idx}`;
+      slotData.set(slotId, { cardId, options: [["Must wait for your turn", undefined]] });
+    });
+    myPlayer.figures.forEach((figure, idx) => {
+      const slotId = `figures-${myClassKey}-${idx}`;
+      slotData.set(slotId, { cardId: figure.id, figureInPlay: figure, options: [["Must wait for your turn", undefined]] });
     });
   }
 
@@ -684,12 +704,20 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
   return (
     <div className="game-board">
-      {/* Turn Start Modal - shown during Production phase (even if conflict outcome is pending) */}
-      {G.turnPhase === TurnPhase.Production && (
+      {/* Turn Start Modal - shown during Production phase to the current player only */}
+      {G.turnPhase === TurnPhase.Production && isMyTurn && (
         <TurnStartModal
           turnNumber={G.turnNumber}
           currentClass={currentClass}
           onStart={() => moves.collectProduction()}
+        />
+      )}
+
+      {/* Waiting Interstitial - shown to the non-active player in multiplayer during Production phase */}
+      {G.turnPhase === TurnPhase.Production && !isMyTurn && !waitingDismissed && (
+        <WaitingInterstitial
+          waitingClass={myClass}
+          onClose={() => setWaitingDismissed(true)}
         />
       )}
 

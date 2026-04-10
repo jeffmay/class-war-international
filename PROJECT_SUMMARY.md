@@ -127,18 +127,45 @@ A 2-player board game based on **Class War: International** rules, built with th
 - Main layout is now `[sidebar][my-player-area][shared-area]`
 - Opposing player's full card hand is no longer rendered; only their aggregate stats are shown
 
+### 18. Bug Fixes: Production, Conflicts, and Multiplayer UX
+
+**Production phase fix (`collectProduction` in `ClassWarGame.ts`)**
+- `collectProduction` was using `playerID` (null in local mode) to determine the player's class, always falling back to Capitalist Class
+- Fixed to use `ctx.currentPlayer` so wages/profits are always collected for the correct player
+
+**Conflict player-switching for multiplayer (`ClassWarGame.ts`)**
+- `initiateConflict` now calls `events.endTurn({ next: opposingPlayerID })` to transfer boardgame.io move rights to the opposing player for the Responding phase
+- `planResponse` now calls `events.endTurn({ next: initiatingPlayerID })` to return control to the initiating player for the Resolving phase
+- This works in both local (single-device) and multiplayer modes because the local client sends moves as `ctx.currentPlayer` which correctly follows the turn switches
+
+**Multiplayer waiting interstitial (`src/components/StartGameScreen.tsx`)**
+- Added `WaitingInterstitial` component: shown to the non-active player during `TurnPhase.Production`
+- Cycles through class-specific flavor messages every 3 seconds (e.g., "The Capitalists are scheming...", "Class consciousness rises...")
+- Has a dismissible close button; resets when `ctx.currentPlayer` changes
+
+**Multiplayer ActionMenu guard (`src/Board.tsx`)**
+- When `!isMyTurn` and `playerID` is set (multiplayer mode), clicking hand/figure cards now shows a single disabled "Must wait for your turn" option instead of showing no menu at all
+- In local mode (`playerID = null/undefined`), this guard is bypassed so both players share the same view
+
 ---
 
 ## Test Coverage
 
-### Test Suites: 6
-1. **ClassWarGame.test.ts** - Setup tests (9 tests)
-2. **ProductionPhase.test.ts** - Production mechanics (6 passing, 2 skipped)
-3. **ActionPhase.test.ts** - Card playing (7 tests)
-4. **ConflictPhase.test.ts** - Strike and election planning (11 tests)
-5. **CardInspectorMenuBar.test.tsx** - Card inspector component (12 tests)
+### Test Suites: 12
+1. **ClassWarGame.test.ts** - Setup tests
+2. **ProductionPhase.test.ts** - Production + Reproduction mechanics (incl. theorizing)
+3. **ActionPhase.test.ts** - Card playing
+4. **ConflictPhase.test.ts** - Strike and election planning
+5. **ConflictResolution.test.ts** - Conflict resolution + player-switching
+6. **Undo.test.ts** - Undo mechanics
+7. **Board.test.tsx** - Board component (incl. multiplayer guards)
+8. **CardComponent.test.tsx** - Card component
+9. **ActionMenuBar.test.tsx** - Action menu bar
+10. **ConflictModal.test.tsx** - Conflict modal
+11. **ConflictOutcomeModal.test.tsx** - Conflict outcome modal
+12. **DealResultModal.test.tsx** - Deal result modal
 
-**Total: 64 passing + 2 skipped = 66 tests**
+**Total: 194 passing + 2 skipped = 196 tests**
 
 ### Testing Architecture
 
@@ -153,6 +180,8 @@ Every test explicitly sets its pre-conditions (hand contents, wealth, figures in
 
 Component tests use React Testing Library with `@testing-library/jest-dom` matchers.
 
+**Test runner**: Vitest (migrated from Jest; `globals: true`, `environment: "jsdom"`)
+
 ---
 
 ## Architecture
@@ -162,7 +191,7 @@ Component tests use React Testing Library with `@testing-library/jest-dom` match
 - **Backend**: Node with TypeScript (erasable syntax only)
 - **Frontend**: React 18 with TypeScript
 - **State Management**: boardgame.io (G object with Immer mutations)
-- **Testing**: Jest + React Testing Library
+- **Testing**: Vitest + React Testing Library
 - **Build**: Vite (front-end)
 
 ### File Structure
@@ -182,10 +211,12 @@ src/
 ├── data/
 │   └── cards.ts                 # Card database, buildDeck(), defaultWorkplaces
 ├── components/
-│   ├── StartGameScreen.tsx      # TurnStartModal overlay
+│   ├── StartGameScreen.tsx      # TurnStartModal + WaitingInterstitial overlays
 │   ├── CardComponent.tsx        # Reusable card display with optional status banner
-│   ├── CardInspectorMenuBar.tsx # Action menu bar for selected cards
-│   └── CardInspectorMenuBar.test.tsx
+│   ├── ActionMenuBar.tsx        # Action menu bar for selected cards
+│   ├── ConflictModal.tsx        # Conflict setup modal (Initiating/Responding/Resolving)
+│   ├── ConflictOutcomeModal.tsx # Conflict result display
+│   └── DealResultModal.tsx      # Theorize/draw preview modal
 ├── util/
 │   ├── assertions.ts            # assertDefined helper
 │   └── typedboardgame.ts        # StrictClient, StrictGameOf types
@@ -263,7 +294,10 @@ npm start             # Start dev server at localhost:3000
 - [ ] Sound effects
 
 ### Multiplayer
-- [ ] Socket.IO integration for real networked play
+- [x] Socket.IO integration via boardgame.io SocketIO transport
+- [x] `npm run host` starts boardgame.io server; clients connect via Setup screen
+- [x] Conflict player-switching via `endTurn({ next })` works in multiplayer
+- [x] Waiting interstitial shown to non-active player during Production phase
 - [ ] Lobby system
 - [ ] Spectator mode
 
@@ -283,4 +317,4 @@ npm start             # Start dev server at localhost:3000
 
 ---
 
-*Last updated: March 25, 2026*
+*Last updated: April 10, 2026*

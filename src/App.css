@@ -1404,6 +1404,11 @@ body {
   color: #63b3ed;
 }
 
+.waiting-message {
+  min-height: 2em;
+  transition: opacity 0.3s;
+}
+
 /* Interstitial Screen */
 .interstitial-overlay {
   position: fixed;

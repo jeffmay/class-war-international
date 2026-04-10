@@ -778,3 +778,35 @@ describe('resolveConflict - election incumbent power', () => {
     expect(outcome.capitalistPower.establishedPower).toBe(0);
   });
 });
+
+// ── Conflict player-switching (multiplayer) ───────────────────────────────────
+
+describe('conflict player switching via endTurn', () => {
+  test('initiateConflict transfers currentPlayer to opposing player (0 → 1)', () => {
+    const client = makeStrikeInitiating();
+    // WC (player 0) is currentPlayer and initiated the strike
+    expect(client.getStateOrThrow().ctx.currentPlayer).toBe('0');
+
+    client.moves.initiateConflict();
+    const state = client.getStateOrThrow();
+
+    // activeConflictPlayer in game state should now be CC
+    expect(state.G.activeConflict!.activeConflictPlayer).toBe(SocialClass.CapitalistClass);
+    // boardgame.io currentPlayer should now be player '1' (CC is responding)
+    expect(state.ctx.currentPlayer).toBe('1');
+  });
+
+  test('planResponse transfers currentPlayer back to initiating player (1 → 0)', () => {
+    const client = makeStrikeResponding();
+    // After initiateConflict, currentPlayer is now '1' (CC is responding)
+    expect(client.getStateOrThrow().ctx.currentPlayer).toBe('1');
+
+    client.moves.planResponse();
+    const state = client.getStateOrThrow();
+
+    // activeConflictPlayer in game state should be back to WC (initiator)
+    expect(state.G.activeConflict!.activeConflictPlayer).toBe(SocialClass.WorkingClass);
+    // boardgame.io currentPlayer should be back to WC '0'
+    expect(state.ctx.currentPlayer).toBe('0');
+  });
+});

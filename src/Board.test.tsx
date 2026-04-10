@@ -247,3 +247,60 @@ describe("workplace slot selection", () => {
     expect(mockMoves.playCardFromHand).toHaveBeenCalledWith(0, "workplaces[-1]");
   });
 });
+
+// ─── Multiplayer: waiting turn ─────────────────────────────────────────────────
+
+describe("multiplayer non-active player", () => {
+  function makeMultiplayerProps(G = makeActionPhaseState(), currentPlayer = "0", myPlayerID: "0" | "1" = "1"): ClassWarBoardProps {
+    return {
+      G,
+      ctx: { ...mockCtx, currentPlayer },
+      moves: mockMoves,
+      events: mockEvents,
+      playerID: myPlayerID, // This client is CC (player 1)
+      matchID: "test",
+      isActive: false,
+      isMultiplayer: true,
+      isConnected: true,
+      plugins: {},
+    } as unknown as ClassWarBoardProps;
+  }
+
+  test("shows WaitingInterstitial during Production phase when it is not my turn", () => {
+    const G = { ...makeActionPhaseState(), turnPhase: TurnPhase.Production };
+    render(<ClassWarBoard {...makeMultiplayerProps(G, "0", "1")} />);
+    // WaitingInterstitial dismiss button
+    expect(screen.getByRole("button", { name: /Dismiss/ })).toBeInTheDocument();
+    // TurnStartModal 'Start' button should NOT appear
+    expect(screen.queryByRole("button", { name: /Start/ })).not.toBeInTheDocument();
+  });
+
+  test("does not show TurnStartModal to non-active player during Production phase", () => {
+    const G = { ...makeActionPhaseState(), turnPhase: TurnPhase.Production };
+    render(<ClassWarBoard {...makeMultiplayerProps(G, "0", "1")} />);
+    expect(screen.queryByText(/Start.*Turn/)).not.toBeInTheDocument();
+  });
+
+  test("clicking a hand card shows 'Must wait for your turn' when it is not my turn", () => {
+    const wcDeck = buildDeck(SocialClass.WorkingClass);
+    const { hand, deck } = withCardInHand(wcDeck, "cashier");
+    const G = makeActionPhaseState({ hand, deck, wealth: 10 });
+    // playerID="0" is WC; but currentPlayer="1" (CC's turn) — WC must wait
+    render(<ClassWarBoard {...makeMultiplayerProps(G, "1", "0")} />);
+
+    fireEvent.click(screen.getByText("Cashier"));
+    expect(screen.getByRole("button", { name: /Must wait for your turn/ })).toBeDisabled();
+  });
+
+  test("does not show 'Must wait for your turn' in local mode (playerID=null)", () => {
+    // In local mode, playerID is null — clicking always shows real options
+    const wcDeck = buildDeck(SocialClass.WorkingClass);
+    const { hand, deck } = withCardInHand(wcDeck, "cashier");
+    const G = makeActionPhaseState({ hand, deck, wealth: 10 });
+    renderBoard(G, "0"); // local mode: playerID=null
+
+    fireEvent.click(screen.getByText("Cashier"));
+    expect(screen.queryByRole("button", { name: /Must wait for your turn/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Train/ })).toBeInTheDocument();
+  });
+});
