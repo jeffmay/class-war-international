@@ -147,6 +147,42 @@ A 2-player board game based on **Class War: International** rules, built with th
 - When `!isMyTurn` and `playerID` is set (multiplayer mode), clicking hand/figure cards now shows a single disabled "Must wait for your turn" option instead of showing no menu at all
 - In local mode (`playerID = null/undefined`), this guard is bypassed so both players share the same view
 
+### 19. Lobby System and Persistent Match Storage (`src/App.tsx`, `server/index.ts`)
+
+**FlatFile match storage (`server/index.ts`)**
+- Server now uses `FlatFile` DB backend (stored in `./data` by default, configurable via `DB_DIR` env var)
+- Matches persist across server restarts
+
+**Multi-screen app flow (`src/App.tsx`)**
+- `AppMode` discriminated union drives a finite state machine: `setup → connecting → lobby → host` (or `error` on timeout)
+- Local mode includes a "⌂ Start Screen" nav bar so players can return to setup without refreshing
+- Remote mode includes "← Lobby" and "⌂ Start Screen" nav bar buttons
+
+**Setup screen redesigned**
+- "Remote Host" section replaced with "Connect to Lobby" section
+- Fields: Host Address (IP or Domain) + Port (default 8001)
+- Gear icon reveals advanced options: Game Server Port (default 8000) + Connection Timeout (default 5000 ms)
+
+**Connecting screen**
+- Shows spinner + "Connecting to {host}…" while fetching match list via `GET /games/:name`
+- `AbortController` + `setTimeout` implement configurable timeout (default 5 s)
+- `useRef(false)` guard prevents double-fetch under React StrictMode
+
+**Connection error screen**
+- Shown on timeout or fetch failure
+- Displays: `"Cannot find host server at {url} after {N}s."` + help subtext
+- "↺ Retry Connection" and "← Return to Start Screen" buttons
+
+**Lobby screen**
+- Lists open matches fetched from the boardgame.io Lobby API
+- Each match card shows: match ID, player slots with social class label + player name (or "Open")
+- Player dropdown pre-selects first open slot; disabled for taken slots
+- "Join Game" calls `POST /games/:name/:id/join` with `playerCredentials`; join errors shown inline
+- "↺ Refresh" re-fetches the match list; "← Back" returns to setup
+
+**Lobby REST API types (`src/types/lobby.ts`)**
+- `LobbyPlayer`, `LobbyMatch`, `LobbyMatchList`, `LobbyJoinResponse` typed to match boardgame.io API shapes
+
 ---
 
 ## Test Coverage
@@ -298,7 +334,9 @@ npm start             # Start dev server at localhost:3000
 - [x] `npm run host` starts boardgame.io server; clients connect via Setup screen
 - [x] Conflict player-switching via `endTurn({ next })` works in multiplayer
 - [x] Waiting interstitial shown to non-active player during Production phase
-- [ ] Lobby system
+- [x] Lobby system: match list, join UI, connection timeout/error screen
+- [x] FlatFile DB for persistent match storage on server
+- [x] "Return to Lobby" and "Return to Start Screen" nav buttons in game view
 - [ ] Spectator mode
 
 ---
@@ -317,4 +355,4 @@ npm start             # Start dev server at localhost:3000
 
 ---
 
-*Last updated: April 10, 2026*
+*Last updated: April 9, 2026*

@@ -13,11 +13,12 @@
  *                (default: http://localhost:3000)
  */
 
-import { Server, Origins } from "boardgame.io/server";
+import { Server, Origins, FlatFile } from "boardgame.io/server";
 import { ClassWarGame } from "../src/game/ClassWarGame";
 
 const PORT = parseInt(process.env["PORT"] ?? "8000", 10);
 const API_PORT = parseInt(process.env["API_PORT"] ?? "8001", 10);
+const DB_DIR = process.env["DB_DIR"] ?? "./data";
 
 const rawOrigins = process.env["ORIGINS"];
 const origins: string[] = rawOrigins
@@ -27,6 +28,7 @@ const origins: string[] = rawOrigins
 const server = Server({
   games: [ClassWarGame],
   origins: [...origins, Origins.LOCALHOST],
+  db: new FlatFile({ dir: DB_DIR }),
 });
 
 server.run(
@@ -40,5 +42,6 @@ server.run(
     console.log(`Class War: International server running on port ${PORT}`);
     console.log(`Lobby API running on port ${API_PORT}`);
     console.log(`Allowed origins: ${origins.join(", ")}`);
+    console.log(`Match data stored in: ${DB_DIR}`);
   },
 );

@@ -3187,3 +3187,308 @@ body {
   background: #5588cc;
   color: #fff;
 }
+/* ─── Setup screen additions ─────────────────────────────────────────────── */
+
+.setup-field-input-port {
+  width: 12vw;
+  min-width: 80px;
+}
+
+.setup-button-secondary {
+  background: #4a5568;
+  color: #e2e8f0;
+}
+
+.setup-button-small {
+  padding: 0.6vw 1.2vw;
+  font-size: 1.3vw;
+}
+
+.setup-advanced-header {
+  display: flex;
+  align-items: center;
+}
+
+.setup-advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5vw;
+  background: none;
+  border: none;
+  color: #a0aec0;
+  font-size: 1.3vw;
+  cursor: pointer;
+  padding: 0.4vw 0;
+  transition: color 0.15s;
+}
+
+.setup-advanced-toggle:hover {
+  color: #e2e8f0;
+}
+
+.setup-advanced-gear {
+  font-size: 1.5vw;
+}
+
+.setup-advanced-chevron {
+  font-size: 1vw;
+  margin-left: 0.2vw;
+}
+
+.setup-advanced-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2vw;
+  padding: 1.2vw;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.6vw;
+}
+
+/* ─── Lobby connecting screen ────────────────────────────────────────────── */
+
+.lobby-connecting-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2vw;
+  padding: 3vw;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1vw;
+}
+
+.lobby-spinner {
+  width: 4vw;
+  height: 4vw;
+  border: 0.4vw solid rgba(255, 255, 255, 0.15);
+  border-top-color: #5588cc;
+  border-radius: 50%;
+  animation: lobby-spin 0.8s linear infinite;
+}
+
+@keyframes lobby-spin {
+  to { transform: rotate(360deg); }
+}
+
+.lobby-connecting-text {
+  font-size: 1.5vw;
+  color: #a0aec0;
+  margin: 0;
+  text-align: center;
+}
+
+/* ─── Lobby error screen ─────────────────────────────────────────────────── */
+
+.lobby-error-box {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5vw;
+  padding: 2.5vw;
+  background: rgba(180, 50, 50, 0.15);
+  border: 1px solid rgba(180, 80, 80, 0.4);
+  border-radius: 1vw;
+}
+
+.lobby-error-message {
+  font-size: 1.5vw;
+  color: #fc8181;
+  margin: 0;
+}
+
+.lobby-error-subtext {
+  font-size: 1.3vw;
+  color: #a0aec0;
+  margin: 0;
+}
+
+.lobby-error-actions {
+  display: flex;
+  gap: 1vw;
+  flex-wrap: wrap;
+}
+
+/* ─── Lobby match list ───────────────────────────────────────────────────── */
+
+.lobby-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.8vw;
+}
+
+.lobby-header-actions {
+  display: flex;
+  gap: 0.6vw;
+}
+
+.lobby-server-label {
+  font-size: 1.1vw;
+  color: #718096;
+}
+
+.lobby-empty {
+  text-align: center;
+  color: #a0aec0;
+  font-size: 1.4vw;
+  padding: 2vw;
+}
+
+.lobby-empty-hint {
+  font-size: 1.2vw;
+  color: #718096;
+  margin-top: 0.5vw;
+}
+
+.lobby-empty-hint code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.2em 0.4em;
+  border-radius: 0.3em;
+}
+
+.lobby-match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2vw;
+}
+
+.lobby-match-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0.8vw;
+  padding: 1.5vw;
+  display: flex;
+  flex-direction: column;
+  gap: 1vw;
+}
+
+.lobby-match-card-full {
+  opacity: 0.6;
+}
+
+.lobby-match-id {
+  font-size: 1.2vw;
+  color: #718096;
+}
+
+.lobby-match-id code {
+  color: #a0aec0;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1em 0.4em;
+  border-radius: 0.3em;
+}
+
+.lobby-match-players {
+  display: flex;
+  gap: 1vw;
+  flex-wrap: wrap;
+}
+
+.lobby-player-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2vw;
+  padding: 0.6vw 1vw;
+  border-radius: 0.5vw;
+  min-width: 14vw;
+  border: 1px solid transparent;
+}
+
+.lobby-player-slot-taken {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.lobby-player-slot-open {
+  background: rgba(85, 136, 204, 0.1);
+  border-color: rgba(85, 136, 204, 0.3);
+}
+
+.lobby-player-class {
+  font-size: 1.1vw;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.lobby-player-name {
+  font-size: 1.1vw;
+  color: #718096;
+}
+
+.lobby-player-slot-open .lobby-player-name {
+  color: #5588cc;
+}
+
+.lobby-match-join {
+  display: flex;
+  align-items: center;
+  gap: 1vw;
+  flex-wrap: wrap;
+}
+
+.lobby-player-select {
+  width: auto;
+  flex: 1;
+  min-width: 12vw;
+}
+
+.lobby-join-button {
+  flex-shrink: 0;
+  padding: 0.8vw 1.6vw;
+  font-size: 1.4vw;
+}
+
+.lobby-join-error {
+  color: #fc8181;
+  font-size: 1.3vw;
+  margin: 0;
+  padding: 0.6vw 1vw;
+  background: rgba(180, 50, 50, 0.15);
+  border-radius: 0.4vw;
+}
+
+/* ─── Remote / local game nav bar ────────────────────────────────────────── */
+
+.remote-nav-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8vw 2vw;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 1000;
+}
+
+.remote-nav-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.4vw;
+  color: #e2e8f0;
+  font-size: 1.3vw;
+  padding: 0.5vw 1.2vw;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.remote-nav-button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.remote-nav-info {
+  font-size: 1.2vw;
+  color: #718096;
+  text-align: center;
+}
+
+.remote-nav-info code {
+  color: #a0aec0;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1em 0.4em;
+  border-radius: 0.3em;
+}
