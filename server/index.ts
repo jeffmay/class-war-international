@@ -10,7 +10,7 @@
  *   PORT         Game server port (default: 8000)
  *   API_PORT     Lobby API port  (default: 8001)
  *   ORIGINS      Comma-separated list of allowed client origins
- *                (default: http://localhost:3000)
+ *                (default: http://localhost:5173)
  */
 
 import { Server, Origins, FlatFile } from "boardgame.io/server";
@@ -21,13 +21,14 @@ const API_PORT = parseInt(process.env["API_PORT"] ?? "8001", 10);
 const DB_DIR = process.env["DB_DIR"] ?? "./data";
 
 const rawOrigins = process.env["ORIGINS"];
-const origins: string[] = rawOrigins
-  ? rawOrigins.split(",").map((s) => s.trim())
-  : ["http://localhost:3000"];
+const extraOrigins: string[] = rawOrigins?.split(",")?.map((s) => s.trim()) ?? [];
+
+// Always allow localhost dev origins; append any extra origins from env var.
+const origins = [Origins.LOCALHOST_IN_DEVELOPMENT, "http://localhost:5173", ...extraOrigins];
 
 const server = Server({
   games: [ClassWarGame],
-  origins: [...origins, Origins.LOCALHOST],
+  origins,
   db: new FlatFile({ dir: DB_DIR }),
 });
 
