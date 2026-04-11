@@ -187,12 +187,7 @@ const ConnectingScreen: React.FC<ConnectingScreenProps> = ({
   onTimeout,
   onBack,
 }) => {
-  const fetchedRef = useRef(false);
-
   useEffect(() => {
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
-
     const controller = new AbortController();
     const timer = setTimeout(() => {
       controller.abort();

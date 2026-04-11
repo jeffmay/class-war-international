@@ -7,10 +7,10 @@
 
 import { defineConfig, devices } from "@playwright/test";
 
-// Ports used during e2e runs (avoid clashing with the standard dev server)
+// Ports used during e2e runs (avoid clashing with the standard dev server).
+// Game WebSocket and Lobby REST API share the same port (boardgame.io default).
 export const E2E_APP_PORT = 3001;
 export const E2E_SERVER_PORT = 8100;
-export const E2E_API_PORT = 8101;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -38,12 +38,10 @@ export default defineConfig({
   webServer: [
     {
       /**
-       * boardgame.io game server — started before the React app so the client
-       * can connect immediately when the dev server is ready.
+       * boardgame.io server — game WebSocket and Lobby REST API on the same port.
        */
       command: [
         "PORT=" + E2E_SERVER_PORT,
-        "API_PORT=" + E2E_API_PORT,
         "ORIGINS=http://localhost:" + E2E_APP_PORT,
         "node --no-experimental-require-module --import tsx server/index.ts",
       ].join(" "),
@@ -56,7 +54,7 @@ export default defineConfig({
        * React dev server — uses a non-standard port so it does not clash with
        * the default `npm start` on port 3000.
        */
-      command: "PORT=" + E2E_APP_PORT + " npx vite",
+      command: "npx vite --port " + E2E_APP_PORT,
       port: E2E_APP_PORT,
       reuseExistingServer: false,
       timeout: 60_000,
