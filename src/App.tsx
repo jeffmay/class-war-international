@@ -23,8 +23,7 @@ import "./App.css";
 
 const GAME_NAME = "class-war-international";
 const DEFAULT_HOST = "localhost";
-const DEFAULT_API_PORT = 8001;
-const DEFAULT_GAME_PORT = 8000;
+const DEFAULT_PORT = 8000;
 const DEFAULT_TIMEOUT_MS = 5000;
 
 // ─── Mode types ────────────────────────────────────────────────────────────────
@@ -59,12 +58,10 @@ function makeRemoteClient(server: string) {
 
 // ─── Helper: build URLs ───────────────────────────────────────────────────────
 
-function buildUrls(host: string, apiPort: number, gamePort: number) {
+function buildUrls(host: string, port: number) {
   const base = host.startsWith("http") ? host : `http://${host}`;
-  return {
-    apiBase: `${base}:${apiPort}`,
-    gameServer: `${base}:${gamePort}`,
-  };
+  const url = `${base}:${port}`;
+  return { apiBase: url, gameServer: url };
 }
 
 // ─── Setup screen ──────────────────────────────────────────────────────────────
@@ -76,13 +73,12 @@ interface SetupScreenProps {
 
 const SetupScreen: React.FC<SetupScreenProps> = ({ onLocal, onConnectToLobby }) => {
   const [host, setHost] = useState(DEFAULT_HOST);
-  const [apiPort, setApiPort] = useState(DEFAULT_API_PORT);
-  const [gamePort, setGamePort] = useState(DEFAULT_GAME_PORT);
+  const [port, setPort] = useState(DEFAULT_PORT);
   const [timeoutMs, setTimeoutMs] = useState(DEFAULT_TIMEOUT_MS);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleConnect = () => {
-    const { apiBase, gameServer } = buildUrls(host, apiPort, gamePort);
+    const { apiBase, gameServer } = buildUrls(host, port);
     onConnectToLobby(apiBase, gameServer, timeoutMs);
   };
 
@@ -127,8 +123,8 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onLocal, onConnectToLobby }) 
               type="number"
               min={1}
               max={65535}
-              value={apiPort}
-              onChange={(e) => setApiPort(parseInt(e.target.value, 10))}
+              value={port}
+              onChange={(e) => setPort(parseInt(e.target.value, 10))}
             />
           </label>
 
@@ -147,17 +143,6 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onLocal, onConnectToLobby }) 
 
           {showAdvanced && (
             <div className="setup-advanced-options" id="setup-advanced-options">
-              <label className="setup-field">
-                <span className="setup-field-label">Game Server Port</span>
-                <input
-                  className="setup-field-input setup-field-input-port"
-                  type="number"
-                  min={1}
-                  max={65535}
-                  value={gamePort}
-                  onChange={(e) => setGamePort(parseInt(e.target.value, 10))}
-                />
-              </label>
               <label className="setup-field">
                 <span className="setup-field-label">Connection timeout (ms)</span>
                 <input
