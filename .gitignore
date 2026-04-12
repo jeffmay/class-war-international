@@ -5,14 +5,19 @@ node_modules
 /.pnp
 .pnp.js
 
+# saved games
+/data
+
 # testing
 /coverage
+test-results/
 
 # production
 /build
 /dist
 
 # claude / playwright
+playwright-report/
 .playwright-mcp/
 
 # misc
