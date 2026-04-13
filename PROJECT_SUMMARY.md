@@ -253,11 +253,13 @@ src/
 │   ├── ConflictModal.tsx        # Conflict setup modal (Initiating/Responding/Resolving)
 │   ├── ConflictOutcomeModal.tsx # Conflict result display
 │   └── DealResultModal.tsx      # Theorize/draw preview modal
+├── contexts/
+│   └── GameNav.ts               # GameNavContext for passing nav callbacks into Board
 ├── util/
 │   ├── assertions.ts            # assertDefined helper
 │   └── typedboardgame.ts        # StrictClient, StrictGameOf types
-├── Board.tsx                    # Main board component
-├── App.tsx                      # boardgame.io client setup
+├── Board.tsx                    # Main board component (HamburgerMenu)
+├── App.tsx                      # boardgame.io client setup, lobby flow
 └── App.css                      # Responsive styles
 ```
 
@@ -336,7 +338,9 @@ npm start             # Start dev server at localhost:3000
 - [x] Waiting interstitial shown to non-active player during Production phase
 - [x] Lobby system: match list, join UI, connection timeout/error screen
 - [x] FlatFile DB for persistent match storage on server
-- [x] "Return to Lobby" and "Return to Start Screen" nav buttons in game view
+- [x] Hamburger menu (☰) in top bar replaces bottom nav bar; contains "Return to Lobby" and "Return to Start Screen" actions
+- [x] GameNavContext passes nav callbacks through boardgame.io Client HOC into Board.tsx
+- [x] "Create Game" button in Lobby screen (POST /games/:name/create)
 - [ ] Spectator mode
 
 ---
@@ -355,4 +359,4 @@ npm start             # Start dev server at localhost:3000
 
 ---
 
-*Last updated: April 9, 2026*
+*Last updated: April 10, 2026*
