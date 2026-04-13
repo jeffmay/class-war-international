@@ -3,7 +3,8 @@
  */
 
 import { BoardProps } from 'boardgame.io/react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useGameNav } from './contexts/GameNav';
 import { Brand, make } from 'ts-brand';
 import { ActionMenuBar, MenuOption } from './components/ActionMenuBar';
 import { CardComponent } from './components/CardComponent';
@@ -46,6 +47,65 @@ interface SlotData {
   /** Title shown in ActionMenuBar when no card is selected (e.g. for slot-first selection) */
   title?: string;
 }
+
+// ─── Hamburger menu ───────────────────────────────────────────────────────────
+
+function HamburgerMenu() {
+  const { onReturnToStart, onReturnToLobby } = useGameNav();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close when clicking outside the menu
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  if (!onReturnToStart && !onReturnToLobby) return null;
+
+  return (
+    <div className="game-menu" ref={menuRef}>
+      <button
+        className="game-menu-trigger"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Game menu"
+        aria-expanded={open}
+      >
+        ☰
+      </button>
+      {open && (
+        <div className="game-menu-panel" role="menu">
+          {onReturnToLobby && (
+            <button
+              className="game-menu-item"
+              role="menuitem"
+              onClick={() => { setOpen(false); onReturnToLobby(); }}
+            >
+              ← Return to Lobby
+            </button>
+          )}
+          {onReturnToStart && (
+            <button
+              className="game-menu-item"
+              role="menuitem"
+              onClick={() => { setOpen(false); onReturnToStart(); }}
+            >
+              ⌂ Return to Start Screen
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Board ────────────────────────────────────────────────────────────────────
 
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
   const [boardState, setBoardState] = useState<BoardState>({ mode: 'normal', selectedSlotId: null });
@@ -832,6 +892,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       {/* Top Bar */}
       <div className="game-top-controls">
         <div className="game-top-controls-left">
+          <HamburgerMenu />
           <span className="game-title">Class War International</span>
         </div>
         <div className="game-top-controls-center">

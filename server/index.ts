@@ -29,7 +29,7 @@ const rawOrigins = process.env["ORIGINS"];
 const extraOrigins: string[] = rawOrigins?.split(",")?.map((s) => s.trim()) ?? [];
 
 // Always allow localhost dev origins; append any extra origins from env var.
-const origins = [Origins.LOCALHOST_IN_DEVELOPMENT, "http://localhost:5173", ...extraOrigins];
+const origins = [Origins.LOCALHOST_IN_DEVELOPMENT, ...extraOrigins];
 
 const server = Server({
   games: [ClassWarGame],

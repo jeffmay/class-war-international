@@ -3492,3 +3492,78 @@ body {
   padding: 0.1em 0.4em;
   border-radius: 0.3em;
 }
+
+/* ─── Hamburger game menu ─────────────────────────────────────────────────── */
+
+.game-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.game-menu-trigger {
+  background: none;
+  border: none;
+  color: #e2e8f0;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.game-menu-trigger:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.game-menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 20vw;
+  background: #1a2744;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.5vw;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.game-menu-item {
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  font-size: 1.4vw;
+  text-align: left;
+  padding: 1vw 1.5vw;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.game-menu-item:last-child {
+  border-bottom: none;
+}
+
+.game-menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Lobby: Create Game section ─────────────────────────────────────────── */
+
+.lobby-create {
+  margin-top: 2vw;
+  padding: 1.5vw 2vw;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.6vw;
+}
+
+.lobby-create-button {
+  margin-top: 1vw;
+}

@@ -16,7 +16,7 @@ import { Local, SocketIO } from "boardgame.io/multiplayer";
 import { ClassWarGame } from "./game/ClassWarGame";
 import { ClassWarBoard } from "./Board";
 import { LobbyMatch, LobbyMatchList, LobbyJoinResponse } from "./types/lobby";
-import { SocialClass } from "./types/cards";
+import { GameNavContext } from "./contexts/GameNav";
 import "./App.css";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -298,6 +298,29 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const [selectedPlayerID, setSelectedPlayerID] = useState<Record<string, "0" | "1">>({});
   const [joining, setJoining] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const handleCreate = async () => {
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch(`${apiBase}/games/${GAME_NAME}/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ numPlayers: 2 }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
+      }
+      onRefresh();
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const handleJoin = async (match: LobbyMatch) => {
     const pid = selectedPlayerID[match.matchID] ?? getDefaultPlayerID(match);
@@ -347,6 +370,17 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
             Server: {gameServer}
           </p>
 
+          <div className="lobby-create">
+            <button
+              className="setup-button setup-button-host lobby-create-button"
+              onClick={handleCreate}
+              disabled={creating}
+            >
+              {creating ? "Creating…" : "+ Create Game"}
+            </button>
+            {createError && <p className="lobby-join-error">{createError}</p>}
+          </div>
+
           {joinError && (
             <p className="lobby-join-error">{joinError}</p>
           )}
@@ -355,7 +389,7 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
             <div className="lobby-empty">
               <p>No open matches found.</p>
               <p className="lobby-empty-hint">
-                Start a new match by running <code>npm run host</code> and creating one from another client.
+                Create a game above or ask the host to create one.
               </p>
             </div>
           ) : (
@@ -440,23 +474,13 @@ function RemoteMode({
   onReturnToStart: () => void;
 }) {
   const [RemoteClient] = useState(() => makeRemoteClient(gameServer));
-  const playerClass = playerID === "0" ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
 
   return (
-    <div className="App">
-      <RemoteClient matchID={matchID} playerID={playerID} credentials={playerCredentials} />
-      <div className="remote-nav-bar">
-        <button className="remote-nav-button" onClick={onReturnToLobby}>
-          ← Lobby
-        </button>
-        <span className="remote-nav-info">
-          {playerClass} · Match <code>{matchID}</code>
-        </span>
-        <button className="remote-nav-button" onClick={onReturnToStart}>
-          ⌂ Start Screen
-        </button>
+    <GameNavContext.Provider value={{ onReturnToLobby, onReturnToStart }}>
+      <div className="App">
+        <RemoteClient matchID={matchID} playerID={playerID} credentials={playerCredentials} />
       </div>
-    </div>
+    </GameNavContext.Provider>
   );
 }
 
@@ -499,14 +523,11 @@ function App() {
 
   if (mode.kind === "local") {
     return (
-      <div className="App">
-        <LocalClient />
-        <div className="remote-nav-bar">
-          <button className="remote-nav-button" onClick={goToSetup}>
-            ⌂ Start Screen
-          </button>
+      <GameNavContext.Provider value={{ onReturnToStart: goToSetup, onReturnToLobby: null }}>
+        <div className="App">
+          <LocalClient />
         </div>
-      </div>
+      </GameNavContext.Provider>
     );
   }
 
