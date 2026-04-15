@@ -18,19 +18,19 @@ describe("Die", () => {
     expect(screen.getByTestId("die")).toHaveClass("die-capitalist-class");
   });
 
-  test('shows ✕ for value 0', () => {
+  test('shows X for value 0', () => {
     render(<Die value={0} socialClass={SocialClass.WorkingClass} />);
-    expect(screen.getByTestId("die")).toHaveTextContent("✕");
+    expect(screen.getByTestId("die")).toHaveTextContent("X");
   });
 
-  test('shows • for value 1', () => {
+  test('shows ● for value 1', () => {
     render(<Die value={1} socialClass={SocialClass.WorkingClass} />);
-    expect(screen.getByTestId("die")).toHaveTextContent("•");
+    expect(screen.getByTestId("die")).toHaveTextContent("●");
   });
 
-  test('shows •• for value 2', () => {
+  test('shows ●● for value 2', () => {
     render(<Die value={2} socialClass={SocialClass.WorkingClass} />);
-    expect(screen.getByTestId("die")).toHaveTextContent("••");
+    expect(screen.getByTestId("die")).toHaveTextContent("●●");
   });
 
   test('sets data-value attribute to the die value', () => {
