@@ -3522,6 +3522,50 @@ body {
   font-size: 1.4vw;
 }
 
+.lobby-rejoin-button {
+  flex-shrink: 0;
+  padding: 0.8vw 1.6vw;
+  font-size: 1.4vw;
+  background: #48bb78;
+  color: #fff;
+  border: none;
+  border-radius: 0.5vw;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+
+.lobby-rejoin-button:hover {
+  opacity: 0.85;
+}
+
+.lobby-player-slot-mine {
+  background: rgba(72, 187, 120, 0.12);
+  border-color: rgba(72, 187, 120, 0.4);
+}
+
+.lobby-player-slot-mine .lobby-player-name {
+  color: #68d391;
+}
+
+.lobby-server-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2vw;
+  flex-wrap: wrap;
+}
+
+.lobby-current-player {
+  font-size: 1.2vw;
+  color: #a0aec0;
+}
+
+.lobby-current-player-name {
+  color: #68d391;
+  font-weight: 600;
+}
+
 .lobby-join-error {
   color: #fc8181;
   font-size: 1.3vw;
@@ -3783,13 +3827,13 @@ body {
   font-weight: 700;
 }
 
-.lobby-player-name {
+.lobby-screen-header .lobby-player-name {
   margin-left: auto;
   font-size: 1.6vw;
   color: #a0aec0;
 }
 
-.lobby-player-name::before {
+.lobby-screen-header .lobby-player-name::before {
   content: "Playing as: ";
   color: #718096;
 }
@@ -4009,7 +4053,7 @@ body {
     font-size: 3vw;
   }
 
-  .lobby-player-name {
+  .lobby-screen-header .lobby-player-name {
     font-size: 3vw;
   }
 
@@ -4095,7 +4139,7 @@ body {
     font-size: 14px;
   }
 
-  .lobby-player-name {
+  .lobby-screen-header .lobby-player-name {
     font-size: 14px;
   }
 

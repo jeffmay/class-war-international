@@ -25,6 +25,12 @@ const GAME_NAME = "class-war-international";
 const DEFAULT_HOST = "localhost";
 const DEFAULT_PORT = 8000;
 const DEFAULT_TIMEOUT_MS = 5000;
+const PLAYER_NAME_KEY = "cwi_player_name";
+
+/** Per-match credentials key: stored so the player can rejoin after a refresh. */
+function credentialsKey(matchID: string, playerID: string): string {
+  return `cwi_creds_${matchID}_${playerID}`;
+}
 
 // ─── Mode types ────────────────────────────────────────────────────────────────
 
@@ -67,11 +73,13 @@ function buildUrls(host: string, port: number) {
 // ─── Setup screen ──────────────────────────────────────────────────────────────
 
 interface SetupScreenProps {
+  initialPlayerName: string;
   onLocal: () => void;
-  onConnectToLobby: (apiBase: string, gameServer: string, timeoutMs: number) => void;
+  onConnectToLobby: (apiBase: string, gameServer: string, timeoutMs: number, playerName: string) => void;
 }
 
-const SetupScreen: React.FC<SetupScreenProps> = ({ onLocal, onConnectToLobby }) => {
+const SetupScreen: React.FC<SetupScreenProps> = ({ initialPlayerName, onLocal, onConnectToLobby }) => {
+  const [playerName, setPlayerName] = useState(initialPlayerName);
   const [host, setHost] = useState(DEFAULT_HOST);
   const [port, setPort] = useState(DEFAULT_PORT);
   const [timeoutMs, setTimeoutMs] = useState(DEFAULT_TIMEOUT_MS);
@@ -79,7 +87,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onLocal, onConnectToLobby }) 
 
   const handleConnect = () => {
     const { apiBase, gameServer } = buildUrls(host, port);
-    onConnectToLobby(apiBase, gameServer, timeoutMs);
+    onConnectToLobby(apiBase, gameServer, timeoutMs, playerName.trim());
   };
 
   return (
@@ -104,6 +112,17 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ onLocal, onConnectToLobby }) 
             Join a game hosted on another device. Start a server with{" "}
             <code>npm run host</code>.
           </p>
+
+          <label className="setup-field">
+            <span className="setup-field-label">Player Name</span>
+            <input
+              className="setup-field-input"
+              type="text"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              placeholder="e.g. Alice"
+            />
+          </label>
 
           <label className="setup-field">
             <span className="setup-field-label">Host Address (IP or Domain)</span>
@@ -277,6 +296,7 @@ interface LobbyScreenProps {
   apiBase: string;
   gameServer: string;
   matches: LobbyMatch[];
+  playerName: string;
   onJoin: (matchID: string, playerID: "0" | "1", playerCredentials: string) => void;
   onRefresh: () => void;
   onBack: () => void;
@@ -291,6 +311,7 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
   apiBase,
   gameServer,
   matches,
+  playerName,
   onJoin,
   onRefresh,
   onBack,
@@ -328,12 +349,13 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
     setJoining(match.matchID);
     setJoinError(null);
     try {
+      const displayName = playerName || PLAYER_CLASS_LABEL[pid];
       const res = await fetch(
         `${apiBase}/games/${GAME_NAME}/${match.matchID}/join`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerID: pid, playerName: PLAYER_CLASS_LABEL[pid] }),
+          body: JSON.stringify({ playerID: pid, playerName: displayName }),
         },
       );
       if (!res.ok) {
@@ -341,11 +363,21 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
         throw new Error(text || `HTTP ${res.status}`);
       }
       const data: LobbyJoinResponse = await res.json() as LobbyJoinResponse;
+      localStorage.setItem(credentialsKey(match.matchID, pid), data.playerCredentials);
       onJoin(match.matchID, pid as "0" | "1", data.playerCredentials);
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : "Unknown error");
       setJoining(null);
     }
+  };
+
+  const handleRejoin = (match: LobbyMatch, pid: "0" | "1") => {
+    const storedCreds = localStorage.getItem(credentialsKey(match.matchID, pid));
+    if (!storedCreds) {
+      setJoinError("Cannot rejoin: credentials not found. Try clearing match history or rejoining from the original device.");
+      return;
+    }
+    onJoin(match.matchID, pid, storedCreds);
   };
 
   return (
@@ -366,9 +398,16 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
               </button>
             </div>
           </div>
-          <p className="setup-section-description lobby-server-label">
-            Server: {gameServer}
-          </p>
+          <div className="lobby-server-info">
+            <p className="setup-section-description lobby-server-label">
+              Server: {gameServer}
+            </p>
+            {playerName && (
+              <p className="lobby-current-player">
+                Playing as: <span className="lobby-current-player-name">{playerName}</span>
+              </p>
+            )}
+          </div>
 
           <div className="lobby-create">
             <button
@@ -395,49 +434,72 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
           ) : (
             <div className="lobby-match-list">
               {matches.map((match) => {
-                const isFull = match.players.every((p) => p.name !== undefined);
+                const mySlot = playerName
+                  ? match.players.find((p) => p.name === playerName)
+                  : undefined;
+                const isRejoinable = mySlot !== undefined;
+                const isFull = !isRejoinable && match.players.every((p) => p.name !== undefined);
                 const pid = selectedPlayerID[match.matchID] ?? getDefaultPlayerID(match);
 
                 return (
                   <div key={match.matchID} className={`lobby-match-card${isFull ? " lobby-match-card-full" : ""}`}>
                     <div className="lobby-match-id">Match: <code>{match.matchID}</code></div>
                     <div className="lobby-match-players">
-                      {match.players.map((player) => (
-                        <div key={player.id} className={`lobby-player-slot${player.name ? " lobby-player-slot-taken" : " lobby-player-slot-open"}`}>
-                          <span className="lobby-player-class">{PLAYER_CLASS_LABEL[String(player.id)]}</span>
-                          <span className="lobby-player-name">{player.name ?? "Open"}</span>
-                        </div>
-                      ))}
+                      {match.players.map((player) => {
+                        const isMine = playerName && player.name === playerName;
+                        let slotClass = "lobby-player-slot";
+                        if (isMine) slotClass += " lobby-player-slot-mine";
+                        else if (player.name) slotClass += " lobby-player-slot-taken";
+                        else slotClass += " lobby-player-slot-open";
+                        return (
+                          <div key={player.id} className={slotClass}>
+                            <span className="lobby-player-class">{PLAYER_CLASS_LABEL[String(player.id)]}</span>
+                            <span className="lobby-player-name">{player.name ?? "Open"}</span>
+                          </div>
+                        );
+                      })}
                     </div>
                     <div className="lobby-match-join">
-                      <select
-                        className="setup-field-input lobby-player-select"
-                        value={pid ?? ""}
-                        onChange={(e) =>
-                          setSelectedPlayerID((prev) => ({
-                            ...prev,
-                            [match.matchID]: e.target.value as "0" | "1",
-                          }))
-                        }
-                        disabled={isFull || joining === match.matchID}
-                      >
-                        {match.players.map((player) => (
-                          <option
-                            key={player.id}
-                            value={String(player.id)}
-                            disabled={player.name !== undefined}
+                      {isRejoinable ? (
+                        <button
+                          className="lobby-rejoin-button"
+                          disabled={joining === match.matchID}
+                          onClick={() => handleRejoin(match, String(mySlot.id) as "0" | "1")}
+                        >
+                          {joining === match.matchID ? "Rejoining…" : "↩ Rejoin"}
+                        </button>
+                      ) : (
+                        <>
+                          <select
+                            className="setup-field-input lobby-player-select"
+                            value={pid ?? ""}
+                            onChange={(e) =>
+                              setSelectedPlayerID((prev) => ({
+                                ...prev,
+                                [match.matchID]: e.target.value as "0" | "1",
+                              }))
+                            }
+                            disabled={isFull || joining === match.matchID}
                           >
-                            {PLAYER_CLASS_LABEL[String(player.id)]}{player.name ? " (taken)" : ""}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        className="setup-button setup-button-host lobby-join-button"
-                        disabled={isFull || joining === match.matchID}
-                        onClick={() => handleJoin(match)}
-                      >
-                        {joining === match.matchID ? "Joining…" : isFull ? "Full" : "Join Game"}
-                      </button>
+                            {match.players.map((player) => (
+                              <option
+                                key={player.id}
+                                value={String(player.id)}
+                                disabled={player.name !== undefined}
+                              >
+                                {PLAYER_CLASS_LABEL[String(player.id)]}{player.name ? " (taken)" : ""}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            className="setup-button setup-button-host lobby-join-button"
+                            disabled={isFull || joining === match.matchID}
+                            onClick={() => handleJoin(match)}
+                          >
+                            {joining === match.matchID ? "Joining…" : isFull ? "Full" : "Join Game"}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -488,12 +550,17 @@ function RemoteMode({
 
 function App() {
   const [mode, setMode] = useState<AppMode>({ kind: "setup" });
+  const [playerName, setPlayerName] = useState<string>(
+    () => localStorage.getItem(PLAYER_NAME_KEY) ?? "",
+  );
   // Preserve lobby connection params so "Return to Lobby" can reconnect
   const lobbyParamsRef = useRef<{ apiBase: string; gameServer: string; timeoutMs: number } | null>(null);
 
   const goToSetup = () => setMode({ kind: "setup" });
 
-  const connectToLobby = (apiBase: string, gameServer: string, timeoutMs: number) => {
+  const connectToLobby = (apiBase: string, gameServer: string, timeoutMs: number, name: string) => {
+    setPlayerName(name);
+    localStorage.setItem(PLAYER_NAME_KEY, name);
     lobbyParamsRef.current = { apiBase, gameServer, timeoutMs };
     setMode({ kind: "connecting", apiBase, gameServer, timeoutMs });
   };
@@ -515,6 +582,7 @@ function App() {
   if (mode.kind === "setup") {
     return (
       <SetupScreen
+        initialPlayerName={playerName}
         onLocal={() => setMode({ kind: "local" })}
         onConnectToLobby={connectToLobby}
       />
@@ -564,6 +632,7 @@ function App() {
         apiBase={mode.apiBase}
         gameServer={mode.gameServer}
         matches={mode.matches}
+        playerName={playerName}
         onJoin={(matchID, playerID, playerCredentials) =>
           setMode({ kind: "host", gameServer: mode.gameServer, matchID, playerID, playerCredentials })
         }

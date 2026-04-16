@@ -51,10 +51,27 @@ describe("SetupScreen", () => {
     expect(screen.getByRole("button", { name: /Connect to Lobby/i })).toBeInTheDocument();
   });
 
-  test("shows Host Address and Port fields", () => {
+  test("shows Player Name, Host Address, and Port fields", () => {
     renderApp();
+    expect(screen.getByLabelText(/Player Name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Host Address/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Port/i)).toBeInTheDocument();
+  });
+
+  test("pre-fills Player Name from localStorage", () => {
+    localStorage.setItem("cwi_player_name", "Rosa");
+    renderApp();
+    expect(screen.getByLabelText(/Player Name/i)).toHaveValue("Rosa");
+  });
+
+  test("saves Player Name to localStorage on Connect", async () => {
+    vi.spyOn(global, "fetch").mockImplementation(() => new Promise(() => {}));
+    renderApp();
+    fireEvent.change(screen.getByLabelText(/Player Name/i), {
+      target: { value: "Alice" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Connect to Lobby/i }));
+    expect(localStorage.getItem("cwi_player_name")).toBe("Alice");
   });
 });
 
