@@ -3539,6 +3539,12 @@ body {
   opacity: 0.85;
 }
 
+.lobby-leave-button {
+  flex-shrink: 0;
+  padding: 0.6vw 1.2vw;
+  font-size: 1.2vw;
+}
+
 .lobby-player-slot-mine {
   background: rgba(72, 187, 120, 0.12);
   border-color: rgba(72, 187, 120, 0.4);
@@ -3726,6 +3732,14 @@ body {
 
 .game-menu-item:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.game-menu-item-danger {
+  color: #fc8181;
+}
+
+.game-menu-item-danger:hover {
+  background: rgba(252, 129, 129, 0.12);
 }
 
 /* ─── Lobby: Create Game section ─────────────────────────────────────────── */

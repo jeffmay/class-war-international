@@ -1,16 +1,21 @@
 /**
  * Main App component
  *
- * Supports these modes:
- *   setup      — start screen (local play or connect to lobby)
- *   local      — pass-and-play on a single device (no network required)
- *   lobby      — browse open matches on a remote server
- *   connecting — waiting for lobby to respond (with timeout)
- *   error      — connection timed out or failed
- *   host       — connected to a remote boardgame.io server as a specific player
+ * URL hash routing:
+ *   #/                                        — setup screen
+ *   #/local                                   — pass-and-play on a single device
+ *   #/lobby/<encodedServer>                   — browse / create / join matches
+ *   #/match/<encodedServer>/<id>/<pid>/<cred> — playing a specific match
+ *
+ * Player name is persisted in localStorage (cwi_player_name).
+ * Per-match credentials are persisted in localStorage (cwi_creds_<id>_<pid>)
+ * so a player can rejoin after a page refresh without re-joining via the API.
+ *
+ * In the future the player name + credentials will be replaced with an Auth0
+ * access token when authentication is added.
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Client } from "boardgame.io/react";
 import { Local, SocketIO } from "boardgame.io/multiplayer";
 import { ClassWarGame } from "./game/ClassWarGame";
@@ -26,21 +31,72 @@ const DEFAULT_HOST = "localhost";
 const DEFAULT_PORT = 8000;
 const DEFAULT_TIMEOUT_MS = 5000;
 const PLAYER_NAME_KEY = "cwi_player_name";
+const TIMEOUT_MS_KEY = "cwi_timeout_ms";
 
-/** Per-match credentials key: stored so the player can rejoin after a refresh. */
+/** Per-match credentials stored so the player can rejoin after a refresh. */
 function credentialsKey(matchID: string, playerID: string): string {
   return `cwi_creds_${matchID}_${playerID}`;
 }
 
-// ─── Mode types ────────────────────────────────────────────────────────────────
+// ─── Route types + hash helpers ───────────────────────────────────────────────
 
-type AppMode =
+type Route =
   | { kind: "setup" }
   | { kind: "local" }
-  | { kind: "connecting"; apiBase: string; gameServer: string; timeoutMs: number }
-  | { kind: "error"; apiBase: string; gameServer: string; timeoutMs: number }
-  | { kind: "lobby"; apiBase: string; gameServer: string; matches: LobbyMatch[] }
-  | { kind: "host"; gameServer: string; matchID: string; playerID: "0" | "1"; playerCredentials: string };
+  | { kind: "lobby"; server: string }
+  | { kind: "match"; server: string; matchID: string; playerID: "0" | "1"; credentials: string };
+
+function parseHash(): Route {
+  const raw = window.location.hash.replace(/^#\//, "");
+  if (!raw) return { kind: "setup" };
+  if (raw === "local") return { kind: "local" };
+
+  const lobbyM = /^lobby\/(.+)$/.exec(raw);
+  if (lobbyM) {
+    try {
+      return { kind: "lobby", server: decodeURIComponent(lobbyM[1]) };
+    } catch {
+      return { kind: "setup" };
+    }
+  }
+
+  // match/<encodedServer>/<matchID>/(0|1)/<encodedCredentials>
+  const matchM = /^match\/([^/]+)\/([^/]+)\/(0|1)\/(.+)$/.exec(raw);
+  if (matchM) {
+    try {
+      const [, encServer, matchID, playerID, encCreds] = matchM;
+      return {
+        kind: "match",
+        server: decodeURIComponent(encServer),
+        matchID,
+        playerID: playerID as "0" | "1",
+        credentials: decodeURIComponent(encCreds),
+      };
+    } catch {
+      return { kind: "setup" };
+    }
+  }
+
+  return { kind: "setup" };
+}
+
+function lobbyHash(server: string): string {
+  return `#/lobby/${encodeURIComponent(server)}`;
+}
+
+function matchHash(
+  server: string,
+  matchID: string,
+  playerID: string,
+  credentials: string,
+): string {
+  return `#/match/${encodeURIComponent(server)}/${matchID}/${playerID}/${encodeURIComponent(credentials)}`;
+}
+
+function buildServer(host: string, port: number): string {
+  const base = host.startsWith("http") ? host : `http://${host}`;
+  return `${base}:${port}`;
+}
 
 // ─── boardgame.io client factories ────────────────────────────────────────────
 
@@ -62,12 +118,34 @@ function makeRemoteClient(server: string) {
   });
 }
 
-// ─── Helper: build URLs ───────────────────────────────────────────────────────
+// ─── Leave + delete match helper (shared by LobbyRoute and RemoteGame) ────────
 
-function buildUrls(host: string, port: number) {
-  const base = host.startsWith("http") ? host : `http://${host}`;
-  const url = `${base}:${port}`;
-  return { apiBase: url, gameServer: url };
+async function leaveAndMaybeDelete(
+  server: string,
+  matchID: string,
+  playerID: string,
+  credentials: string,
+): Promise<void> {
+  await fetch(`${server}/games/${GAME_NAME}/${matchID}/leave`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ playerID, credentials }),
+  });
+  localStorage.removeItem(credentialsKey(matchID, playerID));
+
+  // Re-fetch to check if the match is now empty and delete it if so
+  try {
+    const res = await fetch(`${server}/games/${GAME_NAME}`);
+    if (res.ok) {
+      const data: LobbyMatchList = await res.json() as LobbyMatchList;
+      const updated = data.matches.find((m) => m.matchID === matchID);
+      if (updated && updated.players.every((p) => !p.name)) {
+        await fetch(`${server}/games/${GAME_NAME}/${matchID}`, { method: "DELETE" });
+      }
+    }
+  } catch {
+    // Best-effort: ignore errors checking/deleting the emptied match
+  }
 }
 
 // ─── Setup screen ──────────────────────────────────────────────────────────────
@@ -75,19 +153,28 @@ function buildUrls(host: string, port: number) {
 interface SetupScreenProps {
   initialPlayerName: string;
   onLocal: () => void;
-  onConnectToLobby: (apiBase: string, gameServer: string, timeoutMs: number, playerName: string) => void;
+  onConnectToLobby: (server: string, playerName: string) => void;
 }
 
-const SetupScreen: React.FC<SetupScreenProps> = ({ initialPlayerName, onLocal, onConnectToLobby }) => {
+const SetupScreen: React.FC<SetupScreenProps> = ({
+  initialPlayerName,
+  onLocal,
+  onConnectToLobby,
+}) => {
   const [playerName, setPlayerName] = useState(initialPlayerName);
   const [host, setHost] = useState(DEFAULT_HOST);
   const [port, setPort] = useState(DEFAULT_PORT);
-  const [timeoutMs, setTimeoutMs] = useState(DEFAULT_TIMEOUT_MS);
+  const [timeoutMs, setTimeoutMs] = useState(
+    () => parseInt(localStorage.getItem(TIMEOUT_MS_KEY) ?? String(DEFAULT_TIMEOUT_MS), 10),
+  );
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const handleConnect = () => {
-    const { apiBase, gameServer } = buildUrls(host, port);
-    onConnectToLobby(apiBase, gameServer, timeoutMs, playerName.trim());
+    const server = buildServer(host, port);
+    const name = playerName.trim();
+    localStorage.setItem(PLAYER_NAME_KEY, name);
+    localStorage.setItem(TIMEOUT_MS_KEY, String(timeoutMs));
+    onConnectToLobby(server, name);
   };
 
   return (
@@ -150,7 +237,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ initialPlayerName, onLocal, o
           <div className="setup-advanced-header">
             <button
               className="setup-advanced-toggle"
-              onClick={() => setShowAdvanced(v => !v)}
+              onClick={() => setShowAdvanced((v) => !v)}
               aria-expanded={showAdvanced}
               aria-controls="setup-advanced-options"
             >
@@ -177,10 +264,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ initialPlayerName, onLocal, o
             </div>
           )}
 
-          <button
-            className="setup-button setup-button-host"
-            onClick={handleConnect}
-          >
+          <button className="setup-button setup-button-host" onClick={handleConnect}>
             ▶ Connect to Lobby
           </button>
         </section>
@@ -189,116 +273,18 @@ const SetupScreen: React.FC<SetupScreenProps> = ({ initialPlayerName, onLocal, o
   );
 };
 
-// ─── Connecting screen ────────────────────────────────────────────────────────
+// ─── Lobby route ───────────────────────────────────────────────────────────────
+// Handles the full connecting → (error | match list) flow for a specific server.
 
-interface ConnectingScreenProps {
-  apiBase: string;
-  timeoutMs: number;
-  onSuccess: (matches: LobbyMatch[]) => void;
-  onTimeout: () => void;
-  onBack: () => void;
-}
+type LobbyStatus =
+  | { kind: "connecting" }
+  | { kind: "error" }
+  | { kind: "ready"; matches: LobbyMatch[] };
 
-const ConnectingScreen: React.FC<ConnectingScreenProps> = ({
-  apiBase,
-  timeoutMs,
-  onSuccess,
-  onTimeout,
-  onBack,
-}) => {
-  useEffect(() => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => {
-      controller.abort();
-      onTimeout();
-    }, timeoutMs);
-
-    fetch(`${apiBase}/games/${GAME_NAME}`, { signal: controller.signal })
-      .then(async (res) => {
-        clearTimeout(timer);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data: LobbyMatchList = await res.json() as LobbyMatchList;
-        onSuccess(data.matches ?? []);
-      })
-      .catch((err: unknown) => {
-        clearTimeout(timer);
-        if (err instanceof Error && err.name === "AbortError") return; // timeout already handled
-        onTimeout();
-      });
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [apiBase, timeoutMs, onSuccess, onTimeout]);
-
-  return (
-    <div className="setup-screen">
-      <div className="setup-screen-content">
-        <div className="setup-screen-title">CLASS WAR</div>
-        <div className="setup-screen-subtitle">International</div>
-        <div className="lobby-connecting-box">
-          <div className="lobby-spinner" aria-label="Connecting" />
-          <p className="lobby-connecting-text">Connecting to {apiBase}…</p>
-          <button className="setup-button setup-button-secondary" onClick={onBack}>
-            ← Back
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─── Connection error screen ──────────────────────────────────────────────────
-
-interface ConnectionErrorScreenProps {
-  apiBase: string;
-  timeoutMs: number;
-  onRetry: () => void;
-  onBack: () => void;
-}
-
-const ConnectionErrorScreen: React.FC<ConnectionErrorScreenProps> = ({
-  apiBase,
-  timeoutMs,
-  onRetry,
-  onBack,
-}) => (
-  <div className="setup-screen">
-    <div className="setup-screen-content">
-      <div className="setup-screen-title">CLASS WAR</div>
-      <div className="setup-screen-subtitle">International</div>
-
-      <div className="lobby-error-box">
-        <p className="lobby-error-message">
-          Cannot find host server at <strong>{apiBase}</strong> after{" "}
-          <strong>{timeoutMs / 1000}s</strong>.
-        </p>
-        <p className="lobby-error-subtext">
-          Do you have the correct IP address (or domain), port, and is the host server running?
-        </p>
-        <div className="lobby-error-actions">
-          <button className="setup-button setup-button-host" onClick={onRetry}>
-            ↺ Retry Connection
-          </button>
-          <button className="setup-button setup-button-secondary" onClick={onBack}>
-            ← Return to Start Screen
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-// ─── Lobby screen ─────────────────────────────────────────────────────────────
-
-interface LobbyScreenProps {
-  apiBase: string;
-  gameServer: string;
-  matches: LobbyMatch[];
+interface LobbyRouteProps {
+  server: string;
   playerName: string;
-  onJoin: (matchID: string, playerID: "0" | "1", playerCredentials: string) => void;
-  onRefresh: () => void;
+  onEnterMatch: (matchID: string, playerID: "0" | "1", credentials: string) => void;
   onBack: () => void;
 }
 
@@ -307,26 +293,65 @@ const PLAYER_CLASS_LABEL: Record<string, string> = {
   "1": "Capitalist Class",
 };
 
-const LobbyScreen: React.FC<LobbyScreenProps> = ({
-  apiBase,
-  gameServer,
-  matches,
+const LobbyRoute: React.FC<LobbyRouteProps> = ({
+  server,
   playerName,
-  onJoin,
-  onRefresh,
+  onEnterMatch,
   onBack,
 }) => {
+  const [status, setStatus] = useState<LobbyStatus>({ kind: "connecting" });
+  const [timeoutMs] = useState(
+    () => parseInt(localStorage.getItem(TIMEOUT_MS_KEY) ?? String(DEFAULT_TIMEOUT_MS), 10),
+  );
   const [selectedPlayerID, setSelectedPlayerID] = useState<Record<string, "0" | "1">>({});
   const [joining, setJoining] = useState<string | null>(null);
-  const [joinError, setJoinError] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Use a ref for the fetch abort controller so fetchMatches can be called
+  // multiple times (refresh, retry) without stale closure issues.
+  const abortRef = useRef<AbortController | null>(null);
+
+  const fetchMatches = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    setStatus({ kind: "connecting" });
+    setActionError(null);
+
+    const timer = setTimeout(() => {
+      controller.abort();
+      setStatus({ kind: "error" });
+    }, timeoutMs);
+
+    try {
+      const res = await fetch(`${server}/games/${GAME_NAME}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: LobbyMatchList = await res.json() as LobbyMatchList;
+      setStatus({ kind: "ready", matches: data.matches ?? [] });
+    } catch (err) {
+      clearTimeout(timer);
+      if (err instanceof Error && err.name === "AbortError") return;
+      setStatus({ kind: "error" });
+    }
+  }, [server, timeoutMs]);
+
+  useEffect(() => {
+    void fetchMatches();
+    return () => abortRef.current?.abort();
+  }, [fetchMatches]);
 
   const handleCreate = async () => {
     setCreating(true);
     setCreateError(null);
     try {
-      const res = await fetch(`${apiBase}/games/${GAME_NAME}/create`, {
+      const res = await fetch(`${server}/games/${GAME_NAME}/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ numPlayers: 2 }),
@@ -335,7 +360,7 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
         const text = await res.text();
         throw new Error(text || `HTTP ${res.status}`);
       }
-      onRefresh();
+      await fetchMatches();
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -347,26 +372,23 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
     const pid = selectedPlayerID[match.matchID] ?? getDefaultPlayerID(match);
     if (!pid) return;
     setJoining(match.matchID);
-    setJoinError(null);
+    setActionError(null);
     try {
       const displayName = playerName || PLAYER_CLASS_LABEL[pid];
-      const res = await fetch(
-        `${apiBase}/games/${GAME_NAME}/${match.matchID}/join`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerID: pid, playerName: displayName }),
-        },
-      );
+      const res = await fetch(`${server}/games/${GAME_NAME}/${match.matchID}/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerID: pid, playerName: displayName }),
+      });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `HTTP ${res.status}`);
       }
       const data: LobbyJoinResponse = await res.json() as LobbyJoinResponse;
       localStorage.setItem(credentialsKey(match.matchID, pid), data.playerCredentials);
-      onJoin(match.matchID, pid as "0" | "1", data.playerCredentials);
+      onEnterMatch(match.matchID, pid as "0" | "1", data.playerCredentials);
     } catch (err) {
-      setJoinError(err instanceof Error ? err.message : "Unknown error");
+      setActionError(err instanceof Error ? err.message : "Unknown error");
       setJoining(null);
     }
   };
@@ -374,11 +396,88 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
   const handleRejoin = (match: LobbyMatch, pid: "0" | "1") => {
     const storedCreds = localStorage.getItem(credentialsKey(match.matchID, pid));
     if (!storedCreds) {
-      setJoinError("Cannot rejoin: credentials not found. Try clearing match history or rejoining from the original device.");
+      setActionError(
+        "Cannot rejoin: credentials not found. Try clearing match history or rejoining from the original device.",
+      );
       return;
     }
-    onJoin(match.matchID, pid, storedCreds);
+    onEnterMatch(match.matchID, pid, storedCreds);
   };
+
+  const handleLeave = async (match: LobbyMatch, pid: "0" | "1") => {
+    const creds = localStorage.getItem(credentialsKey(match.matchID, pid));
+    if (!creds) {
+      setActionError("Cannot leave: credentials not found.");
+      return;
+    }
+    setLeaving(match.matchID);
+    setActionError(null);
+    try {
+      await leaveAndMaybeDelete(server, match.matchID, pid, creds);
+      await fetchMatches();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLeaving(null);
+    }
+  };
+
+  // ── Connecting view ──────────────────────────────────────────────────────────
+
+  if (status.kind === "connecting") {
+    return (
+      <div className="setup-screen">
+        <div className="setup-screen-content">
+          <div className="setup-screen-title">CLASS WAR</div>
+          <div className="setup-screen-subtitle">International</div>
+          <div className="lobby-connecting-box">
+            <div className="lobby-spinner" aria-label="Connecting" />
+            <p className="lobby-connecting-text">Connecting to {server}…</p>
+            <button className="setup-button setup-button-secondary" onClick={onBack}>
+              ← Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Error view ───────────────────────────────────────────────────────────────
+
+  if (status.kind === "error") {
+    return (
+      <div className="setup-screen">
+        <div className="setup-screen-content">
+          <div className="setup-screen-title">CLASS WAR</div>
+          <div className="setup-screen-subtitle">International</div>
+          <div className="lobby-error-box">
+            <p className="lobby-error-message">
+              Cannot find host server at <strong>{server}</strong> after{" "}
+              <strong>{timeoutMs / 1000}s</strong>.
+            </p>
+            <p className="lobby-error-subtext">
+              Do you have the correct IP address (or domain), port, and is the host server running?
+            </p>
+            <div className="lobby-error-actions">
+              <button
+                className="setup-button setup-button-host"
+                onClick={() => void fetchMatches()}
+              >
+                ↺ Retry Connection
+              </button>
+              <button className="setup-button setup-button-secondary" onClick={onBack}>
+                ← Return to Start Screen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Match list view ──────────────────────────────────────────────────────────
+
+  const { matches } = status;
 
   return (
     <div className="setup-screen">
@@ -390,17 +489,23 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
           <div className="lobby-header">
             <h2 className="setup-section-title">Open Matches</h2>
             <div className="lobby-header-actions">
-              <button className="setup-button setup-button-small setup-button-secondary" onClick={onRefresh}>
+              <button
+                className="setup-button setup-button-small setup-button-secondary"
+                onClick={() => void fetchMatches()}
+              >
                 ↺ Refresh
               </button>
-              <button className="setup-button setup-button-small setup-button-secondary" onClick={onBack}>
+              <button
+                className="setup-button setup-button-small setup-button-secondary"
+                onClick={onBack}
+              >
                 ← Back
               </button>
             </div>
           </div>
           <div className="lobby-server-info">
             <p className="setup-section-description lobby-server-label">
-              Server: {gameServer}
+              Server: {server}
             </p>
             {playerName && (
               <p className="lobby-current-player">
@@ -412,7 +517,7 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
           <div className="lobby-create">
             <button
               className="setup-button setup-button-host lobby-create-button"
-              onClick={handleCreate}
+              onClick={() => void handleCreate()}
               disabled={creating}
             >
               {creating ? "Creating…" : "+ Create Game"}
@@ -420,9 +525,7 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
             {createError && <p className="lobby-join-error">{createError}</p>}
           </div>
 
-          {joinError && (
-            <p className="lobby-join-error">{joinError}</p>
-          )}
+          {actionError && <p className="lobby-join-error">{actionError}</p>}
 
           {matches.length === 0 ? (
             <div className="lobby-empty">
@@ -440,34 +543,58 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
                 const isRejoinable = mySlot !== undefined;
                 const isFull = !isRejoinable && match.players.every((p) => p.name !== undefined);
                 const pid = selectedPlayerID[match.matchID] ?? getDefaultPlayerID(match);
+                const isBusy =
+                  joining === match.matchID || leaving === match.matchID;
 
                 return (
-                  <div key={match.matchID} className={`lobby-match-card${isFull ? " lobby-match-card-full" : ""}`}>
-                    <div className="lobby-match-id">Match: <code>{match.matchID}</code></div>
+                  <div
+                    key={match.matchID}
+                    className={`lobby-match-card${isFull ? " lobby-match-card-full" : ""}`}
+                  >
+                    <div className="lobby-match-id">
+                      Match: <code>{match.matchID}</code>
+                    </div>
                     <div className="lobby-match-players">
                       {match.players.map((player) => {
-                        const isMine = playerName && player.name === playerName;
+                        const isMine = Boolean(playerName && player.name === playerName);
                         let slotClass = "lobby-player-slot";
                         if (isMine) slotClass += " lobby-player-slot-mine";
                         else if (player.name) slotClass += " lobby-player-slot-taken";
                         else slotClass += " lobby-player-slot-open";
                         return (
                           <div key={player.id} className={slotClass}>
-                            <span className="lobby-player-class">{PLAYER_CLASS_LABEL[String(player.id)]}</span>
-                            <span className="lobby-player-name">{player.name ?? "Open"}</span>
+                            <span className="lobby-player-class">
+                              {PLAYER_CLASS_LABEL[String(player.id)]}
+                            </span>
+                            <span className="lobby-player-name">
+                              {player.name ?? "Open"}
+                            </span>
                           </div>
                         );
                       })}
                     </div>
                     <div className="lobby-match-join">
                       {isRejoinable ? (
-                        <button
-                          className="lobby-rejoin-button"
-                          disabled={joining === match.matchID}
-                          onClick={() => handleRejoin(match, String(mySlot.id) as "0" | "1")}
-                        >
-                          {joining === match.matchID ? "Rejoining…" : "↩ Rejoin"}
-                        </button>
+                        <>
+                          <button
+                            className="lobby-rejoin-button"
+                            disabled={isBusy}
+                            onClick={() =>
+                              handleRejoin(match, String(mySlot.id) as "0" | "1")
+                            }
+                          >
+                            {joining === match.matchID ? "Rejoining…" : "↩ Rejoin"}
+                          </button>
+                          <button
+                            className="setup-button setup-button-secondary lobby-leave-button"
+                            disabled={isBusy}
+                            onClick={() =>
+                              void handleLeave(match, String(mySlot.id) as "0" | "1")
+                            }
+                          >
+                            {leaving === match.matchID ? "Leaving…" : "Leave"}
+                          </button>
+                        </>
                       ) : (
                         <>
                           <select
@@ -479,7 +606,7 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
                                 [match.matchID]: e.target.value as "0" | "1",
                               }))
                             }
-                            disabled={isFull || joining === match.matchID}
+                            disabled={isFull || isBusy}
                           >
                             {match.players.map((player) => (
                               <option
@@ -487,16 +614,21 @@ const LobbyScreen: React.FC<LobbyScreenProps> = ({
                                 value={String(player.id)}
                                 disabled={player.name !== undefined}
                               >
-                                {PLAYER_CLASS_LABEL[String(player.id)]}{player.name ? " (taken)" : ""}
+                                {PLAYER_CLASS_LABEL[String(player.id)]}
+                                {player.name ? " (taken)" : ""}
                               </option>
                             ))}
                           </select>
                           <button
                             className="setup-button setup-button-host lobby-join-button"
-                            disabled={isFull || joining === match.matchID}
-                            onClick={() => handleJoin(match)}
+                            disabled={isFull || isBusy}
+                            onClick={() => void handleJoin(match)}
                           >
-                            {joining === match.matchID ? "Joining…" : isFull ? "Full" : "Join Game"}
+                            {joining === match.matchID
+                              ? "Joining…"
+                              : isFull
+                                ? "Full"
+                                : "Join Game"}
                           </button>
                         </>
                       )}
@@ -518,29 +650,44 @@ function getDefaultPlayerID(match: LobbyMatch): "0" | "1" | undefined {
   return String(open.id) as "0" | "1";
 }
 
-// ─── Remote mode wrapper ──────────────────────────────────────────────────────
+// ─── Remote game wrapper ──────────────────────────────────────────────────────
 
-function RemoteMode({
-  gameServer,
-  matchID,
-  playerID,
-  playerCredentials,
-  onReturnToLobby,
-  onReturnToStart,
-}: {
-  gameServer: string;
+interface RemoteGameProps {
+  server: string;
   matchID: string;
   playerID: "0" | "1";
-  playerCredentials: string;
-  onReturnToLobby: () => void;
-  onReturnToStart: () => void;
-}) {
-  const [RemoteClient] = useState(() => makeRemoteClient(gameServer));
+  credentials: string;
+}
+
+function RemoteGame({ server, matchID, playerID, credentials }: RemoteGameProps) {
+  const [RemoteClient] = useState(() => makeRemoteClient(server));
+
+  const returnToLobby = useCallback(() => {
+    window.location.hash = lobbyHash(server);
+  }, [server]);
+
+  const returnToStart = useCallback(() => {
+    window.location.hash = "#/";
+  }, []);
+
+  const leaveMatch = useCallback(async () => {
+    try {
+      await leaveAndMaybeDelete(server, matchID, playerID, credentials);
+    } finally {
+      window.location.hash = lobbyHash(server);
+    }
+  }, [server, matchID, playerID, credentials]);
 
   return (
-    <GameNavContext.Provider value={{ onReturnToLobby, onReturnToStart }}>
+    <GameNavContext.Provider
+      value={{
+        onReturnToLobby: returnToLobby,
+        onReturnToStart: returnToStart,
+        onLeaveMatch: leaveMatch,
+      }}
+    >
       <div className="App">
-        <RemoteClient matchID={matchID} playerID={playerID} credentials={playerCredentials} />
+        <RemoteClient matchID={matchID} playerID={playerID} credentials={credentials} />
       </div>
     </GameNavContext.Provider>
   );
@@ -549,49 +696,42 @@ function RemoteMode({
 // ─── App root ─────────────────────────────────────────────────────────────────
 
 function App() {
-  const [mode, setMode] = useState<AppMode>({ kind: "setup" });
+  const [route, setRoute] = useState<Route>(parseHash);
   const [playerName, setPlayerName] = useState<string>(
     () => localStorage.getItem(PLAYER_NAME_KEY) ?? "",
   );
-  // Preserve lobby connection params so "Return to Lobby" can reconnect
-  const lobbyParamsRef = useRef<{ apiBase: string; gameServer: string; timeoutMs: number } | null>(null);
 
-  const goToSetup = () => setMode({ kind: "setup" });
+  // Keep route in sync with the URL hash (handles browser back/forward)
+  useEffect(() => {
+    const onHashChange = () => setRoute(parseHash());
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
-  const connectToLobby = (apiBase: string, gameServer: string, timeoutMs: number, name: string) => {
-    setPlayerName(name);
-    localStorage.setItem(PLAYER_NAME_KEY, name);
-    lobbyParamsRef.current = { apiBase, gameServer, timeoutMs };
-    setMode({ kind: "connecting", apiBase, gameServer, timeoutMs });
-  };
+  const goToSetup = useCallback(() => {
+    window.location.hash = "#/";
+  }, []);
 
-  const retryConnection = () => {
-    if (!lobbyParamsRef.current) return;
-    const { apiBase, gameServer, timeoutMs } = lobbyParamsRef.current;
-    setMode({ kind: "connecting", apiBase, gameServer, timeoutMs });
-    // Re-trigger connecting by resetting then setting
-    setTimeout(() => setMode({ kind: "connecting", apiBase, gameServer, timeoutMs }), 0);
-  };
+  const goToLobby = useCallback(
+    (server: string, name: string) => {
+      setPlayerName(name);
+      window.location.hash = lobbyHash(server);
+    },
+    [],
+  );
 
-  const returnToLobby = () => {
-    if (!lobbyParamsRef.current) { goToSetup(); return; }
-    const { apiBase, gameServer, timeoutMs } = lobbyParamsRef.current;
-    setMode({ kind: "connecting", apiBase, gameServer, timeoutMs });
-  };
+  const goToMatch = useCallback(
+    (server: string, matchID: string, playerID: "0" | "1", credentials: string) => {
+      window.location.hash = matchHash(server, matchID, playerID, credentials);
+    },
+    [],
+  );
 
-  if (mode.kind === "setup") {
+  if (route.kind === "local") {
     return (
-      <SetupScreen
-        initialPlayerName={playerName}
-        onLocal={() => setMode({ kind: "local" })}
-        onConnectToLobby={connectToLobby}
-      />
-    );
-  }
-
-  if (mode.kind === "local") {
-    return (
-      <GameNavContext.Provider value={{ onReturnToStart: goToSetup, onReturnToLobby: null }}>
+      <GameNavContext.Provider
+        value={{ onReturnToStart: goToSetup, onReturnToLobby: null, onLeaveMatch: null }}
+      >
         <div className="App">
           <LocalClient />
         </div>
@@ -599,60 +739,36 @@ function App() {
     );
   }
 
-  if (mode.kind === "connecting") {
+  if (route.kind === "lobby") {
     return (
-      <ConnectingScreen
-        apiBase={mode.apiBase}
-        timeoutMs={mode.timeoutMs}
-        onSuccess={(matches) =>
-          setMode({ kind: "lobby", apiBase: mode.apiBase, gameServer: mode.gameServer, matches })
-        }
-        onTimeout={() =>
-          setMode({ kind: "error", apiBase: mode.apiBase, gameServer: mode.gameServer, timeoutMs: mode.timeoutMs })
-        }
-        onBack={goToSetup}
-      />
-    );
-  }
-
-  if (mode.kind === "error") {
-    return (
-      <ConnectionErrorScreen
-        apiBase={mode.apiBase}
-        timeoutMs={mode.timeoutMs}
-        onRetry={retryConnection}
-        onBack={goToSetup}
-      />
-    );
-  }
-
-  if (mode.kind === "lobby") {
-    return (
-      <LobbyScreen
-        apiBase={mode.apiBase}
-        gameServer={mode.gameServer}
-        matches={mode.matches}
+      <LobbyRoute
+        server={route.server}
         playerName={playerName}
-        onJoin={(matchID, playerID, playerCredentials) =>
-          setMode({ kind: "host", gameServer: mode.gameServer, matchID, playerID, playerCredentials })
+        onEnterMatch={(matchID, playerID, credentials) =>
+          goToMatch(route.server, matchID, playerID, credentials)
         }
-        onRefresh={() => {
-          const timeoutMs = lobbyParamsRef.current?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-          setMode({ kind: "connecting", apiBase: mode.apiBase, gameServer: mode.gameServer, timeoutMs });
-        }}
         onBack={goToSetup}
       />
     );
   }
 
+  if (route.kind === "match") {
+    return (
+      <RemoteGame
+        server={route.server}
+        matchID={route.matchID}
+        playerID={route.playerID}
+        credentials={route.credentials}
+      />
+    );
+  }
+
+  // route.kind === "setup"
   return (
-    <RemoteMode
-      gameServer={mode.gameServer}
-      matchID={mode.matchID}
-      playerID={mode.playerID}
-      playerCredentials={mode.playerCredentials}
-      onReturnToLobby={returnToLobby}
-      onReturnToStart={goToSetup}
+    <SetupScreen
+      initialPlayerName={playerName}
+      onLocal={() => { window.location.hash = "#/local"; }}
+      onConnectToLobby={goToLobby}
     />
   );
 }

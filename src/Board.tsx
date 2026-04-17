@@ -51,7 +51,7 @@ interface SlotData {
 // ─── Hamburger menu ───────────────────────────────────────────────────────────
 
 function HamburgerMenu() {
-  const { onReturnToStart, onReturnToLobby } = useGameNav();
+  const { onReturnToStart, onReturnToLobby, onLeaveMatch } = useGameNav();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -67,7 +67,7 @@ function HamburgerMenu() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  if (!onReturnToStart && !onReturnToLobby) return null;
+  if (!onReturnToStart && !onReturnToLobby && !onLeaveMatch) return null;
 
   return (
     <div className="game-menu" ref={menuRef}>
@@ -97,6 +97,15 @@ function HamburgerMenu() {
               onClick={() => { setOpen(false); onReturnToStart(); }}
             >
               ⌂ Return to Start Screen
+            </button>
+          )}
+          {onLeaveMatch && (
+            <button
+              className="game-menu-item game-menu-item-danger"
+              role="menuitem"
+              onClick={() => { setOpen(false); void onLeaveMatch(); }}
+            >
+              ✕ Leave Match
             </button>
           )}
         </div>
