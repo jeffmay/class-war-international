@@ -17,7 +17,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Client } from "boardgame.io/react";
-import { Local, SocketIO } from "boardgame.io/multiplayer";
+import { SocketIO } from "boardgame.io/multiplayer";
 import { ClassWarGame } from "./game/ClassWarGame";
 import { ClassWarBoard } from "./Board";
 import { LobbyMatch, LobbyMatchList, LobbyJoinResponse } from "./types/lobby";
@@ -105,7 +105,6 @@ const LocalClient = Client({
   board: ClassWarBoard,
   numPlayers: 2,
   debug: import.meta.env.DEV,
-  multiplayer: Local(),
 });
 
 function makeRemoteClient(server: string) {

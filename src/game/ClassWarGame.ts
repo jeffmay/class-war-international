@@ -158,10 +158,10 @@ export const Moves = {
    * For demands and institutions, use index 0 or 1 to target a specific slot;
    * if a card already occupies that slot it is moved to the dustbin.
    */
-  playCardFromHand: ({ G, playerID }, handIndex: number, targetSlot: string) => {
+  playCardFromHand: ({ G, ctx }, handIndex: number, targetSlot: string) => {
     if (G.turnPhase !== TurnPhase.Action) return;
 
-    const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
     const player = G.players[currentClass];
 
     if (handIndex < 0 || handIndex >= player.hand.length) return;
@@ -358,10 +358,10 @@ export const Moves = {
    * then creates the conflict state. The figure is removed from play and placed
    * into the conflict. Resolution happens separately.
    */
-  planStrike: ({ G, playerID }, figureId: string, workplaceIndex: number) => {
+  planStrike: ({ G, ctx }, figureId: string, workplaceIndex: number) => {
     if (G.turnPhase !== TurnPhase.Action) return;
 
-    const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
     if (currentClass !== SocialClass.WorkingClass) {
       // Only Working Class can initiate strikes
       G.errorMessage = 'Only Working Class figures can initiate strikes.';
@@ -427,10 +427,10 @@ export const Moves = {
    * then creates the conflict state. The figure is removed from play and placed
    * into the conflict.
    */
-  planElection: ({ G, playerID }, figureId: string, officeIndex: number) => {
+  planElection: ({ G, ctx }, figureId: string, officeIndex: number) => {
     if (G.turnPhase !== TurnPhase.Action) return;
 
-    const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
     const player = G.players[currentClass];
 
     const figureIndex = player.figures.findIndex(f => f.id === figureId);
@@ -501,10 +501,10 @@ export const Moves = {
    * @param officeIndex - Index of the political office the figure holds
    * @param demandSlotIndex - Index in the proposing player's demands array (0 or 1)
    */
-  planLegislation: ({ G, playerID }, officeIndex: number, demandSlotIndex: number) => {
+  planLegislation: ({ G, ctx }, officeIndex: number, demandSlotIndex: number) => {
     if (G.turnPhase !== TurnPhase.Action) return;
 
-    const currentClass = playerID === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
     const opposingClass = currentClass === SocialClass.WorkingClass ? SocialClass.CapitalistClass : SocialClass.WorkingClass;
     const player = G.players[currentClass];
 
