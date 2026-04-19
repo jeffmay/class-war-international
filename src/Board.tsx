@@ -148,9 +148,10 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     const phase = G.activeConflict?.phase;
     if (phase === ConflictPhase.Responding && prevConflictPhaseRef.current !== ConflictPhase.Responding) {
       setRespondingWaitingDismissed(false);
+      if (!playerID) setConflictModalOpen(false); // hide ConflictModal while WaitingInterstitial is shown
     }
     prevConflictPhaseRef.current = phase;
-  }, [G.activeConflict?.phase]);
+  }, [G.activeConflict?.phase, playerID]);
 
   // Determine current class
   const isWorkingClass = ctx.currentPlayer === '0';
@@ -834,7 +835,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       {G.activeConflict?.phase === ConflictPhase.Responding && !playerID && !respondingWaitingDismissed && (
         <WaitingInterstitial
           waitingClass={G.activeConflict.initiatingClass}
-          onClose={() => setRespondingWaitingDismissed(true)}
+          onClose={() => { setRespondingWaitingDismissed(true); setConflictModalOpen(true); }}
         />
       )}
 
@@ -964,7 +965,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 : `⏭ Theorize Cards (${theorizeSelectedIndexes.length})`}
             </button>
           )}
-          {G.activeConflict && (
+          {G.activeConflict && !conflictModalOpen && (
             <button
               className="game-return-to-conflict-button"
               onClick={() => setConflictModalOpen(true)}
