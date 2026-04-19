@@ -795,21 +795,31 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   return (
     <div className="game-board">
       {/* Conflict Modal — sits lowest in the overlay stack; TurnStart and handoff render on top */}
-      {G.activeConflict && conflictTargetCard && !conflictModalMinimized && (
-        <ConflictModal
-          conflict={G.activeConflict}
-          activeConflictPlayer={G.activeConflict.activeConflictPlayer}
-          players={G.players}
-          targetCard={conflictTargetCard}
-          onClose={() => setConflictModalMinimized(true)}
-          onCancel={() => moves.cancelConflict()}
-          onInitiate={() => moves.initiateConflict()}
-          onAddFigure={(figureId) => moves.addFigureToConflict(figureId)}
-          onAddTactic={(handIndex, forClass) => moves.addTacticToConflict(handIndex, forClass)}
-          onPlanResponse={() => moves.planResponse()}
-          onResolve={() => moves.resolveConflict()}
-        />
-      )}
+      {G.activeConflict && conflictTargetCard && !conflictModalMinimized && (() => {
+        // In local mode the device is always with the active conflict player after the handoff.
+        // In multiplayer each client knows its own class via playerID.
+        const conflictViewingClass: SocialClass = playerID
+          ? myClass
+          : G.activeConflict.activeConflictPlayer;
+        return (
+          <ConflictModal
+            conflict={G.activeConflict}
+            viewingClass={conflictViewingClass}
+            activeConflictPlayer={G.activeConflict.activeConflictPlayer}
+            players={G.players}
+            targetCard={conflictTargetCard}
+            canUndo={canUndo}
+            onClose={() => setConflictModalMinimized(true)}
+            onUndo={() => moves.undoMove()}
+            onCancel={() => moves.cancelConflict()}
+            onInitiate={() => { moves.initiateConflict(); setConflictModalMinimized(true); }}
+            onAddFigure={(figureId) => moves.addFigureToConflict(figureId)}
+            onAddTactic={(handIndex, forClass) => moves.addTacticToConflict(handIndex, forClass)}
+            onPlanResponse={() => { moves.planResponse(); setConflictModalMinimized(true); }}
+            onResolve={() => moves.resolveConflict()}
+          />
+        );
+      })()}
 
       {/* Turn Start Modal — stacks over Conflict Modal */}
       {G.turnPhase === TurnPhase.Production && (!playerID ? handoffDismissed : isMyTurn) && (
@@ -858,7 +868,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           return (
             <WaitingInterstitial
               waitingClass={handoffClass}
-              onClose={() => setHandoffDismissed(true)}
+              onClose={() => { setHandoffDismissed(true); if (G.activeConflict) setConflictModalMinimized(false); }}
             />
           );
         }

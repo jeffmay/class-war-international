@@ -16,14 +16,18 @@ import { CardComponent } from './CardComponent';
 
 interface ConflictModalProps {
   conflict: ConflictState;
-  /** The player whose hand/figures we show for adding cards */
+  /** Which class is currently viewing this modal (drives tactic/figure visibility and button states) */
+  viewingClass: SocialClass;
+  /** The class whose turn it currently is within the conflict */
   activeConflictPlayer: SocialClass;
   /** Full player states so we can show available figures and hand */
   players: { [SocialClass.WorkingClass]: PlayerState; [SocialClass.CapitalistClass]: PlayerState };
   /** The card being contested (workplace, office, or demand) */
   targetCard: CardSlotEntity;
+  canUndo: boolean;
   onClose: () => void;
   onCancel: () => void;
+  onUndo: () => void;
   onInitiate: () => void;
   onAddFigure: (figureId: string) => void;
   onAddTactic: (handIndex: number, forClass?: SocialClass) => void;
@@ -77,21 +81,24 @@ function renderPowerBreakdown(
 
 export const ConflictModal: React.FC<ConflictModalProps> = ({
   conflict,
+  viewingClass,
   activeConflictPlayer,
   players,
   targetCard,
+  canUndo,
   onClose,
   onCancel,
+  onUndo,
   onInitiate,
   onAddFigure,
   onAddTactic,
   onPlanResponse,
   onResolve,
 }) => {
-  const activePlayer = players[activeConflictPlayer];
   const isInitiating = conflict.phase === ConflictPhase.Initiating;
   const isResponding = conflict.phase === ConflictPhase.Responding;
   const isResolving = conflict.phase === ConflictPhase.Resolving;
+  const isMyTurn = viewingClass === activeConflictPlayer;
 
   const conflictTypeLabel =
     conflict.conflictType === ConflictType.Strike ? "Strike" :
@@ -111,22 +118,16 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
     return `${conflict.initiatingClass}: Add more cards or resolve`;
   })();
 
-  // Available figures: only the active conflict player can add figures
-  const availableFigures = activePlayer.figures.filter(f => !f.exhausted && !f.in_training);
-
-  // During Responding, both classes can add tactics; otherwise only the active player
-  const tacticsForClass = (socialClass: SocialClass) =>
-    players[socialClass].hand
-      .map((cardId, idx) => ({ cardId, idx }))
-      .filter(({ cardId }) => {
-        if (!isTacticCardID(cardId)) return false;
-        const data = getTacticDataById(cardId);
-        return data.enabled_by_conflict?.includes(conflict.conflictType) ?? false;
-      });
-
-  const handTactics = tacticsForClass(activeConflictPlayer);
-  const wcHandTactics = isResponding ? tacticsForClass(SocialClass.WorkingClass) : [];
-  const ccHandTactics = isResponding ? tacticsForClass(SocialClass.CapitalistClass) : [];
+  // Only show the viewing player's own available figures and tactics — never the opponent's.
+  const viewingPlayer = players[viewingClass];
+  const availableFigures = viewingPlayer.figures.filter(f => !f.exhausted && !f.in_training);
+  const handTactics = viewingPlayer.hand
+    .map((cardId, idx) => ({ cardId, idx }))
+    .filter(({ cardId }) => {
+      if (!isTacticCardID(cardId)) return false;
+      const data = getTacticDataById(cardId);
+      return data.enabled_by_conflict?.includes(conflict.conflictType) ?? false;
+    });
 
   // For elections: the incumbent sides with the class opposing the challenger.
   // Compute the incumbent's established power and which class it benefits.
@@ -251,8 +252,8 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
           </div>
         </div>
 
-        {/* Cards available to add */}
-        {!isResolving && (
+        {/* Cards available to add — only shown when it is the viewer's turn to act */}
+        {!isResolving && isMyTurn && (
           <div className="conflict-modal-available">
             {availableFigures.length > 0 && (
               <div className="conflict-modal-available-section">
@@ -270,77 +271,23 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
                 </div>
               </div>
             )}
-            {/* During Responding: show tactics for both classes */}
-            {isResponding && (wcHandTactics.length > 0 || ccHandTactics.length > 0) && (
-              <>
-                {wcHandTactics.length > 0 && (
-                  <div className="conflict-modal-available-section">
-                    <div className="conflict-modal-section-label">Working Class Tactics</div>
-                    <div className="conflict-modal-card-row">
-                      {wcHandTactics.map(({ cardId, idx }) => {
-                        const data = getAnyCardData(cardId);
-                        const canAfford = players[SocialClass.WorkingClass].wealth >= (data.cost ?? 0);
-                        return (
-                          <button
-                            key={idx}
-                            className="conflict-modal-add-card-button"
-                            onClick={canAfford ? () => onAddTactic(idx, SocialClass.WorkingClass) : undefined}
-                            disabled={!canAfford}
-                          >
-                            <div className="conflict-tactic-wrapper">
-                              <CardComponent card={data} borderVariant={canAfford ? "hand" : "other"} />
-                              {!canAfford && <div className="conflict-tactic-cannot-afford">Cannot Afford</div>}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                {ccHandTactics.length > 0 && (
-                  <div className="conflict-modal-available-section">
-                    <div className="conflict-modal-section-label">Capitalist Class Tactics</div>
-                    <div className="conflict-modal-card-row">
-                      {ccHandTactics.map(({ cardId, idx }) => {
-                        const data = getAnyCardData(cardId);
-                        const canAfford = players[SocialClass.CapitalistClass].wealth >= (data.cost ?? 0);
-                        return (
-                          <button
-                            key={idx}
-                            className="conflict-modal-add-card-button"
-                            onClick={canAfford ? () => onAddTactic(idx, SocialClass.CapitalistClass) : undefined}
-                            disabled={!canAfford}
-                          >
-                            <div className="conflict-tactic-wrapper">
-                              <CardComponent card={data} borderVariant={canAfford ? "hand" : "other"} />
-                              {!canAfford && <div className="conflict-tactic-cannot-afford">Cannot Afford</div>}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-            {/* During Initiating/Resolving: show only the active player's tactics */}
-            {!isResponding && handTactics.length > 0 && (
+            {handTactics.length > 0 && (
               <div className="conflict-modal-available-section">
                 <div className="conflict-modal-section-label">Play a Tactic</div>
                 <div className="conflict-modal-card-row">
                   {handTactics.map(({ cardId, idx }) => {
                     const data = getAnyCardData(cardId);
-                    const canAfford = activePlayer.wealth >= (data.cost ?? 0);
+                    const canAffordTactic = viewingPlayer.wealth >= (data.cost ?? 0);
                     return (
                       <button
                         key={idx}
                         className="conflict-modal-add-card-button"
-                        onClick={canAfford ? () => onAddTactic(idx) : undefined}
-                        disabled={!canAfford}
+                        onClick={canAffordTactic ? () => onAddTactic(idx, viewingClass) : undefined}
+                        disabled={!canAffordTactic}
                       >
                         <div className="conflict-tactic-wrapper">
-                          <CardComponent card={data} borderVariant={canAfford ? "hand" : "other"} />
-                          {!canAfford && <div className="conflict-tactic-cannot-afford">Cannot Afford</div>}
+                          <CardComponent card={data} borderVariant={canAffordTactic ? "hand" : "other"} />
+                          {!canAffordTactic && <div className="conflict-tactic-cannot-afford">Cannot Afford</div>}
                         </div>
                       </button>
                     );
@@ -353,6 +300,13 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
 
         {/* Action buttons */}
         <div className="conflict-modal-actions">
+          <button
+            className="game-undo-button"
+            disabled={!canUndo}
+            onClick={canUndo ? onUndo : undefined}
+          >
+            ↩ Undo
+          </button>
           {isInitiating && (
             <>
               <button className="conflict-modal-button conflict-modal-button-initiate" onClick={onInitiate}>
@@ -364,9 +318,13 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
             </>
           )}
           {isResponding && (
-            <button className="conflict-modal-button conflict-modal-button-respond" onClick={onPlanResponse}>
-              ✓ Plan Response
-            </button>
+            isMyTurn
+              ? <button className="conflict-modal-button conflict-modal-button-respond" onClick={onPlanResponse}>
+                  ✓ Plan Response
+                </button>
+              : <button className="conflict-modal-button" disabled>
+                  ⏳ Must wait for your turn
+                </button>
           )}
           {isResolving && (
             <button className="conflict-modal-button conflict-modal-button-resolve" onClick={onResolve}>
