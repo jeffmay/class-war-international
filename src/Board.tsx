@@ -119,39 +119,46 @@ function HamburgerMenu() {
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
   const [boardState, setBoardState] = useState<BoardState>({ mode: 'normal', selectedSlotId: null });
   const [theorizeSelectedIndexes, setTheorizeSelectedIndexes] = useState<number[]>([]);
-  const [conflictModalOpen, setConflictModalOpen] = useState(true);
-  const [waitingDismissed, setWaitingDismissed] = useState(false);
-  const [respondingWaitingDismissed, setRespondingWaitingDismissed] = useState(false);
+  // true = minimized (hidden); false = visible. Starts visible; un-minimizes when a new conflict begins.
+  const [conflictModalMinimized, setConflictModalMinimized] = useState(false);
+  // true = dismissed; false = needs to be shown.
+  // Local mode: starts true so the game-start turn has no initial handoff.
+  // Multiplayer: starts false so the non-active player immediately sees the WaitingInterstitial.
+  // Resets to false on each player-switch or conflict phase advance that requires a handoff.
+  const [handoffDismissed, setHandoffDismissed] = useState(() => !playerID);
   const [undoHovered, setUndoHovered] = useState(false);
 
-  // Reopen the modal automatically whenever a new conflict begins
+  // Un-minimize conflict modal whenever a new conflict begins
   const prevConflictRef = React.useRef<typeof G.activeConflict>(G.activeConflict);
   React.useEffect(() => {
     if (G.activeConflict && !prevConflictRef.current) {
-      setConflictModalOpen(true);
+      setConflictModalMinimized(false);
     }
     prevConflictRef.current = G.activeConflict;
   }, [G.activeConflict]);
 
-  // Reset the waiting-dismissed flag whenever the current player changes
+  // Require handoff whenever the current player changes (new turn in local mode)
   const prevCurrentPlayerRef = React.useRef(ctx.currentPlayer);
   React.useEffect(() => {
     if (ctx.currentPlayer !== prevCurrentPlayerRef.current) {
-      setWaitingDismissed(false);
+      setHandoffDismissed(false);
       prevCurrentPlayerRef.current = ctx.currentPlayer;
     }
   }, [ctx.currentPlayer]);
 
-  // Reset the responding-waiting-dismissed flag whenever conflict enters Responding phase
+  // Require handoff whenever the conflict advances to Responding or Resolving phase
   const prevConflictPhaseRef = React.useRef<ConflictPhase | undefined>(undefined);
   React.useEffect(() => {
     const phase = G.activeConflict?.phase;
-    if (phase === ConflictPhase.Responding && prevConflictPhaseRef.current !== ConflictPhase.Responding) {
-      setRespondingWaitingDismissed(false);
-      if (!playerID) setConflictModalOpen(false); // hide ConflictModal while WaitingInterstitial is shown
+    const prev = prevConflictPhaseRef.current;
+    if (
+      (phase === ConflictPhase.Responding && prev !== ConflictPhase.Responding) ||
+      (phase === ConflictPhase.Resolving && prev !== ConflictPhase.Resolving)
+    ) {
+      setHandoffDismissed(false);
     }
     prevConflictPhaseRef.current = phase;
-  }, [G.activeConflict?.phase, playerID]);
+  }, [G.activeConflict?.phase]);
 
   // Determine current class
   const isWorkingClass = ctx.currentPlayer === '0';
@@ -181,8 +188,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           moves.dismissConflictOutcome(myClass);
         } else if (boardState.mode === 'showingDealtCards' && !boardState.modalDismissed) {
           setBoardState({ ...boardState, modalDismissed: true });
-        } else if (conflictModalOpen && G.activeConflict) {
-          setConflictModalOpen(false);
+        } else if (!conflictModalMinimized && G.activeConflict) {
+          setConflictModalMinimized(true);
         } else if (boardState.mode === 'normal' && boardState.selectedSlotId !== null) {
           handleCloseInspector();
         }
@@ -190,7 +197,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [boardState, G.conflictOutcome, G.activeConflict, conflictModalOpen, myClass, moves]);
+  }, [boardState, G.conflictOutcome, G.activeConflict, conflictModalMinimized, myClass, moves]);
 
   const handleSelectSlot = (slotId: string) => {
     if (boardState.mode === 'normal' && boardState.selectedSlotId === slotId) {
@@ -787,41 +794,14 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
   return (
     <div className="game-board">
-      {/* Turn Start Modal - shown during Production phase to the current player only */}
-      {G.turnPhase === TurnPhase.Production && isMyTurn && (
-        <TurnStartModal
-          turnNumber={G.turnNumber}
-          currentClass={currentClass}
-          onStart={() => moves.collectProduction()}
-        />
-      )}
-
-      {/* Waiting Interstitial - shown to the non-active player in multiplayer during Production phase */}
-      {G.turnPhase === TurnPhase.Production && !isMyTurn && !waitingDismissed && (
-        <WaitingInterstitial
-          waitingClass={myClass}
-          onClose={() => setWaitingDismissed(true)}
-        />
-      )}
-
-      {/* Conflict Outcome Modal — shown after the player starts their turn (Action phase).
-          This ensures the Turn Start Interstitial always appears first. */}
-      {G.turnPhase !== TurnPhase.Production && G.conflictOutcome && !G.conflictOutcome.dismissedBy.includes(myClass) && (
-        <ConflictOutcomeModal
-          outcome={G.conflictOutcome}
-          viewingClass={myClass}
-          onDismiss={() => moves.dismissConflictOutcome(myClass)}
-        />
-      )}
-
-      {/* Active Conflict Modal — shown during Initiating / Responding / Resolving phases */}
-      {G.activeConflict && conflictTargetCard && conflictModalOpen && (
+      {/* Conflict Modal — sits lowest in the overlay stack; TurnStart and handoff render on top */}
+      {G.activeConflict && conflictTargetCard && !conflictModalMinimized && (
         <ConflictModal
           conflict={G.activeConflict}
           activeConflictPlayer={G.activeConflict.activeConflictPlayer}
           players={G.players}
           targetCard={conflictTargetCard}
-          onClose={() => setConflictModalOpen(false)}
+          onClose={() => setConflictModalMinimized(true)}
           onCancel={() => moves.cancelConflict()}
           onInitiate={() => moves.initiateConflict()}
           onAddFigure={(figureId) => moves.addFigureToConflict(figureId)}
@@ -831,13 +811,69 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         />
       )}
 
-      {/* Responding waiting interstitial — pass-and-play handoff to the responding class */}
-      {G.activeConflict?.phase === ConflictPhase.Responding && !playerID && !respondingWaitingDismissed && (
-        <WaitingInterstitial
-          waitingClass={G.activeConflict.initiatingClass}
-          onClose={() => { setRespondingWaitingDismissed(true); setConflictModalOpen(true); }}
+      {/* Turn Start Modal — stacks over Conflict Modal */}
+      {G.turnPhase === TurnPhase.Production && (!playerID ? handoffDismissed : isMyTurn) && (
+        <TurnStartModal
+          turnNumber={G.turnNumber}
+          currentClass={currentClass}
+          onStart={() => moves.collectProduction()}
         />
       )}
+
+      {/* Conflict Outcome Modal */}
+      {G.turnPhase !== TurnPhase.Production && G.conflictOutcome && !G.conflictOutcome.dismissedBy.includes(myClass) && (
+        <ConflictOutcomeModal
+          outcome={G.conflictOutcome}
+          viewingClass={myClass}
+          onDismiss={() => moves.dismissConflictOutcome(myClass)}
+        />
+      )}
+
+      {/* Pass-and-play handoff interstitial — always renders last so it sits on top of everything.
+          Local mode: shown after each player-switch (Production) and after conflict phase advances.
+          Multiplayer: shown to the non-active player while the other player takes their turn. */}
+      {(() => {
+        const conflictPhase = G.activeConflict?.phase;
+        const needsLocalHandoff = !playerID && !handoffDismissed && (
+          G.turnPhase === TurnPhase.Production ||
+          conflictPhase === ConflictPhase.Responding ||
+          conflictPhase === ConflictPhase.Resolving
+        );
+        const needsMultiplayerWait = !!playerID && !isMyTurn && !handoffDismissed;
+
+        if (needsLocalHandoff) {
+          // The "waiting class" is whoever is handing off the device
+          const handoffClass: SocialClass = (() => {
+            if (conflictPhase === ConflictPhase.Responding && G.activeConflict) {
+              return G.activeConflict.initiatingClass;
+            }
+            if (conflictPhase === ConflictPhase.Resolving && G.activeConflict) {
+              return G.activeConflict.initiatingClass === SocialClass.WorkingClass
+                ? SocialClass.CapitalistClass : SocialClass.WorkingClass;
+            }
+            // Production: the previous player (opposite of the one about to start)
+            return currentClass === SocialClass.WorkingClass
+              ? SocialClass.CapitalistClass : SocialClass.WorkingClass;
+          })();
+          return (
+            <WaitingInterstitial
+              waitingClass={handoffClass}
+              onClose={() => setHandoffDismissed(true)}
+            />
+          );
+        }
+
+        if (needsMultiplayerWait) {
+          return (
+            <WaitingInterstitial
+              waitingClass={myClass}
+              onClose={() => setHandoffDismissed(true)}
+            />
+          );
+        }
+
+        return null;
+      })()}
 
       {/* Deal Result Modal - shown after theorizing */}
       {boardState.mode === 'showingDealtCards' && !boardState.modalDismissed && (
@@ -965,10 +1001,10 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 : `⏭ Theorize Cards (${theorizeSelectedIndexes.length})`}
             </button>
           )}
-          {G.activeConflict && !conflictModalOpen && (
+          {G.activeConflict && conflictModalMinimized && (
             <button
               className="game-return-to-conflict-button"
-              onClick={() => setConflictModalOpen(true)}
+              onClick={() => setConflictModalMinimized(false)}
             >
               ⚔ Return to Conflict
             </button>
