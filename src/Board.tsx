@@ -14,7 +14,7 @@ import { DealResultModal } from './components/DealResultModal';
 import { TurnStartModal, WaitingInterstitial } from './components/StartGameScreen';
 import { anyWorkplaceCardById, DeckCardID, getAnyCardData, getAnyStateFigureDataById, getAnyWorkplaceCardData, getFigureDataById } from './data/cards';
 import { CardSlotEntity, CardType, FigureCardInPlay, SocialClass, WorkplaceForSale } from './types/cards';
-import { ConflictType } from './types/conflicts';
+import { ConflictPhase, ConflictType } from './types/conflicts';
 import { GameState, TurnPhase } from './types/game';
 import { filterMap } from './util/fun';
 import { pluralize } from './util/text';
@@ -121,6 +121,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   const [theorizeSelectedIndexes, setTheorizeSelectedIndexes] = useState<number[]>([]);
   const [conflictModalOpen, setConflictModalOpen] = useState(true);
   const [waitingDismissed, setWaitingDismissed] = useState(false);
+  const [respondingWaitingDismissed, setRespondingWaitingDismissed] = useState(false);
+  const [undoHovered, setUndoHovered] = useState(false);
 
   // Reopen the modal automatically whenever a new conflict begins
   const prevConflictRef = React.useRef<typeof G.activeConflict>(G.activeConflict);
@@ -139,6 +141,16 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       prevCurrentPlayerRef.current = ctx.currentPlayer;
     }
   }, [ctx.currentPlayer]);
+
+  // Reset the responding-waiting-dismissed flag whenever conflict enters Responding phase
+  const prevConflictPhaseRef = React.useRef<ConflictPhase | undefined>(undefined);
+  React.useEffect(() => {
+    const phase = G.activeConflict?.phase;
+    if (phase === ConflictPhase.Responding && prevConflictPhaseRef.current !== ConflictPhase.Responding) {
+      setRespondingWaitingDismissed(false);
+    }
+    prevConflictPhaseRef.current = phase;
+  }, [G.activeConflict?.phase]);
 
   // Determine current class
   const isWorkingClass = ctx.currentPlayer === '0';
@@ -160,7 +172,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
 
   const handleCloseInspector = () => setBoardState({ mode: 'normal', selectedSlotId: null });
 
-  // Escape key closes ActionMenuBar, DealResultModal, or ConflictOutcomeModal
+  // Escape key closes any open modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -168,6 +180,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           moves.dismissConflictOutcome(myClass);
         } else if (boardState.mode === 'showingDealtCards' && !boardState.modalDismissed) {
           setBoardState({ ...boardState, modalDismissed: true });
+        } else if (conflictModalOpen && G.activeConflict) {
+          setConflictModalOpen(false);
         } else if (boardState.mode === 'normal' && boardState.selectedSlotId !== null) {
           handleCloseInspector();
         }
@@ -175,7 +189,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [boardState, G.conflictOutcome, myClass, moves]);
+  }, [boardState, G.conflictOutcome, G.activeConflict, conflictModalOpen, myClass, moves]);
 
   const handleSelectSlot = (slotId: string) => {
     if (boardState.mode === 'normal' && boardState.selectedSlotId === slotId) {
@@ -481,16 +495,15 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     ? () => handleSelectSlot(`hand-${handNavKey}-${handNavIdx + 1}`)
     : undefined;
 
-  // Undo label
-  const undoLabel = !G.undoState
-    ? '↩ Undo'
-    : G.undoState.canUndo
-      ? `↩ Undo ${G.undoState.previousActionName}`
-      : `X Cannot Undo: ${G.undoState.reason}`;
+  // Undo button — always shows "↩ Undo"; reason appears on hover in status text
   const canUndo = G.undoState?.canUndo ?? false;
+  const undoHoverText = !G.undoState ? undefined
+    : G.undoState.canUndo ? `Undo ${G.undoState.previousActionName}`
+    : `Cannot Undo: ${G.undoState.reason}`;
 
   // Status text
   const statusText = (() => {
+    if (undoHovered && undoHoverText) return undoHoverText;
     if (!isMyTurn) return `Waiting for ${currentClass} player...`;
     if (boardState.mode === 'showingDealtCards' && boardState.modalDismissed) return 'Click "End Turn" to confirm new cards and switch players.';
     if (G.turnPhase === TurnPhase.Action && boardState.mode === 'normal' && boardState.selectedSlotId === null) {
@@ -811,9 +824,17 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           onCancel={() => moves.cancelConflict()}
           onInitiate={() => moves.initiateConflict()}
           onAddFigure={(figureId) => moves.addFigureToConflict(figureId)}
-          onAddTactic={(handIndex) => moves.addTacticToConflict(handIndex)}
+          onAddTactic={(handIndex, forClass) => moves.addTacticToConflict(handIndex, forClass)}
           onPlanResponse={() => moves.planResponse()}
           onResolve={() => moves.resolveConflict()}
+        />
+      )}
+
+      {/* Responding waiting interstitial — pass-and-play handoff to the responding class */}
+      {G.activeConflict?.phase === ConflictPhase.Responding && !playerID && !respondingWaitingDismissed && (
+        <WaitingInterstitial
+          waitingClass={G.activeConflict.initiatingClass}
+          onClose={() => setRespondingWaitingDismissed(true)}
         />
       )}
 
@@ -920,8 +941,10 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             className="game-undo-button"
             disabled={!canUndo}
             onClick={canUndo ? () => moves.undoMove() : undefined}
+            onMouseEnter={() => setUndoHovered(true)}
+            onMouseLeave={() => setUndoHovered(false)}
           >
-            {undoLabel}
+            ↩ Undo
           </button>
           {isMyTurn && G.turnPhase === TurnPhase.Action && !G.activeConflict && (
             <button

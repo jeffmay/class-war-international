@@ -37,14 +37,15 @@ interface WaitingInterstitialProps {
 
 export const WaitingInterstitial: React.FC<WaitingInterstitialProps> = ({ waitingClass, onClose }) => {
   const messages = WAITING_MESSAGES[waitingClass];
-  const [msgIndex, setMsgIndex] = useState(0);
+  const [msgIndex] = useState(() => Math.floor(Math.random() * messages.length));
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setMsgIndex(i => (i + 1) % messages.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [messages.length]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const isWC = waitingClass === SocialClass.WorkingClass;
 

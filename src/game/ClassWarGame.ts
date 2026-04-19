@@ -709,11 +709,11 @@ export const Moves = {
   /**
    * Play a tactic card from the activeConflictPlayer's hand into the conflict (costs wealth).
    */
-  addTacticToConflict: ({ G }, handIndex: number) => {
+  addTacticToConflict: ({ G }, handIndex: number, forClass?: SocialClass) => {
     if (!G.activeConflict) return;
     if (G.activeConflict.phase === ConflictPhase.Resolving) return;
 
-    const actingClass = G.activeConflict.activeConflictPlayer;
+    const actingClass = forClass ?? G.activeConflict.activeConflictPlayer;
     const player = G.players[actingClass];
     if (handIndex < 0 || handIndex >= player.hand.length) return;
 

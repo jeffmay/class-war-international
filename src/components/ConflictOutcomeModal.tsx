@@ -86,6 +86,8 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
   ) => {
     const showIncumbent = conflict.conflictType === ConflictType.Election
       && incumbentDefendingClass === socialClass;
+    const showWorkplace = conflict.conflictType === ConflictType.Strike
+      && socialClass === SocialClass.CapitalistClass;
     const incumbentBorderVariant = socialClass === SocialClass.WorkingClass ? "wc" as const : "cc" as const;
     return (
       <div className="conflict-outcome-section">
@@ -109,7 +111,7 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
           </div>
         )}
         <div className="conflict-outcome-total">Total: {power.total}</div>
-        {(cards.length > 0 || showIncumbent) && (
+        {(cards.length > 0 || showIncumbent || showWorkplace) && (
           <div className="conflict-outcome-cards">
             {cards.map((card, i) => (
               <CardComponent
@@ -118,6 +120,12 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
                 borderVariant={card.card_type === CardType.Figure ? "in-play" : "other"}
               />
             ))}
+            {showWorkplace && (
+              <CardComponent
+                card={getAnyCardData(conflict.targetWorkplace.id)}
+                borderVariant="cc"
+              />
+            )}
             {showIncumbent && (
               <CardComponent
                 card={getAnyCardData(conflict.targetIncumbent.id)}
