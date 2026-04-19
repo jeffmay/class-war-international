@@ -2925,6 +2925,35 @@ body {
   font-size: 1.2vw;
   font-style: italic;
   text-align: center;
+  transition: color 0.15s ease;
+}
+
+.game-status-text.game-status-info {
+  color: #e2e8f0;
+}
+
+.game-status-text.game-status-warn {
+  color: #f6c90e;
+  font-style: normal;
+}
+
+.game-status-text.game-status-error {
+  color: #fc8181;
+  font-style: normal;
+  font-weight: bold;
+}
+
+@keyframes game-status-flash {
+  0%   { opacity: 1; }
+  20%  { opacity: 0.2; }
+  40%  { opacity: 1; }
+  60%  { opacity: 0.2; }
+  80%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+.game-status-text.game-status-flash {
+  animation: game-status-flash 0.7s ease-in-out;
 }
 
 .game-player-info-right {

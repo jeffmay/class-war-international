@@ -3,7 +3,7 @@
  */
 
 import { BoardProps } from 'boardgame.io/react';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useGameNav } from './contexts/GameNav';
 import { Brand, make } from 'ts-brand';
 import { ActionMenuBar, MenuOption } from './components/ActionMenuBar';
@@ -17,6 +17,7 @@ import { CardSlotEntity, CardType, FigureCardInPlay, SocialClass, WorkplaceForSa
 import { ConflictPhase, ConflictType } from './types/conflicts';
 import { GameState, TurnPhase } from './types/game';
 import { filterMap } from './util/fun';
+import { STATUS_TEXT_ID, setStatusText } from './util/statusText';
 import { pluralize } from './util/text';
 
 /** Build a WorkplaceCardData for display by substituting current wages/profits from in-play state.
@@ -126,7 +127,6 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   // Multiplayer: starts false so the non-active player immediately sees the WaitingInterstitial.
   // Resets to false on each player-switch or conflict phase advance that requires a handoff.
   const [handoffDismissed, setHandoffDismissed] = useState(() => !playerID);
-  const [undoHovered, setUndoHovered] = useState(false);
 
   // Un-minimize conflict modal whenever a new conflict begins
   const prevConflictRef = React.useRef<typeof G.activeConflict>(G.activeConflict);
@@ -509,9 +509,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     : G.undoState.canUndo ? `Undo ${G.undoState.previousActionName}`
     : `Cannot Undo: ${G.undoState.reason}`;
 
-  // Status text
+  // Status text (default — synced to DOM via useLayoutEffect below)
   const statusText = (() => {
-    if (undoHovered && undoHoverText) return undoHoverText;
     if (!isMyTurn) return `Waiting for ${currentClass} player...`;
     if (boardState.mode === 'showingDealtCards' && boardState.modalDismissed) return 'Click "End Turn" to confirm new cards and switch players.';
     if (G.turnPhase === TurnPhase.Action && boardState.mode === 'normal' && boardState.selectedSlotId === null) {
@@ -534,6 +533,12 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     }
     return '';
   })();
+
+  // Sync default status text to the DOM after each render.
+  // Hover and error handlers may override it imperatively between renders.
+  useLayoutEffect(() => {
+    setStatusText(statusText);
+  }, [statusText]);
 
   // Sidebar income calculation
   const calcIncome = (socialClass: SocialClass): number => {
@@ -982,15 +987,18 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       {/* Current Player Controls Bar */}
       <div className="game-player-controls">
         <div className="game-player-controls-left">
-          <button
-            className="game-undo-button"
-            disabled={!canUndo}
-            onClick={canUndo ? () => moves.undoMove() : undefined}
-            onMouseEnter={() => setUndoHovered(true)}
-            onMouseLeave={() => setUndoHovered(false)}
+          <div
+            onMouseEnter={() => undoHoverText && setStatusText(undoHoverText, canUndo ? "info" : "warn")}
+            onMouseLeave={() => setStatusText(statusText)}
           >
-            ↩ Undo
-          </button>
+            <button
+              className="game-undo-button"
+              disabled={!canUndo}
+              onClick={canUndo ? () => moves.undoMove() : undefined}
+            >
+              ↩ Undo
+            </button>
+          </div>
           {isMyTurn && G.turnPhase === TurnPhase.Action && !G.activeConflict && (
             <button
               className="game-end-turn-button"
@@ -1027,7 +1035,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           )}
         </div>
         <div className="game-player-controls-center">
-          <span className="game-status-text">{statusText}</span>
+          <span id={STATUS_TEXT_ID} className="game-status-text" />
         </div>
         <div className="game-player-controls-right">
           <div className="game-player-info-right">
