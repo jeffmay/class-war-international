@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { CardType, ConflictType, SocialClass } from '../types/cards';
+import { ConflictType, SocialClass } from '../types/cards';
 import { ConflictOutcome } from '../types/conflicts';
 import { getAnyCardData } from '../data/cards';
 import { CardComponent } from './CardComponent';
@@ -117,7 +117,7 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
               <CardComponent
                 key={i}
                 card={getAnyCardData(card.id)}
-                borderVariant={card.card_type === CardType.Figure ? "in-play" : "other"}
+                borderVariant="other"
               />
             ))}
             {showWorkplace && (

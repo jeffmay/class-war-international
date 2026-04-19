@@ -3,16 +3,14 @@ import { getAnyCardData } from '../data/cards';
 import { CardSlotEntity, CardType, SocialClass, WorkplaceForSale } from '../types/cards';
 
 /**
- * Overrides the default interactive/non-interactive border color.
- * - 'hand': yellow — card is in the current player's hand
- * - 'in-play': green — activated figure in play
- * - 'training': light grey — figure in training
- * - 'exhausted': red — exhausted figure
- * - 'other': dark grey — opponent card, shared board card, or non-actionable card
- * - 'wc': red — card is aligned with / defending the Working Class
- * - 'cc': blue — card is aligned with / defending the Capitalist Class
+ * Semantic border color applied to all cards everywhere on the board.
+ * - 'actionable': green — you can click this card to take an action
+ * - 'cannot-use': yellow — you have this card but cannot use it right now (in training, exhausted, can't afford)
+ * - 'other': dark grey — not your turn, opponent's card, or informational
+ * - 'wc': WC red — card is aligned with / defending the Working Class side
+ * - 'cc': CC blue — card is aligned with / defending the Capitalist Class side
  */
-export type CardBorderVariant = 'hand' | 'in-play' | 'training' | 'exhausted' | 'other' | 'wc' | 'cc';
+export type CardBorderVariant = 'actionable' | 'cannot-use' | 'other' | 'wc' | 'cc';
 
 interface CardComponentProps {
   card: CardSlotEntity;

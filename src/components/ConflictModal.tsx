@@ -24,13 +24,13 @@ interface ConflictModalProps {
   players: { [SocialClass.WorkingClass]: PlayerState; [SocialClass.CapitalistClass]: PlayerState };
   /** The card being contested (workplace, office, or demand) */
   targetCard: CardSlotEntity;
-  canUndo: boolean;
   onClose: () => void;
   onCancel: () => void;
-  onUndo: () => void;
   onInitiate: () => void;
   onAddFigure: (figureId: string) => void;
   onAddTactic: (handIndex: number, forClass?: SocialClass) => void;
+  /** Called when the viewer clicks one of their own addedThisStep cards to remove it */
+  onRemoveCard: (cardIndex: number, forClass: SocialClass) => void;
   onPlanResponse: () => void;
   onResolve: () => void;
 }
@@ -85,13 +85,12 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   activeConflictPlayer,
   players,
   targetCard,
-  canUndo,
   onClose,
   onCancel,
-  onUndo,
   onInitiate,
   onAddFigure,
   onAddTactic,
+  onRemoveCard,
   onPlanResponse,
   onResolve,
 }) => {
@@ -130,7 +129,6 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
     });
 
   // For elections: the incumbent sides with the class opposing the challenger.
-  // Compute the incumbent's established power and which class it benefits.
   const incumbentData = conflict.conflictType === ConflictType.Election
     ? getAnyCardData(conflict.targetIncumbent.id)
     : undefined;
@@ -141,6 +139,26 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
     ? (conflict.initiatingClass === SocialClass.WorkingClass ? SocialClass.CapitalistClass : SocialClass.WorkingClass)
     : undefined;
 
+  // During Responding, hide the responding class's addedThisStep cards from the opponent.
+  const shouldHideCard = (card: ConflictCardInPlay, ownerClass: SocialClass): boolean =>
+    isResponding && card.addedThisStep === true && ownerClass !== viewingClass;
+
+  const renderConflictCard = (card: ConflictCardInPlay, index: number, ownerClass: SocialClass) => {
+    if (shouldHideCard(card, ownerClass)) return null;
+    const isMyCard = ownerClass === viewingClass && card.addedThisStep;
+    const borderVariant = isMyCard ? "actionable" as const : "other" as const;
+    const handleClick = isMyCard ? () => onRemoveCard(index, ownerClass) : undefined;
+    return (
+      <div key={index} className={isMyCard ? "conflict-modal-removable-card" : undefined}>
+        <CardComponent
+          card={getAnyCardData(card.id)}
+          borderVariant={borderVariant}
+          onClick={handleClick}
+        />
+        {isMyCard && <div className="conflict-modal-remove-hint">Click to remove</div>}
+      </div>
+    );
+  };
 
   return (
     <div className="conflict-modal-overlay" role="dialog" aria-label="Active conflict">
@@ -180,13 +198,9 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
           <div className="conflict-modal-side">
             <div className="conflict-modal-side-title">Working Class</div>
             <div className="conflict-modal-card-row">
-              {conflict.workingClassCards.map((card, i) => (
-                <CardComponent
-                  key={i}
-                  card={getAnyCardData(card.id)}
-                  borderVariant={card.card_type === CardType.Figure ? "in-play" : "other"}
-                />
-              ))}
+              {conflict.workingClassCards.map((card, i) =>
+                renderConflictCard(card, i, SocialClass.WorkingClass)
+              )}
               {/* Incumbent sides with WC when CC initiates an election */}
               {conflict.conflictType === ConflictType.Election && incumbentDefendingClass === SocialClass.WorkingClass && (
                 <CardComponent card={targetCard} borderVariant="wc" />
@@ -215,13 +229,9 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
           <div className="conflict-modal-side">
             <div className="conflict-modal-side-title">Capitalist Class</div>
             <div className="conflict-modal-card-row">
-              {conflict.capitalistCards.map((card, i) => (
-                <CardComponent
-                  key={i}
-                  card={getAnyCardData(card.id)}
-                  borderVariant={card.card_type === CardType.Figure ? "in-play" : "other"}
-                />
-              ))}
+              {conflict.capitalistCards.map((card, i) =>
+                renderConflictCard(card, i, SocialClass.CapitalistClass)
+              )}
               {/* Target workplace always sides with CC in a strike */}
               {conflict.conflictType === ConflictType.Strike && (
                 <CardComponent card={targetCard} borderVariant="cc" />
@@ -253,7 +263,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
         </div>
 
         {/* Cards available to add — only shown when it is the viewer's turn to act */}
-        {!isResolving && isMyTurn && (
+        {isMyTurn && (
           <div className="conflict-modal-available">
             {availableFigures.length > 0 && (
               <div className="conflict-modal-available-section">
@@ -265,7 +275,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
                       className="conflict-modal-add-card-button"
                       onClick={() => onAddFigure(figure.id)}
                     >
-                      <CardComponent card={getAnyCardData(figure.id)} borderVariant="in-play" />
+                      <CardComponent card={getAnyCardData(figure.id)} borderVariant="actionable" />
                     </button>
                   ))}
                 </div>
@@ -286,7 +296,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
                         disabled={!canAffordTactic}
                       >
                         <div className="conflict-tactic-wrapper">
-                          <CardComponent card={data} borderVariant={canAffordTactic ? "hand" : "other"} />
+                          <CardComponent card={data} borderVariant={canAffordTactic ? "actionable" : "cannot-use"} />
                           {!canAffordTactic && <div className="conflict-tactic-cannot-afford">Cannot Afford</div>}
                         </div>
                       </button>
@@ -300,13 +310,6 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
 
         {/* Action buttons */}
         <div className="conflict-modal-actions">
-          <button
-            className="game-undo-button"
-            disabled={!canUndo}
-            onClick={canUndo ? onUndo : undefined}
-          >
-            ↩ Undo
-          </button>
           {isInitiating && (
             <>
               <button className="conflict-modal-button conflict-modal-button-initiate" onClick={onInitiate}>
@@ -327,9 +330,13 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
                 </button>
           )}
           {isResolving && (
-            <button className="conflict-modal-button conflict-modal-button-resolve" onClick={onResolve}>
-              🎲 Resolve Conflict
-            </button>
+            isMyTurn
+              ? <button className="conflict-modal-button conflict-modal-button-resolve" onClick={onResolve}>
+                  🎲 Resolve Conflict
+                </button>
+              : <button className="conflict-modal-button" disabled>
+                  ⏳ Must wait for your turn
+                </button>
           )}
         </div>
       </div>

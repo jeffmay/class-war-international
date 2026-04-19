@@ -169,7 +169,7 @@ describe('addFigureToConflict', () => {
     expect(client.getStateOrThrow().G.activeConflict!.workingClassCards).toHaveLength(1);
   });
 
-  test('cannot add a figure during Resolving phase', () => {
+  test('can add a figure during Resolving phase', () => {
     const G = makeActionPhaseState({ figures: [readyWcFigure, secondWcFigure] });
     const client = clientFromFixture(G);
     client.moves.planStrike('cashier', 0);
@@ -178,7 +178,7 @@ describe('addFigureToConflict', () => {
     expect(client.getStateOrThrow().G.activeConflict!.phase).toBe(ConflictPhase.Resolving);
 
     client.moves.addFigureToConflict('student_activist');
-    expect(client.getStateOrThrow().G.activeConflict!.workingClassCards).toHaveLength(1);
+    expect(client.getStateOrThrow().G.activeConflict!.workingClassCards).toHaveLength(2);
   });
 });
 

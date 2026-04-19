@@ -726,20 +726,12 @@ body {
 }
 
 /* Border variant overrides — applied via borderVariant prop on CardComponent */
-.card-component.card-border-hand {
-  border-color: #FFD700;
-}
-
-.card-component.card-border-in-play {
+.card-component.card-border-actionable {
   border-color: #48bb78;
 }
 
-.card-component.card-border-training {
-  border-color: #a0aec0;
-}
-
-.card-component.card-border-exhausted {
-  border-color: #e53e3e;
+.card-component.card-border-cannot-use {
+  border-color: #FFD700;
 }
 
 .card-component.card-border-other {

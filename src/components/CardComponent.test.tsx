@@ -12,24 +12,14 @@ const cashierCard = figureCardById.cashier;
 describe('CardComponent', () => {
   // --- borderVariant ---
 
-  test('applies card-border-hand class when borderVariant is "hand"', () => {
-    render(<CardComponent card={cashierCard} borderVariant="hand" />);
-    expect(screen.getByTestId('card-component')).toHaveClass('card-border-hand');
+  test('applies card-border-actionable class when borderVariant is "actionable"', () => {
+    render(<CardComponent card={cashierCard} borderVariant="actionable" />);
+    expect(screen.getByTestId('card-component')).toHaveClass('card-border-actionable');
   });
 
-  test('applies card-border-in-play class when borderVariant is "in-play"', () => {
-    render(<CardComponent card={cashierCard} borderVariant="in-play" />);
-    expect(screen.getByTestId('card-component')).toHaveClass('card-border-in-play');
-  });
-
-  test('applies card-border-training class when borderVariant is "training"', () => {
-    render(<CardComponent card={cashierCard} borderVariant="training" />);
-    expect(screen.getByTestId('card-component')).toHaveClass('card-border-training');
-  });
-
-  test('applies card-border-exhausted class when borderVariant is "exhausted"', () => {
-    render(<CardComponent card={cashierCard} borderVariant="exhausted" />);
-    expect(screen.getByTestId('card-component')).toHaveClass('card-border-exhausted');
+  test('applies card-border-cannot-use class when borderVariant is "cannot-use"', () => {
+    render(<CardComponent card={cashierCard} borderVariant="cannot-use" />);
+    expect(screen.getByTestId('card-component')).toHaveClass('card-border-cannot-use');
   });
 
   test('applies card-border-other class when borderVariant is "other"', () => {
@@ -37,10 +27,20 @@ describe('CardComponent', () => {
     expect(screen.getByTestId('card-component')).toHaveClass('card-border-other');
   });
 
+  test('applies card-border-wc class when borderVariant is "wc"', () => {
+    render(<CardComponent card={cashierCard} borderVariant="wc" />);
+    expect(screen.getByTestId('card-component')).toHaveClass('card-border-wc');
+  });
+
+  test('applies card-border-cc class when borderVariant is "cc"', () => {
+    render(<CardComponent card={cashierCard} borderVariant="cc" />);
+    expect(screen.getByTestId('card-component')).toHaveClass('card-border-cc');
+  });
+
   test('does not apply any card-border-* class when borderVariant is omitted', () => {
     render(<CardComponent card={cashierCard} />);
     const el = screen.getByTestId('card-component');
-    const borderVariants: CardBorderVariant[] = ['hand', 'in-play', 'training', 'exhausted', 'other'];
+    const borderVariants: CardBorderVariant[] = ['actionable', 'cannot-use', 'other', 'wc', 'cc'];
     borderVariants.forEach(v => {
       expect(el).not.toHaveClass(`card-border-${v}`);
     });

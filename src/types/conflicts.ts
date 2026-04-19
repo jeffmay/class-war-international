@@ -19,7 +19,10 @@ export interface PowerStats {
 }
 
 /** Cards that can participate in a conflict */
-export type ConflictCardInPlay = FigureCardInPlay | DefaultStateFigureCardInPlay | TacticCardInPlay;
+export type ConflictCardInPlay = (FigureCardInPlay | DefaultStateFigureCardInPlay | TacticCardInPlay) & {
+  /** True when this card was added during the current step (Initiating or Responding); cleared on initiateConflict/planResponse */
+  addedThisStep?: boolean;
+};
 
 export interface BaseConflictState {
   conflictType: ConflictType;

@@ -363,7 +363,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         return [
           canAfford ? label : `Cannot Afford ($${cost})`,
           canAfford ? () => { moves.playCardFromHand(handIdx, `institutions[${i}]`); handleCloseInspector(); } : undefined,
-          <CardComponent key={handIdx} card={card} borderVariant="hand" />,
+          <CardComponent key={handIdx} card={card} borderVariant={canAfford ? "actionable" : "cannot-use"} />,
         ] as const satisfies MenuOption;
       });
       if (options.length === 0) {
@@ -386,7 +386,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       const options: MenuOption[] = demandHandCards.map(({ card, handIdx }) => [
         card.name,
         () => { moves.playCardFromHand(handIdx, `demands[${i}]`); handleCloseInspector(); },
-        <CardComponent key={handIdx} card={card} borderVariant="hand" />,
+        <CardComponent key={handIdx} card={card} borderVariant="actionable" />,
       ] as const satisfies MenuOption);
       if (options.length === 0) {
         options.push(['No demand cards in hand', undefined]);
@@ -418,7 +418,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         return [
           canAfford ? label : `Cannot Afford ($${cost})`,
           canAfford ? () => { moves.playCardFromHand(handIdx, target); handleCloseInspector(); } : undefined,
-          <CardComponent key={handIdx} card={card} borderVariant="hand" />,
+          <CardComponent key={handIdx} card={card} borderVariant={canAfford ? "actionable" : "cannot-use"} />,
         ] as const satisfies MenuOption;
       });
       if (options.length === 0) {
@@ -668,7 +668,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                   card={card}
                   onClick={() => handleSelectSlot(slotId)}
                   onDoubleClick={handleDoubleClick}
-                  borderVariant="hand"
+                  borderVariant="actionable"
                 />
               );
             })}
@@ -689,9 +689,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 : figure.exhausted
                   ? { line1: 'Exhausted', line2: '(until next turn)' }
                   : undefined;
-              const borderVariant = figure.in_training ? 'training' as const
-                : figure.exhausted ? 'exhausted' as const
-                  : 'in-play' as const;
+              const borderVariant = (figure.in_training || figure.exhausted) ? 'cannot-use' as const
+                : 'actionable' as const;
               return (
                 <CardComponent
                   key={idx}
@@ -724,7 +723,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                     {institution ? (
                       <CardComponent
                         card={getAnyCardData(institution.id)}
-                        borderVariant="in-play"
+                        borderVariant={institutionSlotId ? "actionable" : "other"}
                         onClick={institutionSlotId ? () => handleSelectSlot(institutionSlotId) : undefined}
                       />
                     ) : (
@@ -765,7 +764,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                   <div key={i} className="card-slot">
                     <CardComponent
                       card={getAnyCardData(demand.id)}
-                      borderVariant="in-play"
+                      borderVariant={G.turnPhase === TurnPhase.Action && isMyTurn ? "actionable" : "other"}
                       statusBanner={isLaw ? { line1: "Law" } : undefined}
                       onClick={G.turnPhase === TurnPhase.Action && isMyTurn ? () => handleSelectSlot(demandSlotId) : undefined}
                     />
@@ -808,13 +807,12 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             activeConflictPlayer={G.activeConflict.activeConflictPlayer}
             players={G.players}
             targetCard={conflictTargetCard}
-            canUndo={canUndo}
             onClose={() => setConflictModalMinimized(true)}
-            onUndo={() => moves.undoMove()}
             onCancel={() => moves.cancelConflict()}
             onInitiate={() => { moves.initiateConflict(); setConflictModalMinimized(true); }}
             onAddFigure={(figureId) => moves.addFigureToConflict(figureId)}
             onAddTactic={(handIndex, forClass) => moves.addTacticToConflict(handIndex, forClass)}
+            onRemoveCard={(cardIndex, forClass) => moves.removeCardFromConflict(cardIndex, forClass)}
             onPlanResponse={() => { moves.planResponse(); setConflictModalMinimized(true); }}
             onResolve={() => moves.resolveConflict()}
           />
@@ -953,7 +951,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           title={`Choose an office to propose legislation from`}
           options={G.politicalOffices.map((office, index) => {
             const stateCard = getAnyStateFigureDataById(office.id);
-            const preview = <CardComponent card={stateCard} borderVariant={office.card_type === CardType.DefaultStateFigure ? "other" : "in-play"} />;
+            const preview = <CardComponent card={stateCard} borderVariant={office.card_type === CardType.DefaultStateFigure ? "other" : "actionable"} />;
             const canPropose = office.card_type === CardType.Figure && getFigureDataById(office.id).social_class === myClass && !office.exhausted;
             return [
               stateCard.name,
@@ -1103,7 +1101,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                             card={office}
                             statusBanner={statusBanner}
                             effects={effects}
-                            borderVariant={office.card_type === CardType.Figure ? "in-play" : "other"}
+                            borderVariant={office.card_type === CardType.Figure ? "actionable" : "other"}
                           />
                         </div>
                       </div>

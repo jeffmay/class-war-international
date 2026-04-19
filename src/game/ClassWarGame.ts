@@ -652,6 +652,9 @@ export const Moves = {
     if (G.activeConflict.phase !== ConflictPhase.Initiating) return;
 
     clearUndo(G, 'Cannot undo after initiating conflict');
+    // Clear step tracking so initiating class's cards are committed (visible to both sides)
+    for (const card of G.activeConflict.workingClassCards) { card.addedThisStep = false; }
+    for (const card of G.activeConflict.capitalistCards) { card.addedThisStep = false; }
 
     const opposingClass = G.activeConflict.initiatingClass === SocialClass.WorkingClass
       ? SocialClass.CapitalistClass
@@ -670,10 +673,10 @@ export const Moves = {
   /**
    * Add a figure from the activeConflictPlayer's in-play area to the conflict.
    * Uses activeConflictPlayer from game state so single-device play works correctly.
+   * Valid during Initiating, Responding, and Resolving phases.
    */
   addFigureToConflict: ({ G }, figureId: string) => {
     if (!G.activeConflict) return;
-    if (G.activeConflict.phase === ConflictPhase.Resolving) return;
 
     const actingClass = G.activeConflict.activeConflictPlayer;
     const player = G.players[actingClass];
@@ -693,14 +696,14 @@ export const Moves = {
       return;
     }
 
-    // No saveUndo here — the plan-conflict snapshot covers the whole setup phase.
-    // Cancel conflict restores that snapshot, undoing all figure/tactic additions at once.
+    saveUndo(G, 'Add Figure to Conflict');
     player.figures.splice(figureIndex, 1);
+    const conflictFigure = { ...figure, addedThisStep: true };
     if (actingClass === SocialClass.WorkingClass) {
-      G.activeConflict.workingClassCards.push({ ...figure });
+      G.activeConflict.workingClassCards.push(conflictFigure);
       G.activeConflict.workingClassPower = powerStats(G.activeConflict.workingClassCards);
     } else {
-      G.activeConflict.capitalistCards.push({ ...figure });
+      G.activeConflict.capitalistCards.push(conflictFigure);
       G.activeConflict.capitalistPower = powerStats(G.activeConflict.capitalistCards);
     }
     G.errorMessage = undefined;
@@ -708,10 +711,10 @@ export const Moves = {
 
   /**
    * Play a tactic card from the activeConflictPlayer's hand into the conflict (costs wealth).
+   * Valid during Initiating, Responding, and Resolving phases.
    */
   addTacticToConflict: ({ G }, handIndex: number, forClass?: SocialClass) => {
     if (!G.activeConflict) return;
-    if (G.activeConflict.phase === ConflictPhase.Resolving) return;
 
     const actingClass = forClass ?? G.activeConflict.activeConflictPlayer;
     const player = G.players[actingClass];
@@ -735,16 +738,57 @@ export const Moves = {
       return;
     }
 
-    // No saveUndo here — the plan-conflict snapshot covers the whole setup phase.
+    saveUndo(G, 'Add Tactic to Conflict');
     player.wealth -= cost;
     player.hand.splice(handIndex, 1);
-    const tacticInPlay = playTacticCard(cardId);
+    const tacticInPlay = { ...playTacticCard(cardId), addedThisStep: true };
 
     if (actingClass === SocialClass.WorkingClass) {
       G.activeConflict.workingClassCards.push(tacticInPlay);
       G.activeConflict.workingClassPower = powerStats(G.activeConflict.workingClassCards);
     } else {
       G.activeConflict.capitalistCards.push(tacticInPlay);
+      G.activeConflict.capitalistPower = powerStats(G.activeConflict.capitalistCards);
+    }
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * Remove a card that was added this step from the conflict, returning it to the player.
+   * Figures return to player.figures; tactics return to hand with a wealth refund.
+   */
+  removeCardFromConflict: ({ G }, cardIndex: number, forClass: SocialClass) => {
+    if (!G.activeConflict) return;
+
+    const cards = forClass === SocialClass.WorkingClass
+      ? G.activeConflict.workingClassCards
+      : G.activeConflict.capitalistCards;
+
+    if (cardIndex < 0 || cardIndex >= cards.length) return;
+    const card = cards[cardIndex];
+    if (!card.addedThisStep) return;
+
+    saveUndo(G, 'Remove Card from Conflict');
+    cards.splice(cardIndex, 1);
+
+    const player = G.players[forClass];
+    if (card.card_type === CardType.Figure) {
+      player.figures.push({
+        id: card.id,
+        card_type: CardType.Figure,
+        in_play: true,
+        exhausted: card.exhausted,
+        in_training: card.in_training,
+      });
+    } else if (card.card_type === CardType.Tactic) {
+      player.hand.push(card.id);
+      const tacticData = getTacticDataById(card.id);
+      player.wealth += tacticData.cost ?? 0;
+    }
+
+    if (forClass === SocialClass.WorkingClass) {
+      G.activeConflict.workingClassPower = powerStats(G.activeConflict.workingClassCards);
+    } else {
       G.activeConflict.capitalistPower = powerStats(G.activeConflict.capitalistCards);
     }
     G.errorMessage = undefined;
@@ -760,6 +804,9 @@ export const Moves = {
     if (G.activeConflict.phase !== ConflictPhase.Responding) return;
 
     clearUndo(G, 'Cannot undo after responding to conflict');
+    // Clear step tracking so all cards are now committed (visible to both sides)
+    for (const card of G.activeConflict.workingClassCards) { card.addedThisStep = false; }
+    for (const card of G.activeConflict.capitalistCards) { card.addedThisStep = false; }
     G.activeConflict.phase = ConflictPhase.Resolving;
     G.activeConflict.activeConflictPlayer = G.activeConflict.initiatingClass;
     G.errorMessage = undefined;
