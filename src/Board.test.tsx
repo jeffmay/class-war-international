@@ -40,7 +40,7 @@ const mockMoves = {
   planElection: vi.fn(),
   planLegislation: vi.fn(),
   undoMove: vi.fn(),
-  sealReproductionPreview: vi.fn(),
+  removeCardFromConflict: vi.fn(),
 };
 
 const mockEvents = { endGame: vi.fn() };

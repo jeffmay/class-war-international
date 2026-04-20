@@ -147,7 +147,46 @@ A 2-player board game based on **Class War: International** rules, built with th
 - When `!isMyTurn` and `playerID` is set (multiplayer mode), clicking hand/figure cards now shows a single disabled "Must wait for your turn" option instead of showing no menu at all
 - In local mode (`playerID = null/undefined`), this guard is bypassed so both players share the same view
 
-### 19. Lobby System and Persistent Match Storage (`src/App.tsx`, `server/index.ts`)
+### 19. Conflict Step Card Tracking (`src/game/ClassWarGame.ts`, `src/components/ConflictModal.tsx`)
+
+- `ConflictCardInPlay` extended with `addedThisStep?: boolean` via TypeScript intersection type
+- Cards added to a conflict during the current step (Initiating/Responding/Resolving) are marked with this flag
+- `addFigureToConflict` and `addTacticToConflict` now call `saveUndo` (individually undoable) and set `addedThisStep: true`
+- `initiateConflict` and `planResponse` clear all `addedThisStep` flags before transitioning phases
+- New `removeCardFromConflict(cardIndex, forClass)` move: validates `addedThisStep`, returns card to hand/figures, refunds tactic cost, recalculates power
+- Initiating class can now also add cards during the Resolving phase (removed prior restriction)
+- Responding class's newly-added step cards are hidden from the initiating class during the Responding phase
+- Undo button removed from ConflictModal; click-to-remove on green (actionable) step cards replaces it
+- E2E tests: `src/game/ConflictCardTracking.test.ts` covers add/remove figure/tactic and wealth changes
+
+### 20. Unified Card Border Color System (`src/components/CardComponent.tsx`, `src/App.css`)
+
+- Old 7-variant system (`'hand' | 'in-play' | 'training' | 'exhausted' | 'other' | 'wc' | 'cc'`) replaced with 5-variant semantic system
+- New `CardBorderVariant`: `'actionable' | 'cannot-use' | 'other' | 'wc' | 'cc'`
+  - `actionable` = green (#48bb78): card can be clicked/used
+  - `cannot-use` = gold (#FFD700): card is visible but blocked
+  - `other` = grey: neutral/display-only context
+  - `wc` / `cc` = faction colors for class-specific display
+- Applied consistently across all card usages: hand cards, figures, institution/demand slots, conflict cards, outcome modal, deal result modal
+
+### 21. Status Text System (`src/util/statusText.ts`)
+
+- Imperative DOM utility that writes to the `#game-status-text` span from anywhere (not just React renders)
+- `setStatusText(text, type?: 'info' | 'warn' | 'error')` sets text and adds a type class
+- `logError(message, raw?)` appends to an in-memory error log, shows in status bar with flash animation, and calls `console.error`
+- `getErrorLog()` returns the full immutable error log for future error panel UI
+- Status span in Board.tsx is now an empty `<span id={STATUS_TEXT_ID} />` managed imperatively via `useLayoutEffect`
+- Undo button hover text uses `setStatusText` via wrapper `<div>` handlers (disabled buttons suppress mouse events)
+- Tests: `src/util/statusText.test.ts` (13 tests covering all behaviors)
+
+### 22. DealResultModal Timing Fix (`src/Board.tsx`)
+
+- `moves.endReproductionPhase()` is now called in `handleFinishTheorizing` (before the modal opens), not in `handleEndTurn`
+- This ensures `G` (hand, deck) is already updated when the modal renders, so the board reflects the new state immediately
+- Card IDs for the modal preview are captured from the pre-move state before the move executes
+- `needsLocalHandoff` now excludes `boardState.mode === 'showingDealtCards'` to prevent two overlays stacking
+
+### 23. Lobby System and Persistent Match Storage (`src/App.tsx`, `server/index.ts`)
 
 **FlatFile match storage (`server/index.ts`)**
 - Server now uses `FlatFile` DB backend (stored in `./data` by default, configurable via `DB_DIR` env var)
@@ -187,21 +226,23 @@ A 2-player board game based on **Class War: International** rules, built with th
 
 ## Test Coverage
 
-### Test Suites: 12
+### Test Suites: 14
 1. **ClassWarGame.test.ts** - Setup tests
 2. **ProductionPhase.test.ts** - Production + Reproduction mechanics (incl. theorizing)
 3. **ActionPhase.test.ts** - Card playing
 4. **ConflictPhase.test.ts** - Strike and election planning
 5. **ConflictResolution.test.ts** - Conflict resolution + player-switching
-6. **Undo.test.ts** - Undo mechanics
-7. **Board.test.tsx** - Board component (incl. multiplayer guards)
-8. **CardComponent.test.tsx** - Card component
-9. **ActionMenuBar.test.tsx** - Action menu bar
-10. **ConflictModal.test.tsx** - Conflict modal
-11. **ConflictOutcomeModal.test.tsx** - Conflict outcome modal
-12. **DealResultModal.test.tsx** - Deal result modal
+6. **ConflictCardTracking.test.ts** - Step card add/remove tracking during conflicts (E2E)
+7. **Undo.test.ts** - Undo mechanics
+8. **Board.test.tsx** - Board component (incl. multiplayer guards)
+9. **CardComponent.test.tsx** - Card component (incl. new border variant system)
+10. **ActionMenuBar.test.tsx** - Action menu bar
+11. **ConflictModal.test.tsx** - Conflict modal
+12. **ConflictOutcomeModal.test.tsx** - Conflict outcome modal
+13. **DealResultModal.test.tsx** - Deal result modal
+14. **statusText.test.ts** - Status text DOM utility (setStatusText, logError)
 
-**Total: 194 passing + 2 skipped = 196 tests**
+**Total: 238 passing + 2 skipped = 240 tests**
 
 ### Testing Architecture
 
@@ -257,6 +298,7 @@ src/
 │   └── GameNav.ts               # GameNavContext for passing nav callbacks into Board
 ├── util/
 │   ├── assertions.ts            # assertDefined helper
+│   ├── statusText.ts            # setStatusText, logError, getErrorLog (imperative DOM utility)
 │   └── typedboardgame.ts        # StrictClient, StrictGameOf types
 ├── Board.tsx                    # Main board component (HamburgerMenu)
 ├── App.tsx                      # boardgame.io client setup, lobby flow
@@ -359,4 +401,4 @@ npm start             # Start dev server at localhost:3000
 
 ---
 
-*Last updated: April 10, 2026*
+*Last updated: April 18, 2026*

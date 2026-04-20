@@ -241,21 +241,20 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     });
   };
 
-  // Show the deal result modal — does NOT yet execute the move.
-  // Also seals undo so the player cannot undo back through End Action Phase
-  // after previewing the new cards.
+  // Execute the reproduction move immediately so G is up-to-date, then show
+  // the deal result modal as a summary of what just happened.
   const handleFinishTheorizing = () => {
     const remainingHand = myPlayer.hand.filter((_, i) => !theorizeSelectedIndexes.includes(i));
     const drawCount = myPlayer.maxHandSize - remainingHand.length;
+    // Capture card IDs BEFORE the move mutates G
     const theorizedCardIds = theorizeSelectedIndexes.map(i => myPlayer.hand[i]);
     const newCardIds = myPlayer.deck.slice(0, drawCount);
-    moves.sealReproductionPreview();
+    moves.endReproductionPhase(theorizeSelectedIndexes);
     setBoardState({ mode: 'showingDealtCards', theorizedCardIds, newCardIds, modalDismissed: false });
   };
 
-  // Actually end the turn: discard theorize cards, draw, switch players
+  // Dismiss the deal result modal — move was already executed in handleFinishTheorizing
   const handleEndTurn = () => {
-    moves.endReproductionPhase(theorizeSelectedIndexes);
     setTheorizeSelectedIndexes([]);
     setBoardState({ mode: 'normal', selectedSlotId: null });
   };
@@ -847,11 +846,15 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           Multiplayer: shown to the non-active player while the other player takes their turn. */}
       {(() => {
         const conflictPhase = G.activeConflict?.phase;
-        const needsLocalHandoff = !playerID && !handoffDismissed && (
-          G.turnPhase === TurnPhase.Production ||
-          conflictPhase === ConflictPhase.Responding ||
-          conflictPhase === ConflictPhase.Resolving
-        );
+        // Suppress the handoff interstitial while the deal result modal is open —
+        // the player is still reviewing their new cards and will see the handoff after dismissing.
+        const needsLocalHandoff = !playerID && !handoffDismissed
+          && boardState.mode !== 'showingDealtCards'
+          && (
+            G.turnPhase === TurnPhase.Production ||
+            conflictPhase === ConflictPhase.Responding ||
+            conflictPhase === ConflictPhase.Resolving
+          );
         const needsMultiplayerWait = !!playerID && !isMyTurn && !handoffDismissed;
 
         if (needsLocalHandoff) {
@@ -894,7 +897,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           theorizedCards={boardState.theorizedCardIds.map(id => getAnyCardData(id))}
           newCards={boardState.newCardIds.map(id => getAnyCardData(id))}
           onEndTurn={handleEndTurn}
-          onClose={() => setBoardState({ ...boardState, modalDismissed: true })}
+          onClose={handleEndTurn}
         />
       )}
 

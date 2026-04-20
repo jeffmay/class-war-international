@@ -1024,14 +1024,6 @@ export const Moves = {
   },
 
   /**
-   * Lock undo when the player has previewed the dealt cards in the DealResultModal.
-   * Once the new cards are visible, the end-of-turn sequence cannot be reversed.
-   */
-  sealReproductionPreview: ({ G }) => {
-    clearUndo(G, 'Cannot undo after viewing new cards');
-  },
-
-  /**
    * Undo the last undoable action by restoring the saved snapshot.
    */
   undoMove: ({ G }) => {
