@@ -51,10 +51,11 @@ async function connectAsPlayer(
   // Connect to lobby
   await page.click(".setup-button-host");
 
-  // Wait for the lobby screen to appear
-  await expect(page.locator(".setup-section-title")).toHaveText("Open Matches", {
-    timeout: 10_000,
-  });
+  // Wait for the lobby screen to appear. The setup screen also has .setup-section-title
+  // elements, so filter by text to avoid a strict-mode violation.
+  await expect(
+    page.locator(".setup-section-title", { hasText: "Open Matches" }),
+  ).toBeVisible({ timeout: 10_000 });
 
   // Find the match card for our matchID and select the correct player seat
   const matchCard = page.locator(".lobby-match-card", {
@@ -68,9 +69,9 @@ async function connectAsPlayer(
   // Click "Join Game"
   await matchCard.locator(".lobby-join-button").click();
 
-  // Wait for the nav bar (RemoteMode rendered) then for the board to receive
-  // game state and show the turn-start button (Socket.IO fully connected).
-  await expect(page.locator(".remote-nav-bar")).toBeVisible({ timeout: 10_000 });
+  // Wait for Socket.IO to connect and the game state to arrive — both the active
+  // player's TurnStartModal and the waiting player's WaitingInterstitial show
+  // .start-game-button, so this is a reliable cross-player readiness signal.
   await expect(page.locator(".start-game-button")).toBeVisible({ timeout: 10_000 });
 }
 
@@ -102,10 +103,9 @@ test.describe("lobby connection", () => {
     await page.fill('input[type="number"]', String(E2E_SERVER_PORT));
     await page.click(".setup-button-host");
 
-    await expect(page.locator(".setup-section-title")).toHaveText(
-      "Open Matches",
-      { timeout: 10_000 },
-    );
+    await expect(
+      page.locator(".setup-section-title", { hasText: "Open Matches" }),
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test("connecting to a bad address shows the error screen", async ({
@@ -178,22 +178,202 @@ test.describe("multiplayer — two browsers, one match", () => {
     await startTurn(p0);
 
     await expect(p0.locator(".game-board")).toBeVisible({ timeout: 10_000 });
-    await expect(
-      p1.locator(".start-game-button, .game-board"),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(p1.locator(".game-board")).toBeVisible({ timeout: 10_000 });
 
     await ctx0.close();
     await ctx1.close();
   });
 });
 
+// ─── Server API blackbox tests ────────────────────────────────────────────────
+
+interface LobbyPlayer {
+  id: number;
+  name?: string;
+}
+
+interface LobbyMatchState {
+  matchID: string;
+  gameName: string;
+  players: LobbyPlayer[];
+}
+
+/** Fetch the current match state from the Lobby REST API. */
+async function getMatch(matchID: string): Promise<LobbyMatchState> {
+  const res = await fetch(`${SERVER_URL}/games/${GAME_NAME}/${matchID}`);
+  if (!res.ok) throw new Error(`GET match failed: ${res.status}`);
+  return (await res.json()) as LobbyMatchState;
+}
+
+/** Join a match slot via the Lobby REST API and return the player credentials. */
+async function joinMatch(
+  matchID: string,
+  playerID: "0" | "1",
+  playerName: string,
+): Promise<string> {
+  const res = await fetch(`${SERVER_URL}/games/${GAME_NAME}/${matchID}/join`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ playerID, playerName }),
+  });
+  if (!res.ok) throw new Error(`JOIN failed: ${res.status} ${await res.text()}`);
+  const { playerCredentials } = (await res.json()) as { playerCredentials: string };
+  return playerCredentials;
+}
+
+/** Leave a match slot via the Lobby REST API. */
+async function leaveMatch(
+  matchID: string,
+  playerID: "0" | "1",
+  credentials: string,
+): Promise<void> {
+  const res = await fetch(`${SERVER_URL}/games/${GAME_NAME}/${matchID}/leave`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ playerID, credentials }),
+  });
+  if (!res.ok) throw new Error(`LEAVE failed: ${res.status} ${await res.text()}`);
+}
+
+test.describe("server API — match lifecycle", () => {
+  test("server is reachable and returns a match list", async () => {
+    const res = await fetch(`${SERVER_URL}/games/${GAME_NAME}`);
+    expect(res.ok).toBe(true);
+    const body = (await res.json()) as { matches: unknown[] };
+    expect(Array.isArray(body.matches)).toBe(true);
+  });
+
+  test("created match starts with both slots open", async () => {
+    const matchID = await createMatch();
+    const match = await getMatch(matchID);
+    expect(match.matchID).toBe(matchID);
+    expect(match.players).toHaveLength(2);
+    expect(match.players[0].name).toBeUndefined();
+    expect(match.players[1].name).toBeUndefined();
+  });
+
+  test("both players can join and the match reflects their names", async () => {
+    const matchID = await createMatch();
+    await joinMatch(matchID, "0", "Alice");
+    await joinMatch(matchID, "1", "Bob");
+
+    const match = await getMatch(matchID);
+    const p0 = match.players.find((p) => p.id === 0);
+    const p1 = match.players.find((p) => p.id === 1);
+    expect(p0?.name).toBe("Alice");
+    expect(p1?.name).toBe("Bob");
+  });
+
+  test("leaving a match reopens that player slot", async () => {
+    const matchID = await createMatch();
+    const creds0 = await joinMatch(matchID, "0", "Alice");
+    await joinMatch(matchID, "1", "Bob");
+
+    await leaveMatch(matchID, "0", creds0);
+
+    const match = await getMatch(matchID);
+    const p0 = match.players.find((p) => p.id === 0);
+    expect(p0?.name).toBeUndefined();
+  });
+
+  test("player 1 slot is independent from player 0 slot", async () => {
+    const matchID = await createMatch();
+    await joinMatch(matchID, "0", "Alice");
+
+    // Only player 0 has joined; player 1 is still open
+    const matchAfterOne = await getMatch(matchID);
+    expect(matchAfterOne.players.find((p) => p.id === 0)?.name).toBe("Alice");
+    expect(matchAfterOne.players.find((p) => p.id === 1)?.name).toBeUndefined();
+
+    await joinMatch(matchID, "1", "Bob");
+    const matchAfterBoth = await getMatch(matchID);
+    expect(matchAfterBoth.players.find((p) => p.id === 1)?.name).toBe("Bob");
+  });
+});
+
+// ─── Player perspective tests ─────────────────────────────────────────────────
+
+test.describe("multiplayer — player perspective", () => {
+  test("player 0 sees Working Class area and player 1 sees Capitalist Class area", async ({
+    browser,
+  }) => {
+    const matchID = await createMatch();
+
+    // Separate browser contexts give each player their own localStorage.
+    const ctx0 = await browser.newContext();
+    const ctx1 = await browser.newContext();
+    const p0 = await ctx0.newPage();
+    const p1 = await ctx1.newPage();
+
+    // Sequential joins to avoid FlatFile write race (see above).
+    await connectAsPlayer(p0, matchID, "0");
+    await connectAsPlayer(p1, matchID, "1");
+
+    // WC starts first — dismiss the interstitial.
+    await startTurn(p0);
+
+    await expect(p0.locator(".game-board")).toBeVisible({ timeout: 10_000 });
+    await expect(p1.locator(".game-board")).toBeVisible({ timeout: 10_000 });
+
+    // Each player's own area should be labelled with their class.
+    await expect(
+      p0.locator(".player-area-working-class .player-area-title"),
+    ).toHaveText("Working Class");
+    await expect(
+      p1.locator(".player-area-capitalist-class .player-area-title"),
+    ).toHaveText("Capitalist Class");
+
+    await ctx0.close();
+    await ctx1.close();
+  });
+
+  test("CC player on the same device as WC player still sees CC perspective", async ({
+    browser,
+  }) => {
+    const matchID = await createMatch();
+
+    // Single context = shared localStorage, reproducing the same-device scenario.
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+
+    // First join as WC (player 0) — credentials for player 0 land in localStorage.
+    await connectAsPlayer(page, matchID, "0");
+
+    // Then join as CC (player 1) on the same page, same localStorage.
+    // connectAsPlayer calls page.goto(APP_URL) which returns to the setup screen,
+    // then goes through the lobby flow again.  After joining, both player 0 and
+    // player 1 credentials exist in localStorage; the fix ensures player 1's are used.
+    await connectAsPlayer(page, matchID, "1");
+
+    // Start the turn — WC is first mover, but the CC interstitial also waits.
+    // We resolve it from the CC page (which is now player 1's view).
+    await startTurn(page);
+
+    await expect(page.locator(".game-board")).toBeVisible({ timeout: 10_000 });
+
+    // Without the fix, findMatchCredentials would return player 0 (WC) first
+    // and this assertion would fail.
+    await expect(
+      page.locator(".player-area-capitalist-class .player-area-title"),
+    ).toHaveText("Capitalist Class");
+
+    await ctx.close();
+  });
+});
+
+// ─── Local / pass-and-play mode ───────────────────────────────────────────────
+
 test.describe("local / pass-and-play mode", () => {
   test("clicking Play Locally opens the game board without a server", async ({
     page,
   }) => {
     await page.goto(APP_URL);
+    // "Play Locally" → LocalGameManager
+    await page.click(".setup-button-local");
+    // "Start New Game" → local game loads
     await page.click(".setup-button-local");
 
+    // Turn-start interstitial appears; dismiss it to reveal the board.
     const startBtn = page.locator(".start-game-button");
     await startBtn.waitFor({ state: "visible", timeout: 10_000 });
     await startBtn.click();

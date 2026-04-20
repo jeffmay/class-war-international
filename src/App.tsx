@@ -52,11 +52,25 @@ function credentialsKey(matchID: string, playerID: string): string {
   return `cwi_creds_${matchID}_${playerID}`;
 }
 
-/** Find stored credentials for a multiplayer match (checks both player slots). */
+/** Tracks which playerID was most recently used to join a match on this device. */
+function activePlayerKey(matchID: string): string {
+  return `cwi_active_${matchID}`;
+}
+
+/**
+ * Find stored credentials for a multiplayer match.
+ * Checks the most recently active player slot first to handle the case where
+ * credentials for both players exist in the same localStorage (e.g. when
+ * testing both sides on the same device).
+ */
 function findMatchCredentials(
   matchID: string,
 ): { playerID: "0" | "1"; credentials: string } | null {
-  for (const pid of ["0", "1"] as const) {
+  const activePID = localStorage.getItem(activePlayerKey(matchID)) as "0" | "1" | null;
+  const lookupOrder: Array<"0" | "1"> = activePID
+    ? [activePID, activePID === "0" ? "1" : "0"]
+    : ["0", "1"];
+  for (const pid of lookupOrder) {
     const creds = localStorage.getItem(credentialsKey(matchID, pid));
     if (creds) return { playerID: pid, credentials: creds };
   }
@@ -900,6 +914,7 @@ function App() {
   const goToMatch = useCallback(
     (server: string, matchID: string, playerID: "0" | "1", credentials: string) => {
       localStorage.setItem(credentialsKey(matchID, playerID), credentials);
+      localStorage.setItem(activePlayerKey(matchID), playerID);
       window.location.hash = matchHash(server, matchID);
     },
     [],
