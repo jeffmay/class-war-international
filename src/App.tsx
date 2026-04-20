@@ -2,26 +2,40 @@
  * Main App component
  *
  * URL hash routing:
- *   #/                                        — setup screen
- *   #/local                                   — pass-and-play on a single device
- *   #/lobby/<encodedServer>                   — browse / create / join matches
- *   #/match/<encodedServer>/<id>/<pid>/<cred> — playing a specific match
+ *   #/                                         — setup screen
+ *   #/local                                    — local game manager (list saved games)
+ *   #/local/{gameName}                         — play a specific local game (pass-and-play)
+ *   #/lobby/{hostID}                           — browse / create / join matches
+ *   #/host/{hostID}/match/{matchID}            — playing a specific match
+ *
+ * Host ID encoding (see src/util/hostEncoding.ts):
+ *   '_' prefix = DNS hostname: encodeURI(host:port)
+ *   '4' prefix = IPv4: base64url([b0,b1,b2,b3,portHi,portLo])
+ *   '6' prefix = IPv6: base64url([...16 bytes, portHi, portLo])
+ *
+ * Local game state is persisted by boardgame.io's Local transport with
+ * { persist: true, storageKey: "cwi" } — no custom serialization needed.
  *
  * Player name is persisted in localStorage (cwi_player_name).
  * Per-match credentials are persisted in localStorage (cwi_creds_<id>_<pid>)
- * so a player can rejoin after a page refresh without re-joining via the API.
- *
- * In the future the player name + credentials will be replaced with an Auth0
- * access token when authentication is added.
+ * so a player can rejoin after a page refresh.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Client } from "boardgame.io/react";
-import { SocketIO } from "boardgame.io/multiplayer";
+import { SocketIO, Local } from "boardgame.io/multiplayer";
 import { ClassWarGame } from "./game/ClassWarGame";
 import { ClassWarBoard } from "./Board";
 import { LobbyMatch, LobbyMatchList, LobbyJoinResponse } from "./types/lobby";
 import { GameNavContext } from "./contexts/GameNav";
+import { encodeHostID, decodeHostID } from "./util/hostEncoding";
+import {
+  listLocalGames,
+  deleteLocalGame,
+  getMostRecentLocalGame,
+  BGIO_STORAGE_KEY,
+  type LocalGameEntry,
+} from "./util/localGameStorage";
 import "./App.css";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -38,40 +52,72 @@ function credentialsKey(matchID: string, playerID: string): string {
   return `cwi_creds_${matchID}_${playerID}`;
 }
 
+/** Find stored credentials for a multiplayer match (checks both player slots). */
+function findMatchCredentials(
+  matchID: string,
+): { playerID: "0" | "1"; credentials: string } | null {
+  for (const pid of ["0", "1"] as const) {
+    const creds = localStorage.getItem(credentialsKey(matchID, pid));
+    if (creds) return { playerID: pid, credentials: creds };
+  }
+  return null;
+}
+
 // ─── Route types + hash helpers ───────────────────────────────────────────────
 
 type Route =
   | { kind: "setup" }
-  | { kind: "local" }
+  | { kind: "localManager" }
+  | { kind: "localGame"; gameName: string }
   | { kind: "lobby"; server: string }
-  | { kind: "match"; server: string; matchID: string; playerID: "0" | "1"; credentials: string };
+  | { kind: "match"; server: string; matchID: string };
 
 function parseHash(): Route {
   const raw = window.location.hash.replace(/^#\//, "");
   if (!raw) return { kind: "setup" };
-  if (raw === "local") return { kind: "local" };
+  if (raw === "local") return { kind: "localManager" };
 
+  // #/local/{gameName}
+  const localM = /^local\/(.+)$/.exec(raw);
+  if (localM) {
+    try {
+      return { kind: "localGame", gameName: decodeURIComponent(localM[1]) };
+    } catch {
+      return { kind: "localManager" };
+    }
+  }
+
+  // #/lobby/{hostID}
   const lobbyM = /^lobby\/(.+)$/.exec(raw);
   if (lobbyM) {
     try {
-      return { kind: "lobby", server: decodeURIComponent(lobbyM[1]) };
+      return { kind: "lobby", server: decodeHostID(lobbyM[1]) };
     } catch {
       return { kind: "setup" };
     }
   }
 
-  // match/<encodedServer>/<matchID>/(0|1)/<encodedCredentials>
-  const matchM = /^match\/([^/]+)\/([^/]+)\/(0|1)\/(.+)$/.exec(raw);
+  // #/host/{hostID}/match/{matchID}
+  const matchM = /^host\/([^/]+)\/match\/([^/]+)$/.exec(raw);
   if (matchM) {
     try {
-      const [, encServer, matchID, playerID, encCreds] = matchM;
-      return {
-        kind: "match",
-        server: decodeURIComponent(encServer),
-        matchID,
-        playerID: playerID as "0" | "1",
-        credentials: decodeURIComponent(encCreds),
-      };
+      return { kind: "match", server: decodeHostID(matchM[1]), matchID: matchM[2] };
+    } catch {
+      return { kind: "setup" };
+    }
+  }
+
+  // Legacy: #/match/{encodedServer}/{matchID}/{playerID}/{credentials}
+  const legacyM = /^match\/([^/]+)\/([^/]+)\/(0|1)\/(.+)$/.exec(raw);
+  if (legacyM) {
+    try {
+      const server = decodeURIComponent(legacyM[1]);
+      const matchID = legacyM[2];
+      const playerID = legacyM[3] as "0" | "1";
+      const credentials = decodeURIComponent(legacyM[4]);
+      localStorage.setItem(credentialsKey(matchID, playerID), credentials);
+      window.location.hash = matchHash(server, matchID);
+      return { kind: "match", server, matchID };
     } catch {
       return { kind: "setup" };
     }
@@ -80,17 +126,20 @@ function parseHash(): Route {
   return { kind: "setup" };
 }
 
-function lobbyHash(server: string): string {
-  return `#/lobby/${encodeURIComponent(server)}`;
+function localManagerHash(): string {
+  return "#/local";
 }
 
-function matchHash(
-  server: string,
-  matchID: string,
-  playerID: string,
-  credentials: string,
-): string {
-  return `#/match/${encodeURIComponent(server)}/${matchID}/${playerID}/${encodeURIComponent(credentials)}`;
+function localGameHash(gameName: string): string {
+  return `#/local/${encodeURIComponent(gameName)}`;
+}
+
+function lobbyHash(server: string): string {
+  return `#/lobby/${encodeHostID(server)}`;
+}
+
+function matchHash(server: string, matchID: string): string {
+  return `#/host/${encodeHostID(server)}/match/${matchID}`;
 }
 
 function buildServer(host: string, port: number): string {
@@ -100,10 +149,16 @@ function buildServer(host: string, port: number): string {
 
 // ─── boardgame.io client factories ────────────────────────────────────────────
 
-const LocalClient = Client({
+/**
+ * Persistent local client: uses boardgame.io's Local transport with localStorage
+ * so game state survives page refreshes. No playerID is set — the board's
+ * isMyTurn logic treats null playerID as always-my-turn (pass-and-play).
+ */
+const PersistentLocalClient = Client({
   game: ClassWarGame,
   board: ClassWarBoard,
   numPlayers: 2,
+  multiplayer: Local({ persist: true, storageKey: BGIO_STORAGE_KEY }),
   debug: import.meta.env.DEV,
 });
 
@@ -117,7 +172,7 @@ function makeRemoteClient(server: string) {
   });
 }
 
-// ─── Leave + delete match helper (shared by LobbyRoute and RemoteGame) ────────
+// ─── Leave + delete match helper ──────────────────────────────────────────────
 
 async function leaveAndMaybeDelete(
   server: string,
@@ -132,11 +187,10 @@ async function leaveAndMaybeDelete(
   });
   localStorage.removeItem(credentialsKey(matchID, playerID));
 
-  // Re-fetch to check if the match is now empty and delete it if so
   try {
     const res = await fetch(`${server}/games/${GAME_NAME}`);
     if (res.ok) {
-      const data: LobbyMatchList = await res.json() as LobbyMatchList;
+      const data: LobbyMatchList = (await res.json()) as LobbyMatchList;
       const updated = data.matches.find((m) => m.matchID === matchID);
       if (updated && updated.players.every((p) => !p.name)) {
         await fetch(`${server}/games/${GAME_NAME}/${matchID}`, { method: "DELETE" });
@@ -146,6 +200,143 @@ async function leaveAndMaybeDelete(
     // Best-effort: ignore errors checking/deleting the emptied match
   }
 }
+
+// ─── Local Game Manager ────────────────────────────────────────────────────────
+
+interface LocalGameManagerProps {
+  onBack: () => void;
+}
+
+const LocalGameManager: React.FC<LocalGameManagerProps> = ({ onBack }) => {
+  const [games, setGames] = useState<LocalGameEntry[]>(() => listLocalGames());
+  const [newGameName, setNewGameName] = useState("");
+
+  const refresh = () => setGames(listLocalGames());
+
+  const handleStartNew = () => {
+    const name = newGameName.trim() || `Game ${games.length + 1}`;
+    window.location.hash = localGameHash(name);
+  };
+
+  const handleContinueLast = () => {
+    const last = getMostRecentLocalGame();
+    if (last) window.location.hash = localGameHash(last.gameName);
+  };
+
+  const handleDelete = (gameName: string) => {
+    deleteLocalGame(gameName);
+    refresh();
+  };
+
+  const mostRecent = games[0];
+
+  return (
+    <div className="setup-screen">
+      <div className="setup-screen-content">
+        <div className="setup-screen-title">CLASS WAR</div>
+        <div className="setup-screen-subtitle">International — Local Games</div>
+
+        <section className="setup-section">
+          {mostRecent && (
+            <button
+              className="setup-button setup-button-host local-continue-button"
+              onClick={handleContinueLast}
+            >
+              ▶ Continue: {mostRecent.gameName}
+            </button>
+          )}
+
+          <div className="local-new-game">
+            <h2 className="setup-section-title">New Game</h2>
+            <label className="setup-field">
+              <span className="setup-field-label">Game Name</span>
+              <input
+                className="setup-field-input"
+                type="text"
+                value={newGameName}
+                onChange={(e) => setNewGameName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleStartNew()}
+                placeholder={`Game ${games.length + 1}`}
+              />
+            </label>
+            <button className="setup-button setup-button-local" onClick={handleStartNew}>
+              ▶ Start New Game
+            </button>
+          </div>
+
+          {games.length > 0 && (
+            <div className="local-saved-games">
+              <h2 className="setup-section-title">Saved Games</h2>
+              <div className="local-game-list">
+                {games.map((entry) => (
+                  <div key={entry.gameName} className="local-game-card">
+                    <div className="local-game-info">
+                      <span className="local-game-name">{entry.gameName}</span>
+                      <span className="local-game-date">
+                        {entry.lastPlayed
+                          ? new Date(entry.lastPlayed).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="local-game-actions">
+                      <button
+                        className="local-game-resume-button"
+                        onClick={() => {
+                          window.location.hash = localGameHash(entry.gameName);
+                        }}
+                      >
+                        Resume
+                      </button>
+                      <button
+                        className="local-game-delete-button"
+                        onClick={() => handleDelete(entry.gameName)}
+                        aria-label={`Delete ${entry.gameName}`}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button className="setup-button setup-button-secondary" onClick={onBack}>
+            ← Back to Start
+          </button>
+        </section>
+      </div>
+    </div>
+  );
+};
+
+// ─── Local game route ─────────────────────────────────────────────────────────
+
+interface LocalGameRouteProps {
+  gameName: string;
+  onReturnToStart: () => void;
+}
+
+const LocalGameRoute: React.FC<LocalGameRouteProps> = ({ gameName, onReturnToStart }) => {
+  const returnToManager = useCallback(() => {
+    window.location.hash = localManagerHash();
+  }, []);
+
+  return (
+    <GameNavContext.Provider
+      value={{ onReturnToStart, onReturnToLobby: returnToManager, onLeaveMatch: null }}
+    >
+      <div className="App">
+        <PersistentLocalClient matchID={gameName} />
+      </div>
+    </GameNavContext.Provider>
+  );
+};
 
 // ─── Setup screen ──────────────────────────────────────────────────────────────
 
@@ -273,7 +464,6 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
 };
 
 // ─── Lobby route ───────────────────────────────────────────────────────────────
-// Handles the full connecting → (error | match list) flow for a specific server.
 
 type LobbyStatus =
   | { kind: "connecting" }
@@ -292,12 +482,7 @@ const PLAYER_CLASS_LABEL: Record<string, string> = {
   "1": "Capitalist Class",
 };
 
-const LobbyRoute: React.FC<LobbyRouteProps> = ({
-  server,
-  playerName,
-  onEnterMatch,
-  onBack,
-}) => {
+const LobbyRoute: React.FC<LobbyRouteProps> = ({ server, playerName, onEnterMatch, onBack }) => {
   const [status, setStatus] = useState<LobbyStatus>({ kind: "connecting" });
   const [timeoutMs] = useState(
     () => parseInt(localStorage.getItem(TIMEOUT_MS_KEY) ?? String(DEFAULT_TIMEOUT_MS), 10),
@@ -309,8 +494,6 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Use a ref for the fetch abort controller so fetchMatches can be called
-  // multiple times (refresh, retry) without stale closure issues.
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchMatches = useCallback(async () => {
@@ -327,12 +510,10 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({
     }, timeoutMs);
 
     try {
-      const res = await fetch(`${server}/games/${GAME_NAME}`, {
-        signal: controller.signal,
-      });
+      const res = await fetch(`${server}/games/${GAME_NAME}`, { signal: controller.signal });
       clearTimeout(timer);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: LobbyMatchList = await res.json() as LobbyMatchList;
+      const data: LobbyMatchList = (await res.json()) as LobbyMatchList;
       setStatus({ kind: "ready", matches: data.matches ?? [] });
     } catch (err) {
       clearTimeout(timer);
@@ -383,7 +564,7 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({
         const text = await res.text();
         throw new Error(text || `HTTP ${res.status}`);
       }
-      const data: LobbyJoinResponse = await res.json() as LobbyJoinResponse;
+      const data: LobbyJoinResponse = (await res.json()) as LobbyJoinResponse;
       localStorage.setItem(credentialsKey(match.matchID, pid), data.playerCredentials);
       onEnterMatch(match.matchID, pid as "0" | "1", data.playerCredentials);
     } catch (err) {
@@ -421,8 +602,6 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({
     }
   };
 
-  // ── Connecting view ──────────────────────────────────────────────────────────
-
   if (status.kind === "connecting") {
     return (
       <div className="setup-screen">
@@ -440,8 +619,6 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({
       </div>
     );
   }
-
-  // ── Error view ───────────────────────────────────────────────────────────────
 
   if (status.kind === "error") {
     return (
@@ -474,8 +651,6 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({
     );
   }
 
-  // ── Match list view ──────────────────────────────────────────────────────────
-
   const { matches } = status;
 
   return (
@@ -503,12 +678,11 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({
             </div>
           </div>
           <div className="lobby-server-info">
-            <p className="setup-section-description lobby-server-label">
-              Server: {server}
-            </p>
+            <p className="setup-section-description lobby-server-label">Server: {server}</p>
             {playerName && (
               <p className="lobby-current-player">
-                Playing as: <span className="lobby-current-player-name">{playerName}</span>
+                Playing as:{" "}
+                <span className="lobby-current-player-name">{playerName}</span>
               </p>
             )}
           </div>
@@ -542,8 +716,7 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({
                 const isRejoinable = mySlot !== undefined;
                 const isFull = !isRejoinable && match.players.every((p) => p.name !== undefined);
                 const pid = selectedPlayerID[match.matchID] ?? getDefaultPlayerID(match);
-                const isBusy =
-                  joining === match.matchID || leaving === match.matchID;
+                const isBusy = joining === match.matchID || leaving === match.matchID;
 
                 return (
                   <div
@@ -649,6 +822,15 @@ function getDefaultPlayerID(match: LobbyMatch): "0" | "1" | undefined {
   return String(open.id) as "0" | "1";
 }
 
+// ─── Match redirect (no credentials) ─────────────────────────────────────────
+
+function MatchRedirectToLobby({ server }: { server: string }) {
+  useEffect(() => {
+    window.location.hash = lobbyHash(server);
+  }, [server]);
+  return null;
+}
+
 // ─── Remote game wrapper ──────────────────────────────────────────────────────
 
 interface RemoteGameProps {
@@ -700,7 +882,6 @@ function App() {
     () => localStorage.getItem(PLAYER_NAME_KEY) ?? "",
   );
 
-  // Keep route in sync with the URL hash (handles browser back/forward)
   useEffect(() => {
     const onHashChange = () => setRoute(parseHash());
     window.addEventListener("hashchange", onHashChange);
@@ -711,31 +892,25 @@ function App() {
     window.location.hash = "#/";
   }, []);
 
-  const goToLobby = useCallback(
-    (server: string, name: string) => {
-      setPlayerName(name);
-      window.location.hash = lobbyHash(server);
-    },
-    [],
-  );
+  const goToLobby = useCallback((server: string, name: string) => {
+    setPlayerName(name);
+    window.location.hash = lobbyHash(server);
+  }, []);
 
   const goToMatch = useCallback(
     (server: string, matchID: string, playerID: "0" | "1", credentials: string) => {
-      window.location.hash = matchHash(server, matchID, playerID, credentials);
+      localStorage.setItem(credentialsKey(matchID, playerID), credentials);
+      window.location.hash = matchHash(server, matchID);
     },
     [],
   );
 
-  if (route.kind === "local") {
-    return (
-      <GameNavContext.Provider
-        value={{ onReturnToStart: goToSetup, onReturnToLobby: null, onLeaveMatch: null }}
-      >
-        <div className="App">
-          <LocalClient />
-        </div>
-      </GameNavContext.Provider>
-    );
+  if (route.kind === "localManager") {
+    return <LocalGameManager onBack={goToSetup} />;
+  }
+
+  if (route.kind === "localGame") {
+    return <LocalGameRoute gameName={route.gameName} onReturnToStart={goToSetup} />;
   }
 
   if (route.kind === "lobby") {
@@ -752,12 +927,16 @@ function App() {
   }
 
   if (route.kind === "match") {
+    const found = findMatchCredentials(route.matchID);
+    if (!found) {
+      return <MatchRedirectToLobby server={route.server} />;
+    }
     return (
       <RemoteGame
         server={route.server}
         matchID={route.matchID}
-        playerID={route.playerID}
-        credentials={route.credentials}
+        playerID={found.playerID}
+        credentials={found.credentials}
       />
     );
   }
@@ -766,7 +945,9 @@ function App() {
   return (
     <SetupScreen
       initialPlayerName={playerName}
-      onLocal={() => { window.location.hash = "#/local"; }}
+      onLocal={() => {
+        window.location.hash = localManagerHash();
+      }}
       onConnectToLobby={goToLobby}
     />
   );

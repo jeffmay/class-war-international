@@ -15,6 +15,7 @@ import "@testing-library/jest-dom";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import App from "./App";
+import { encodeHostID } from "./util/hostEncoding";
 
 // ─── Mock boardgame.io react components ──────────────────────────────────────
 
@@ -90,14 +91,51 @@ describe("SetupScreen", () => {
 // ─── Local play mode ──────────────────────────────────────────────────────────
 
 describe("Local play mode", () => {
-  test("navigating to #/local shows the boardgame.io client", () => {
+  test("navigating to #/local shows the local game manager", () => {
     renderAt("#/local");
+    expect(screen.getByText(/Local Games/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Start New Game/i })).toBeInTheDocument();
+  });
+
+  test("navigating to #/local/{gameName} shows the boardgame.io client", () => {
+    renderAt("#/local/My%20Game");
     expect(screen.getByTestId("bgio-client")).toBeInTheDocument();
   });
 
-  test("clicking Play Locally navigates to #/local and shows the client", async () => {
+  test("clicking Play Locally shows the local game manager", async () => {
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: /Play Locally/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Start New Game/i })).toBeInTheDocument();
+    });
+  });
+
+  test("Start New Game navigates to a local game URL", async () => {
+    renderAt("#/local");
+    fireEvent.click(screen.getByRole("button", { name: /Start New Game/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId("bgio-client")).toBeInTheDocument();
+    });
+  });
+
+  test("saved games list shows existing games from localStorage", () => {
+    localStorage.setItem(
+      "cwi_metadata",
+      JSON.stringify([["My Saved Game", { updatedAt: Date.now() }]]),
+    );
+    renderAt("#/local");
+    expect(screen.getByText("My Saved Game")).toBeInTheDocument();
+  });
+
+  test("Continue button appears and goes to the most recent game", async () => {
+    localStorage.setItem(
+      "cwi_metadata",
+      JSON.stringify([["Recent Game", { updatedAt: Date.now() }]]),
+    );
+    renderAt("#/local");
+    const continueBtn = screen.getByRole("button", { name: /Continue/i });
+    expect(continueBtn).toBeInTheDocument();
+    fireEvent.click(continueBtn);
     await waitFor(() => {
       expect(screen.getByTestId("bgio-client")).toBeInTheDocument();
     });
@@ -109,7 +147,7 @@ describe("Local play mode", () => {
 describe("Lobby connection", () => {
   test("navigating to #/lobby/<server> shows connecting screen", () => {
     vi.spyOn(global, "fetch").mockImplementation(() => new Promise(() => {}));
-    renderAt("#/lobby/http%3A%2F%2Flocalhost%3A8000");
+    renderAt(`#/lobby/${encodeHostID("http://localhost:8000")}`);
     expect(screen.getByText(/Connecting/i)).toBeInTheDocument();
   });
 
@@ -129,7 +167,7 @@ describe("Lobby connection", () => {
       json: async () => ({ matches: [] }),
     } as Response);
 
-    renderAt("#/lobby/http%3A%2F%2Flocalhost%3A8000");
+    renderAt(`#/lobby/${encodeHostID("http://localhost:8000")}`);
 
     await waitFor(() => {
       expect(screen.getByText("Open Matches")).toBeInTheDocument();
@@ -139,7 +177,7 @@ describe("Lobby connection", () => {
   test("failed connection shows error screen", async () => {
     vi.spyOn(global, "fetch").mockRejectedValue(new TypeError("fetch failed"));
 
-    renderAt("#/lobby/http%3A%2F%2Flocalhost%3A8000");
+    renderAt(`#/lobby/${encodeHostID("http://localhost:8000")}`);
 
     await waitFor(
       () => {
@@ -176,7 +214,7 @@ describe("Lobby: Leave match", () => {
       json: async () => ({ matches: [matchWithMe] }),
     } as Response);
 
-    renderAt(`#/lobby/${encodeURIComponent(SERVER)}`);
+    renderAt(`#/lobby/${encodeHostID(SERVER)}`);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Rejoin/i })).toBeInTheDocument();
@@ -216,7 +254,7 @@ describe("Lobby: Leave match", () => {
       json: async () => ({ matches: [] }),
     } as Response);
 
-    renderAt(`#/lobby/${encodeURIComponent(SERVER)}`);
+    renderAt(`#/lobby/${encodeHostID(SERVER)}`);
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /Leave/i })).toBeInTheDocument();
