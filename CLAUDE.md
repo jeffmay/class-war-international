@@ -20,7 +20,7 @@ npm test              # Run all tests
 npm run lint          # Run the linter on all files
 ```
 
-The app is running at http://localhost:3000, and you can use the Playwright MCP to access it.
+The app is running at http://localhost:5173, and you can use the Playwright MCP to access it.
 
 ## Important Notes
 - MUST ALWAYS run `npm run typecheck`, then `npm test`, and then `npm run lint` for all files before commiting code changes.

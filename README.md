@@ -59,7 +59,7 @@ Each turn has three phases:
 ### Development UI
 
 ```bash
-npm start          # Start Vite dev server at http://localhost:3000
+npm start          # Start Vite dev server at http://localhost:5173
 ```
 
 ### Online Multiplayer Server
@@ -73,14 +73,14 @@ Optional environment variables:
 | Variable  | Default                   | Description                                           |
 |-----------|---------------------------|-------------------------------------------------------|
 | `PORT`    | `8000`                    | Game server and lobby API port                        |
-| `ORIGINS` | `http://localhost:3000`   | Comma-separated list of allowed client origins        |
+| `ORIGINS` | `http://localhost:5173`   | Comma-separated list of allowed client origins        |
 
 The lobby REST API and the WebSocket game server run on the **same port**. There is no separate API port.
 
 Example with custom settings:
 
 ```bash
-PORT=9000 ORIGINS="http://192.168.1.42:3000" npm run host
+PORT=9000 ORIGINS="http://192.168.1.42:5173" npm run host
 ```
 
 ---

@@ -18,7 +18,7 @@ describe("IPv4 encoding", () => {
   });
 
   test("round-trips loopback", () => {
-    expect(roundTrip("http://127.0.0.1:3000")).toBe("http://127.0.0.1:3000");
+    expect(roundTrip("http://127.0.0.1:5173")).toBe("http://127.0.0.1:5173");
   });
 
   test("round-trips address with non-default port", () => {
