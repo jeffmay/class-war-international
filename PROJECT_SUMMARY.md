@@ -79,7 +79,7 @@ A 2-player board game based on **Class War: International** rules, built with th
 - Shared board area: Workplaces (3 slots), Political Offices (3 state figures)
 - Card inspector menu bar (`ActionMenuBar`) for viewing cards in hand, selecting actions, choosing a conflict target, or generally progressing the game through linear menu option trees.
 
-**Status: Running at localhost:3000**
+**Status: Running at localhost:5173**
 
 ### 11. Escape Key Closes ActionMenuBar (`src/Board.tsx`)
 - `useEffect` in `Board.tsx` attaches a `keydown` listener that listens for the Escape key
@@ -186,7 +186,35 @@ A 2-player board game based on **Class War: International** rules, built with th
 - Card IDs for the modal preview are captured from the pre-move state before the move executes
 - `needsLocalHandoff` now excludes `boardState.mode === 'showingDealtCards'` to prevent two overlays stacking
 
-### 23. Lobby System and Persistent Match Storage (`src/App.tsx`, `server/index.ts`)
+### 23. Conflict Leader Row & Leader Switching (`src/types/conflicts.ts`, `src/game/ClassWarGame.ts`, `src/components/ConflictModal.tsx`)
+
+**Type changes (`src/types/conflicts.ts`)**
+- Removed `strikeLeader: FigureCardInPlay` from `StrikeConflictState`; replaced with `maxStrikeLeaders: number` (default 1)
+- Removed `candidate: FigureCardInPlay` from `ElectionConflictState`
+- Leader position is now **positional by convention**: first `maxStrikeLeaders` entries of `workingClassCards` are strike leaders; first entry of the initiating class's cards is the election candidate
+- Eliminates invariant maintenance — changing leader = array swap + power recompute
+
+**New game move: `changeConflictLeader(leaderSlotIndex, conflictCardIndex)`**
+- Valid only during `ConflictPhase.Initiating`
+- For strikes: swaps `workingClassCards[leaderSlotIndex]` with `workingClassCards[conflictCardIndex]`; recomputes WC power stats
+- For elections: swaps index 0 of the initiating class's cards with `conflictCardIndex`; recomputes that side's power stats
+- Guards: phase check, index bounds, slot type validation (leader vs supporter)
+
+**ConflictModal redesign (`src/components/ConflictModal.tsx`)**
+- Strike layout: leader row (first N cards) rendered above supporter row; "Change"/"Cancel" buttons toggle swap mode; supporters show "Set as Leader" in swap mode
+- Election layout: full-width head-to-head row at top (candidate vs incumbent with "vs" label); "Change"/"Set as Candidate" buttons for candidate swap
+- Card effects list: below each side's cards, shows `rules` text for cards that have it
+- New prop: `onChangeLeader: (leaderSlotIndex: number, conflictCardIndex: number) => void`
+- New local state: `swappingLeaderSlot: number | null` for swap mode
+
+### 24. Multiplayer CC Perspective Bug Fix (`src/App.tsx`)
+
+- Root cause: `findMatchCredentials` always iterated `["0", "1"]`, so on same-device testing both players always loaded WC (player 0) credentials
+- Fix: store the most-recently-joined playerID in `localStorage` under `cwi_active_{matchID}` key on each `goToMatch()` call
+- `findMatchCredentials` now checks the active player key first, falls back to the other player
+- CC players on same device as WC now correctly load their own perspective
+
+### 25. Lobby System and Persistent Match Storage (`src/App.tsx`, `server/index.ts`)
 
 **FlatFile match storage (`server/index.ts`)**
 - Server now uses `FlatFile` DB backend (stored in `./data` by default, configurable via `DB_DIR` env var)
@@ -226,23 +254,30 @@ A 2-player board game based on **Class War: International** rules, built with th
 
 ## Test Coverage
 
-### Test Suites: 14
+### Test Suites: 14 unit + e2e
 1. **ClassWarGame.test.ts** - Setup tests
 2. **ProductionPhase.test.ts** - Production + Reproduction mechanics (incl. theorizing)
 3. **ActionPhase.test.ts** - Card playing
-4. **ConflictPhase.test.ts** - Strike and election planning
+4. **ConflictPhase.test.ts** - Strike and election planning; `changeConflictLeader` move
 5. **ConflictResolution.test.ts** - Conflict resolution + player-switching
 6. **ConflictCardTracking.test.ts** - Step card add/remove tracking during conflicts (E2E)
 7. **Undo.test.ts** - Undo mechanics
 8. **Board.test.tsx** - Board component (incl. multiplayer guards)
 9. **CardComponent.test.tsx** - Card component (incl. new border variant system)
 10. **ActionMenuBar.test.tsx** - Action menu bar
-11. **ConflictModal.test.tsx** - Conflict modal
+11. **ConflictModal.test.tsx** - Conflict modal (leader row, HtH election row, swap mode, effects list)
 12. **ConflictOutcomeModal.test.tsx** - Conflict outcome modal
 13. **DealResultModal.test.tsx** - Deal result modal
 14. **statusText.test.ts** - Status text DOM utility (setStatusText, logError)
 
-**Total: 238 passing + 2 skipped = 240 tests**
+**E2E (Playwright): `e2e/multiplayer.test.ts`** — 13 tests across 5 suites
+- `setup screen` — title and button visibility
+- `lobby connection` — successful connection + bad-address error screen
+- `multiplayer — two browsers, one match` — join + reach board; production advance
+- `server API — match lifecycle` — REST API blackbox: list, create, join both slots, leave, slot independence
+- `multiplayer — player perspective` — separate contexts see correct class; same-device CC regression test
+
+**Total: 288 passing + 2 skipped = 290 tests**
 
 ### Testing Architecture
 
@@ -338,7 +373,7 @@ Open http://localhost:5173
 npm run typecheck     # Typecheck all files
 npm test              # Run all tests
 npm run lint          # Run the linter on all files
-npm start             # Start dev server at localhost:3000
+npm start             # Start dev server at localhost:5173
 ```
 
 ---
@@ -401,4 +436,4 @@ npm start             # Start dev server at localhost:3000
 
 ---
 
-*Last updated: April 18, 2026*
+*Last updated: April 19, 2026*
