@@ -4333,3 +4333,96 @@ body {
     font-size: 13px;
   }
 }
+
+/* ── Conflict Modal: Leader Row ───────────────────────────────────────────── */
+
+.conflict-modal-leader-row {
+  background: rgba(255, 220, 100, 0.08);
+  border-bottom: 1px solid rgba(255, 220, 100, 0.2);
+  border-radius: 6px 6px 0 0;
+  padding: 8px 12px 10px;
+  margin-bottom: 8px;
+}
+
+.conflict-modal-leader-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.conflict-modal-change-btn {
+  background: rgba(255, 220, 100, 0.15);
+  border: 1px solid rgba(255, 220, 100, 0.4);
+  border-radius: 4px;
+  color: #fde68a;
+  cursor: pointer;
+  font-size: 0.75em;
+  padding: 3px 8px;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.conflict-modal-change-btn:hover {
+  background: rgba(255, 220, 100, 0.3);
+}
+
+/* ── Conflict Modal: Head-to-Head (Election) ─────────────────────────────── */
+
+.conflict-modal-hth-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2vw;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+}
+
+.conflict-modal-hth-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.conflict-modal-vs-label {
+  font-size: 1.4em;
+  font-weight: bold;
+  color: #a0aec0;
+  align-self: center;
+  padding: 0 4px;
+}
+
+/* ── Conflict Modal: Effects List ────────────────────────────────────────── */
+
+.conflict-modal-effects-list {
+  margin-top: 8px;
+  font-size: 0.8em;
+  color: #cbd5e0;
+}
+
+.conflict-modal-effects-list ul {
+  list-style: disc;
+  margin: 4px 0 0 16px;
+  padding: 0;
+}
+
+.conflict-modal-effects-list li {
+  margin-bottom: 2px;
+  line-height: 1.4;
+}
+
+@media (max-width: 600px) {
+  .conflict-modal-hth-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .conflict-modal-vs-label {
+    font-size: 1.1em;
+  }
+}

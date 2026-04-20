@@ -407,7 +407,7 @@ export const Moves = {
       conflictType: ConflictType.Strike,
       targetWorkplaceIndex: workplaceIndex,
       targetWorkplace: { ...targetWorkplace },
-      strikeLeader,
+      maxStrikeLeaders: 1,
       workingClassCards,
       capitalistCards: [],
       active: true,
@@ -473,7 +473,6 @@ export const Moves = {
       conflictType: ConflictType.Election,
       targetOfficeIndex: officeIndex,
       targetIncumbent: { ...targetOffice },
-      candidate,
       workingClassCards,
       capitalistCards,
       active: true,
@@ -795,6 +794,65 @@ export const Moves = {
   },
 
   /**
+   * Swap a leader slot card with another card already in the conflict.
+   * Only valid during the Initiating phase.
+   * For strikes: leaderSlotIndex must be < maxStrikeLeaders; conflictCardIndex must be >= maxStrikeLeaders.
+   * For elections: leaderSlotIndex must be 0; conflictCardIndex must be >= 1.
+   * The two cards exchange positions in the relevant cards array; power stats are recomputed.
+   */
+  changeConflictLeader: ({ G }, leaderSlotIndex: number, conflictCardIndex: number) => {
+    if (!G.activeConflict) return;
+    if (G.activeConflict.phase !== ConflictPhase.Initiating) {
+      G.errorMessage = 'Can only change leader during the initiating phase.';
+      return;
+    }
+
+    const conflict = G.activeConflict;
+
+    if (conflict.conflictType === ConflictType.Strike) {
+      if (leaderSlotIndex < 0 || leaderSlotIndex >= conflict.maxStrikeLeaders) {
+        G.errorMessage = 'Invalid leader slot index.';
+        return;
+      }
+      if (conflictCardIndex < conflict.maxStrikeLeaders || conflictCardIndex >= conflict.workingClassCards.length) {
+        G.errorMessage = 'Invalid conflict card index: must point to a supporter slot.';
+        return;
+      }
+      saveUndo(G, 'Change Strike Leader');
+      const cards = conflict.workingClassCards;
+      [cards[leaderSlotIndex], cards[conflictCardIndex]] = [cards[conflictCardIndex], cards[leaderSlotIndex]];
+      conflict.workingClassPower = powerStats(cards);
+
+    } else if (conflict.conflictType === ConflictType.Election) {
+      const initiatingCards = conflict.initiatingClass === SocialClass.WorkingClass
+        ? conflict.workingClassCards
+        : conflict.capitalistCards;
+
+      if (leaderSlotIndex !== 0) {
+        G.errorMessage = 'Candidate slot is always index 0.';
+        return;
+      }
+      if (conflictCardIndex < 1 || conflictCardIndex >= initiatingCards.length) {
+        G.errorMessage = 'Invalid conflict card index: must point to a supporter slot.';
+        return;
+      }
+      saveUndo(G, 'Change Election Candidate');
+      [initiatingCards[0], initiatingCards[conflictCardIndex]] = [initiatingCards[conflictCardIndex], initiatingCards[0]];
+      if (conflict.initiatingClass === SocialClass.WorkingClass) {
+        conflict.workingClassPower = powerStats(conflict.workingClassCards);
+      } else {
+        conflict.capitalistPower = powerStats(conflict.capitalistCards);
+      }
+
+    } else {
+      G.errorMessage = 'Leader change is not applicable for legislation conflicts.';
+      return;
+    }
+
+    G.errorMessage = undefined;
+  },
+
+  /**
    * The activeConflictPlayer is done adding cards.
    * During Responding: passes back to the initiating class (→ Resolving phase).
    * Calls endTurn({ next }) to transfer boardgame.io move rights back to the initiating player.
@@ -902,11 +960,21 @@ export const Moves = {
         ? wcTotal > ccTotal
         : ccTotal > wcTotal;
 
+      // The candidate is the first card of the initiating class's conflict cards
+      const initiatingCards = conflict.initiatingClass === SocialClass.WorkingClass
+        ? conflict.workingClassCards
+        : conflict.capitalistCards;
+      const candidateCard = initiatingCards[0];
+
       if (challengerWins) {
         winner = conflict.initiatingClass;
+        if (!candidateCard || candidateCard.card_type !== CardType.Figure) {
+          G.errorMessage = 'Invalid election: no figure candidate at index 0 of initiating class cards.';
+          return;
+        }
         // Place elected candidate in the office; exhaust them; set cooldown
         G.politicalOffices[conflict.targetOfficeIndex] = {
-          ...conflict.candidate,
+          ...candidateCard,
           exhausted: true,
           electionCooldownTurnsRemaining: 1,
         };
@@ -925,7 +993,7 @@ export const Moves = {
         for (const card of cards) {
           if (card.card_type === CardType.Figure) {
             // Winning candidate stays in the office slot (not returned to figures)
-            const isWinningCandidate = challengerWins && card.id === conflict.candidate.id;
+            const isWinningCandidate = challengerWins && card.id === candidateCard?.id;
             if (!isWinningCandidate) {
               clasPlayer.figures.push({ ...card, exhausted: true });
             }

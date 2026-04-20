@@ -4,9 +4,14 @@
  * Full-screen overlay shown during an active conflict.
  * Displays the target card, both sides' cards, power totals, and phase-appropriate action buttons.
  * Supports adding figures and tactics from the activeConflictPlayer's in-play area / hand.
+ *
+ * Layout:
+ *   - Strike: leader row (first maxStrikeLeaders of workingClassCards) above supporter rows
+ *   - Election: head-to-head row (candidate vs incumbent) above supporter columns
+ *   - Legislation: side-by-side columns as before
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { CardSlotEntity, CardType, ConflictType, SocialClass } from '../types/cards';
 import { ConflictCardInPlay, ConflictPhase, ConflictState } from '../types/conflicts';
 import { PlayerState } from '../types/game';
@@ -31,6 +36,8 @@ interface ConflictModalProps {
   onAddTactic: (handIndex: number, forClass?: SocialClass) => void;
   /** Called when the viewer clicks one of their own addedThisStep cards to remove it */
   onRemoveCard: (cardIndex: number, forClass: SocialClass) => void;
+  /** Swap card at leaderSlotIndex with card at conflictCardIndex within the relevant cards array */
+  onChangeLeader: (leaderSlotIndex: number, conflictCardIndex: number) => void;
   onPlanResponse: () => void;
   onResolve: () => void;
 }
@@ -79,6 +86,23 @@ function renderPowerBreakdown(
   );
 }
 
+function renderEffectsList(cards: ConflictCardInPlay[], label: string): React.ReactNode {
+  const effects = cards
+    .map(card => ({ name: getAnyCardData(card.id).name, rules: getAnyCardData(card.id).rules }))
+    .filter(({ rules }) => rules);
+  if (effects.length === 0) return null;
+  return (
+    <div className="conflict-modal-effects-list">
+      <div className="conflict-modal-section-label">{label} Effects</div>
+      <ul>
+        {effects.map(({ name, rules }, i) => (
+          <li key={i}><strong>{name}:</strong> {rules}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export const ConflictModal: React.FC<ConflictModalProps> = ({
   conflict,
   viewingClass,
@@ -91,9 +115,13 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   onAddFigure,
   onAddTactic,
   onRemoveCard,
+  onChangeLeader,
   onPlanResponse,
   onResolve,
 }) => {
+  // null = not in swap mode; number = leader slot index being replaced
+  const [swappingLeaderSlot, setSwappingLeaderSlot] = useState<number | null>(null);
+
   const isInitiating = conflict.phase === ConflictPhase.Initiating;
   const isResponding = conflict.phase === ConflictPhase.Responding;
   const isResolving = conflict.phase === ConflictPhase.Resolving;
@@ -102,9 +130,6 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   const conflictTypeLabel =
     conflict.conflictType === ConflictType.Strike ? "Strike" :
     conflict.conflictType === ConflictType.Election ? "Election" : "Legislation";
-  const targetLabel =
-    conflict.conflictType === ConflictType.Strike ? "Workplace" :
-    conflict.conflictType === ConflictType.Election ? "Office" : "Demand";
 
   const phaseLabel = (() => {
     if (isInitiating) return `${conflict.initiatingClass}: Add cards to your side`;
@@ -160,6 +185,347 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
     );
   };
 
+  // ── Strike-specific layout helpers ────────────────────────────────────────────
+
+  const renderStrikeLeaderRow = () => {
+    if (conflict.conflictType !== ConflictType.Strike) return null;
+    const { maxStrikeLeaders, workingClassCards } = conflict;
+    const leaders = workingClassCards.slice(0, maxStrikeLeaders);
+    const canChangeLeader = isInitiating && isMyTurn && viewingClass === SocialClass.WorkingClass;
+    return (
+      <div className="conflict-modal-leader-row">
+        <div className="conflict-modal-section-label">Strike Leader{maxStrikeLeaders > 1 ? "s" : ""}</div>
+        <div className="conflict-modal-card-row">
+          {leaders.map((card, i) => (
+            <div key={i} className="conflict-modal-leader-card">
+              <CardComponent card={getAnyCardData(card.id)} borderVariant="other" />
+              {canChangeLeader && (
+                <button
+                  className="conflict-modal-change-btn"
+                  onClick={() => setSwappingLeaderSlot(swappingLeaderSlot === i ? null : i)}
+                >
+                  {swappingLeaderSlot === i ? "Cancel" : "Change"}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderStrikeSupporters = () => {
+    if (conflict.conflictType !== ConflictType.Strike) return null;
+    const { maxStrikeLeaders, workingClassCards } = conflict;
+    const supporters = workingClassCards.slice(maxStrikeLeaders);
+    const canSwap = swappingLeaderSlot !== null && isInitiating && isMyTurn;
+    return (
+      <div className="conflict-modal-card-row">
+        {supporters.map((card, i) => {
+          const conflictIdx = maxStrikeLeaders + i;
+          if (canSwap) {
+            return (
+              <div key={i} className="conflict-modal-leader-card">
+                <CardComponent card={getAnyCardData(card.id)} borderVariant="actionable" />
+                <button
+                  className="conflict-modal-change-btn"
+                  onClick={() => { onChangeLeader(swappingLeaderSlot!, conflictIdx); setSwappingLeaderSlot(null); }}
+                >
+                  Set as Leader
+                </button>
+              </div>
+            );
+          }
+          return renderConflictCard(card, conflictIdx, SocialClass.WorkingClass);
+        })}
+        {activeConflictPlayer === SocialClass.WorkingClass && !isResolving && !canSwap && (
+          <div className="card-slot">
+            <div className="card-slot-placeholder card-slot-placeholder-add">
+              <span className="card-slot-add-icon">+</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Election-specific layout helpers ─────────────────────────────────────────
+
+  const renderElectionHthRow = () => {
+    if (conflict.conflictType !== ConflictType.Election) return null;
+    const initiatingCards = conflict.initiatingClass === SocialClass.WorkingClass
+      ? conflict.workingClassCards
+      : conflict.capitalistCards;
+    const candidateCard = initiatingCards[0];
+    const canChangeCandidate = isInitiating && isMyTurn && viewingClass === conflict.initiatingClass;
+    const hasSupportersToSwap = initiatingCards.length > 1;
+    return (
+      <div className="conflict-modal-hth-row">
+        <div className="conflict-modal-hth-side">
+          <div className="conflict-modal-section-label">
+            {conflict.initiatingClass === SocialClass.WorkingClass ? "WC" : "CC"} Candidate
+          </div>
+          {candidateCard && (
+            <div className="conflict-modal-leader-card">
+              <CardComponent card={getAnyCardData(candidateCard.id)} borderVariant="other" />
+              {canChangeCandidate && hasSupportersToSwap && (
+                <button
+                  className="conflict-modal-change-btn"
+                  onClick={() => setSwappingLeaderSlot(swappingLeaderSlot === 0 ? null : 0)}
+                >
+                  {swappingLeaderSlot === 0 ? "Cancel" : "Change"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="conflict-modal-vs-label">vs</div>
+        <div className="conflict-modal-hth-side">
+          <div className="conflict-modal-section-label">Incumbent</div>
+          <CardComponent
+            card={targetCard}
+            borderVariant={incumbentDefendingClass === SocialClass.WorkingClass ? "wc" : "cc"}
+          />
+          {incumbentPower > 0 && (
+            <div className="conflict-modal-power-source">+{incumbentPower} ⚫</div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderElectionSupporters = (forClass: SocialClass) => {
+    if (conflict.conflictType !== ConflictType.Election) return null;
+    const isInitiatingClass = forClass === conflict.initiatingClass;
+    const cards = forClass === SocialClass.WorkingClass
+      ? conflict.workingClassCards
+      : conflict.capitalistCards;
+    // Skip the first card (candidate) for the initiating class
+    const supporters = isInitiatingClass ? cards.slice(1) : cards;
+    const canSwap = swappingLeaderSlot === 0 && isInitiatingClass && isInitiating && isMyTurn;
+    return (
+      <div className="conflict-modal-card-row">
+        {supporters.map((card, i) => {
+          // conflictIdx accounts for the skipped candidate at index 0
+          const conflictIdx = isInitiatingClass ? 1 + i : i;
+          if (canSwap) {
+            return (
+              <div key={i} className="conflict-modal-leader-card">
+                <CardComponent card={getAnyCardData(card.id)} borderVariant="actionable" />
+                <button
+                  className="conflict-modal-change-btn"
+                  onClick={() => { onChangeLeader(0, conflictIdx); setSwappingLeaderSlot(null); }}
+                >
+                  Set as Candidate
+                </button>
+              </div>
+            );
+          }
+          return renderConflictCard(card, conflictIdx, forClass);
+        })}
+        {activeConflictPlayer === forClass && !isResolving && !canSwap && (
+          <div className="card-slot">
+            <div className="card-slot-placeholder card-slot-placeholder-add">
+              <span className="card-slot-add-icon">+</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Available cards section ───────────────────────────────────────────────────
+
+  const renderAvailableCards = () => {
+    if (!isMyTurn) return null;
+    // In swap mode, figures are shown inline as "Set as Leader/Candidate" buttons; hide the normal add section
+    if (swappingLeaderSlot !== null) return null;
+    return (
+      <div className="conflict-modal-available">
+        {availableFigures.length > 0 && (
+          <div className="conflict-modal-available-section">
+            <div className="conflict-modal-section-label">Add a Figure</div>
+            <div className="conflict-modal-card-row">
+              {availableFigures.map((figure) => (
+                <button
+                  key={figure.id}
+                  className="conflict-modal-add-card-button"
+                  onClick={() => onAddFigure(figure.id)}
+                >
+                  <CardComponent card={getAnyCardData(figure.id)} borderVariant="actionable" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {handTactics.length > 0 && (
+          <div className="conflict-modal-available-section">
+            <div className="conflict-modal-section-label">Play a Tactic</div>
+            <div className="conflict-modal-card-row">
+              {handTactics.map(({ cardId, idx }) => {
+                const data = getAnyCardData(cardId);
+                const canAffordTactic = viewingPlayer.wealth >= (data.cost ?? 0);
+                return (
+                  <button
+                    key={idx}
+                    className="conflict-modal-add-card-button"
+                    onClick={canAffordTactic ? () => onAddTactic(idx, viewingClass) : undefined}
+                    disabled={!canAffordTactic}
+                  >
+                    <div className="conflict-tactic-wrapper">
+                      <CardComponent card={data} borderVariant={canAffordTactic ? "actionable" : "cannot-use"} />
+                      {!canAffordTactic && <div className="conflict-tactic-cannot-afford">Cannot Afford</div>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Strike sides layout ───────────────────────────────────────────────────────
+
+  const renderStrikeSides = () => {
+    if (conflict.conflictType !== ConflictType.Strike) return null;
+    return (
+    <>
+      {renderStrikeLeaderRow()}
+      <div className="conflict-modal-sides">
+        <div className="conflict-modal-side">
+          <div className="conflict-modal-side-title">Working Class Supporters</div>
+          {renderStrikeSupporters()}
+          {renderPowerBreakdown(
+            conflict.workingClassCards,
+            conflict.workingClassPower.diceCount,
+            conflict.workingClassPower.establishedPower,
+            "WC Power",
+          )}
+          {renderEffectsList(conflict.workingClassCards, "WC")}
+        </div>
+        <div className="conflict-modal-side">
+          <div className="conflict-modal-side-title">Capitalist Class</div>
+          <div className="conflict-modal-card-row">
+            {conflict.capitalistCards.map((card, i) =>
+              renderConflictCard(card, i, SocialClass.CapitalistClass)
+            )}
+            {/* Workplace always sides with CC */}
+            <CardComponent card={targetCard} borderVariant="cc" />
+            {activeConflictPlayer === SocialClass.CapitalistClass && !isResolving && (
+              <div className="card-slot">
+                <div className="card-slot-placeholder card-slot-placeholder-add">
+                  <span className="card-slot-add-icon">+</span>
+                </div>
+              </div>
+            )}
+          </div>
+          {renderPowerBreakdown(
+            conflict.capitalistCards,
+            conflict.capitalistPower.diceCount,
+            conflict.capitalistPower.establishedPower,
+            "CC Power",
+            { workplacePower: conflict.targetWorkplace.established_power },
+          )}
+          {renderEffectsList(conflict.capitalistCards, "CC")}
+        </div>
+      </div>
+    </>
+    );
+  };
+
+  // ── Election layout ───────────────────────────────────────────────────────────
+
+  const renderElectionLayout = () => (
+    <>
+      {renderElectionHthRow()}
+      <div className="conflict-modal-sides">
+        <div className="conflict-modal-side">
+          <div className="conflict-modal-side-title">Working Class Supporters</div>
+          {renderElectionSupporters(SocialClass.WorkingClass)}
+          {renderPowerBreakdown(
+            conflict.workingClassCards,
+            conflict.workingClassPower.diceCount,
+            conflict.workingClassPower.establishedPower,
+            "WC Power",
+            { incumbentPower: incumbentDefendingClass === SocialClass.WorkingClass ? incumbentPower : undefined },
+          )}
+          {renderEffectsList(conflict.workingClassCards, "WC")}
+        </div>
+        <div className="conflict-modal-side">
+          <div className="conflict-modal-side-title">Capitalist Class Supporters</div>
+          {renderElectionSupporters(SocialClass.CapitalistClass)}
+          {renderPowerBreakdown(
+            conflict.capitalistCards,
+            conflict.capitalistPower.diceCount,
+            conflict.capitalistPower.establishedPower,
+            "CC Power",
+            { incumbentPower: incumbentDefendingClass === SocialClass.CapitalistClass ? incumbentPower : undefined },
+          )}
+          {renderEffectsList(conflict.capitalistCards, "CC")}
+        </div>
+      </div>
+    </>
+  );
+
+  // ── Legislation layout (unchanged) ───────────────────────────────────────────
+
+  const renderLegislationLayout = () => (
+    <>
+      <div className="conflict-modal-target">
+        <div className="conflict-modal-section-label">Demand</div>
+        <CardComponent card={targetCard} borderVariant="other" />
+      </div>
+      <div className="conflict-modal-sides">
+        <div className="conflict-modal-side">
+          <div className="conflict-modal-side-title">Working Class</div>
+          <div className="conflict-modal-card-row">
+            {conflict.workingClassCards.map((card, i) =>
+              renderConflictCard(card, i, SocialClass.WorkingClass)
+            )}
+            {activeConflictPlayer === SocialClass.WorkingClass && !isResolving && (
+              <div className="card-slot">
+                <div className="card-slot-placeholder card-slot-placeholder-add">
+                  <span className="card-slot-add-icon">+</span>
+                </div>
+              </div>
+            )}
+          </div>
+          {renderPowerBreakdown(
+            conflict.workingClassCards,
+            conflict.workingClassPower.diceCount,
+            conflict.workingClassPower.establishedPower,
+            "WC Power",
+          )}
+          {renderEffectsList(conflict.workingClassCards, "WC")}
+        </div>
+        <div className="conflict-modal-side">
+          <div className="conflict-modal-side-title">Capitalist Class</div>
+          <div className="conflict-modal-card-row">
+            {conflict.capitalistCards.map((card, i) =>
+              renderConflictCard(card, i, SocialClass.CapitalistClass)
+            )}
+            {activeConflictPlayer === SocialClass.CapitalistClass && !isResolving && (
+              <div className="card-slot">
+                <div className="card-slot-placeholder card-slot-placeholder-add">
+                  <span className="card-slot-add-icon">+</span>
+                </div>
+              </div>
+            )}
+          </div>
+          {renderPowerBreakdown(
+            conflict.capitalistCards,
+            conflict.capitalistPower.diceCount,
+            conflict.capitalistPower.establishedPower,
+            "CC Power",
+          )}
+          {renderEffectsList(conflict.capitalistCards, "CC")}
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div className="conflict-modal-overlay" role="dialog" aria-label="Active conflict">
       <div className="conflict-modal">
@@ -184,129 +550,11 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
           </span>
         </div>
 
-        {/* Target card — only shown separately for legislation */}
-        {conflict.conflictType === ConflictType.Legislation && (
-          <div className="conflict-modal-target">
-            <div className="conflict-modal-section-label">{targetLabel}</div>
-            <CardComponent card={targetCard} borderVariant="other" />
-          </div>
-        )}
+        {conflict.conflictType === ConflictType.Strike && renderStrikeSides()}
+        {conflict.conflictType === ConflictType.Election && renderElectionLayout()}
+        {conflict.conflictType === ConflictType.Legislation && renderLegislationLayout()}
 
-        {/* Both sides */}
-        <div className="conflict-modal-sides">
-          {/* Working Class side */}
-          <div className="conflict-modal-side">
-            <div className="conflict-modal-side-title">Working Class</div>
-            <div className="conflict-modal-card-row">
-              {conflict.workingClassCards.map((card, i) =>
-                renderConflictCard(card, i, SocialClass.WorkingClass)
-              )}
-              {/* Incumbent sides with WC when CC initiates an election */}
-              {conflict.conflictType === ConflictType.Election && incumbentDefendingClass === SocialClass.WorkingClass && (
-                <CardComponent card={targetCard} borderVariant="wc" />
-              )}
-              {/* Empty slot hint when it's WC's turn to add */}
-              {activeConflictPlayer === SocialClass.WorkingClass && !isResolving && (
-                <div className="card-slot">
-                  <div className="card-slot-placeholder card-slot-placeholder-add">
-                    <span className="card-slot-add-icon">+</span>
-                  </div>
-                </div>
-              )}
-            </div>
-            {renderPowerBreakdown(
-              conflict.workingClassCards,
-              conflict.workingClassPower.diceCount,
-              conflict.workingClassPower.establishedPower,
-              "WC Power",
-              {
-                incumbentPower: incumbentDefendingClass === SocialClass.WorkingClass ? incumbentPower : undefined,
-              },
-            )}
-          </div>
-
-          {/* Capitalist Class side */}
-          <div className="conflict-modal-side">
-            <div className="conflict-modal-side-title">Capitalist Class</div>
-            <div className="conflict-modal-card-row">
-              {conflict.capitalistCards.map((card, i) =>
-                renderConflictCard(card, i, SocialClass.CapitalistClass)
-              )}
-              {/* Target workplace always sides with CC in a strike */}
-              {conflict.conflictType === ConflictType.Strike && (
-                <CardComponent card={targetCard} borderVariant="cc" />
-              )}
-              {/* Incumbent sides with CC when WC initiates an election */}
-              {conflict.conflictType === ConflictType.Election && incumbentDefendingClass === SocialClass.CapitalistClass && (
-                <CardComponent card={targetCard} borderVariant="cc" />
-              )}
-              {/* Empty slot hint when it's CC's turn to add */}
-              {activeConflictPlayer === SocialClass.CapitalistClass && !isResolving && (
-                <div className="card-slot">
-                  <div className="card-slot-placeholder card-slot-placeholder-add">
-                    <span className="card-slot-add-icon">+</span>
-                  </div>
-                </div>
-              )}
-            </div>
-            {renderPowerBreakdown(
-              conflict.capitalistCards,
-              conflict.capitalistPower.diceCount,
-              conflict.capitalistPower.establishedPower,
-              "CC Power",
-              {
-                workplacePower: conflict.conflictType === ConflictType.Strike ? conflict.targetWorkplace.established_power : undefined,
-                incumbentPower: incumbentDefendingClass === SocialClass.CapitalistClass ? incumbentPower : undefined,
-              },
-            )}
-          </div>
-        </div>
-
-        {/* Cards available to add — only shown when it is the viewer's turn to act */}
-        {isMyTurn && (
-          <div className="conflict-modal-available">
-            {availableFigures.length > 0 && (
-              <div className="conflict-modal-available-section">
-                <div className="conflict-modal-section-label">Add a Figure</div>
-                <div className="conflict-modal-card-row">
-                  {availableFigures.map((figure) => (
-                    <button
-                      key={figure.id}
-                      className="conflict-modal-add-card-button"
-                      onClick={() => onAddFigure(figure.id)}
-                    >
-                      <CardComponent card={getAnyCardData(figure.id)} borderVariant="actionable" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {handTactics.length > 0 && (
-              <div className="conflict-modal-available-section">
-                <div className="conflict-modal-section-label">Play a Tactic</div>
-                <div className="conflict-modal-card-row">
-                  {handTactics.map(({ cardId, idx }) => {
-                    const data = getAnyCardData(cardId);
-                    const canAffordTactic = viewingPlayer.wealth >= (data.cost ?? 0);
-                    return (
-                      <button
-                        key={idx}
-                        className="conflict-modal-add-card-button"
-                        onClick={canAffordTactic ? () => onAddTactic(idx, viewingClass) : undefined}
-                        disabled={!canAffordTactic}
-                      >
-                        <div className="conflict-tactic-wrapper">
-                          <CardComponent card={data} borderVariant={canAffordTactic ? "actionable" : "cannot-use"} />
-                          {!canAffordTactic && <div className="conflict-tactic-cannot-afford">Cannot Afford</div>}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {renderAvailableCards()}
 
         {/* Action buttons */}
         <div className="conflict-modal-actions">

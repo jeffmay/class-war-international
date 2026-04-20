@@ -43,7 +43,8 @@ describe('Conflict Phase - Planning', () => {
       expect(conflict.initiatingClass).toBe(SocialClass.WorkingClass);
 
       if (conflict.conflictType !== ConflictType.Strike) throw new Error('wrong type');
-      expect(conflict.strikeLeader.id).toBe('cashier');
+      expect(conflict.workingClassCards[0].id).toBe('cashier');
+      expect(conflict.maxStrikeLeaders).toBe(1);
       expect(conflict.targetWorkplaceIndex).toBe(0);
       expect(conflict.targetWorkplace.id).toBe('corner_store');
 
@@ -132,7 +133,7 @@ describe('Conflict Phase - Planning', () => {
       expect(conflict.initiatingClass).toBe(SocialClass.WorkingClass);
 
       if (conflict.conflictType !== ConflictType.Election) throw new Error('wrong type');
-      expect(conflict.candidate.id).toBe('cashier');
+      expect(conflict.workingClassCards[0].id).toBe('cashier');
       expect(conflict.targetOfficeIndex).toBe(0);
       expect(conflict.targetIncumbent.id).toBe('populist');
 
@@ -177,7 +178,7 @@ describe('Conflict Phase - Planning', () => {
       const conflict = newState.G.activeConflict!;
       if (conflict.conflictType !== ConflictType.Election) throw new Error('wrong type');
       expect(conflict.initiatingClass).toBe(SocialClass.CapitalistClass);
-      expect(conflict.candidate.id).toBe('manager');
+      expect(conflict.capitalistCards[0].id).toBe('manager');
       // CC has the candidate; WC side is empty
       expect(conflict.capitalistCards).toHaveLength(1);
       expect(conflict.workingClassCards).toHaveLength(0);
@@ -392,6 +393,124 @@ describe('Conflict Phase - Planning', () => {
 
       client.moves.planLegislation(0, 0);
       expect(client.getStateOrThrow().G.activeConflict).toBeUndefined();
+    });
+  });
+});
+
+// ── changeConflictLeader ──────────────────────────────────────────────────────
+
+describe('changeConflictLeader', () => {
+  describe('strike', () => {
+    test('swaps supporter into leader slot; old leader becomes supporter', () => {
+      const leader = playFigureCard('cashier', { in_training: false });
+      const supporter = playFigureCard('nurse', { in_training: false });
+      const G = makeActionPhaseState({ figures: [leader, supporter] });
+      const client = clientFromFixture(G);
+
+      // Plan strike with cashier as leader
+      client.moves.planStrike('cashier', 0);
+      // Add nurse as a supporter
+      client.moves.addFigureToConflict('nurse');
+
+      let state = client.getStateOrThrow();
+      let conflict = state.G.activeConflict!;
+      if (conflict.conflictType !== ConflictType.Strike) throw new Error('wrong type');
+      expect(conflict.workingClassCards[0].id).toBe('cashier'); // leader
+      expect(conflict.workingClassCards[1].id).toBe('nurse');   // supporter
+
+      // Swap: promote nurse (index 1) to leader slot (index 0)
+      client.moves.changeConflictLeader(0, 1);
+      state = client.getStateOrThrow();
+      conflict = state.G.activeConflict!;
+      if (conflict.conflictType !== ConflictType.Strike) throw new Error('wrong type');
+      expect(conflict.workingClassCards[0].id).toBe('nurse');   // new leader
+      expect(conflict.workingClassCards[1].id).toBe('cashier'); // demoted to supporter
+    });
+
+    test('rejects changeConflictLeader outside Initiating phase', () => {
+      const leader = playFigureCard('cashier', { in_training: false });
+      const supporter = playFigureCard('nurse', { in_training: false });
+      const G = makeActionPhaseState({ figures: [leader, supporter] });
+      const client = clientFromFixture(G);
+
+      client.moves.planStrike('cashier', 0);
+      client.moves.addFigureToConflict('nurse');
+      client.moves.initiateConflict();
+
+      const stateBefore = client.getStateOrThrow();
+      client.moves.changeConflictLeader(0, 1);
+      const stateAfter = client.getStateOrThrow();
+
+      // Cards should be unchanged — move was rejected
+      expect(stateAfter.G.activeConflict!.workingClassCards[0].id)
+        .toBe(stateBefore.G.activeConflict!.workingClassCards[0].id);
+    });
+
+    test('rejects when leaderSlotIndex is out of bounds', () => {
+      const leader = playFigureCard('cashier', { in_training: false });
+      const supporter = playFigureCard('nurse', { in_training: false });
+      const G = makeActionPhaseState({ figures: [leader, supporter] });
+      const client = clientFromFixture(G);
+
+      client.moves.planStrike('cashier', 0);
+      client.moves.addFigureToConflict('nurse');
+
+      client.moves.changeConflictLeader(1, 1); // slot 1 >= maxStrikeLeaders (1)
+      const state = client.getStateOrThrow();
+      expect(state.G.errorMessage).toBeDefined();
+    });
+
+    test('rejects when conflictCardIndex points to a leader slot', () => {
+      const leader = playFigureCard('cashier', { in_training: false });
+      const supporter = playFigureCard('nurse', { in_training: false });
+      const G = makeActionPhaseState({ figures: [leader, supporter] });
+      const client = clientFromFixture(G);
+
+      client.moves.planStrike('cashier', 0);
+      client.moves.addFigureToConflict('nurse');
+
+      client.moves.changeConflictLeader(0, 0); // 0 < maxStrikeLeaders — invalid
+      const state = client.getStateOrThrow();
+      expect(state.G.errorMessage).toBeDefined();
+    });
+  });
+
+  describe('election', () => {
+    test('swaps supporter into candidate slot; old candidate becomes supporter', () => {
+      const candidate = playFigureCard('cashier', { in_training: false });
+      const supporter = playFigureCard('nurse', { in_training: false });
+      const G = makeActionPhaseState({ figures: [candidate, supporter] });
+      const client = clientFromFixture(G);
+
+      client.moves.planElection('cashier', 0);
+      client.moves.addFigureToConflict('nurse');
+
+      let state = client.getStateOrThrow();
+      let conflict = state.G.activeConflict!;
+      if (conflict.conflictType !== ConflictType.Election) throw new Error('wrong type');
+      expect(conflict.workingClassCards[0].id).toBe('cashier'); // candidate
+      expect(conflict.workingClassCards[1].id).toBe('nurse');   // supporter
+
+      client.moves.changeConflictLeader(0, 1);
+      state = client.getStateOrThrow();
+      conflict = state.G.activeConflict!;
+      if (conflict.conflictType !== ConflictType.Election) throw new Error('wrong type');
+      expect(conflict.workingClassCards[0].id).toBe('nurse');   // new candidate
+      expect(conflict.workingClassCards[1].id).toBe('cashier'); // demoted to supporter
+    });
+
+    test('rejects leaderSlotIndex !== 0 for elections', () => {
+      const candidate = playFigureCard('cashier', { in_training: false });
+      const supporter = playFigureCard('nurse', { in_training: false });
+      const G = makeActionPhaseState({ figures: [candidate, supporter] });
+      const client = clientFromFixture(G);
+
+      client.moves.planElection('cashier', 0);
+      client.moves.addFigureToConflict('nurse');
+
+      client.moves.changeConflictLeader(1, 1); // leaderSlotIndex must be 0
+      const state = client.getStateOrThrow();
+      expect(state.G.errorMessage).toBeDefined();
     });
   });
 });

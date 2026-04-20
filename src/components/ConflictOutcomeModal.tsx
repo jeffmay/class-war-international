@@ -46,7 +46,10 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
       ];
     }
     if (conflict.conflictType === ConflictType.Election) {
-      const candidateName = getAnyCardData(conflict.candidate.id).name;
+      const initiatingCards = conflict.initiatingClass === SocialClass.WorkingClass
+        ? conflict.workingClassCards
+        : conflict.capitalistCards;
+      const candidateName = initiatingCards[0] ? getAnyCardData(initiatingCards[0].id).name : "Unknown";
       const incumbentName = getAnyCardData(conflict.targetIncumbent.id).name;
       if (winner === conflict.initiatingClass) {
         return [

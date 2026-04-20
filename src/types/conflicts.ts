@@ -41,14 +41,15 @@ export interface StrikeConflictState extends BaseConflictState {
   conflictType: ConflictType.Strike;
   targetWorkplaceIndex: number;
   targetWorkplace: WorkplaceCardInPlay;
-  strikeLeader: FigureCardInPlay;
+  /** Number of leader slots; first maxStrikeLeaders entries of workingClassCards are the leaders */
+  maxStrikeLeaders: number;
 }
 
 export interface ElectionConflictState extends BaseConflictState {
   conflictType: ConflictType.Election;
   targetOfficeIndex: number;
   targetIncumbent: StateFigureCardInPlay;
-  candidate: FigureCardInPlay;
+  /** First card of the initiating class's conflict cards is the candidate */
 }
 
 // TODO: Pass the DemandCardInPlay instead of the ID to track the mutable effects.
