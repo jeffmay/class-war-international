@@ -204,8 +204,9 @@ function buildServer(host: string, port: number): string {
 
 /**
  * Persistent local client: uses boardgame.io's Local transport with localStorage
- * so game state survives page refreshes. No playerID is set — the board's
- * isMyTurn logic treats null playerID as always-my-turn (pass-and-play).
+ * so game state survives page refreshes. Two instances (one per playerID) share
+ * the same matchID and storageKey so they see the same persisted game state.
+ * The active instance is swapped on each turn handoff via key={activePlayerID}.
  */
 const PersistentLocalClient = Client({
   game: ClassWarGame,
@@ -375,16 +376,22 @@ interface LocalGameRouteProps {
 }
 
 const LocalGameRoute: React.FC<LocalGameRouteProps> = ({ gameName, onReturnToStart }) => {
+  const [activePlayerID, setActivePlayerID] = useState<"0" | "1">("0");
+
   const returnToManager = useCallback(() => {
     window.location.hash = localManagerHash();
   }, []);
 
+  const handleHandoff = useCallback(() => {
+    setActivePlayerID((prev) => (prev === "0" ? "1" : "0"));
+  }, []);
+
   return (
     <GameNavContext.Provider
-      value={{ onReturnToStart, onReturnToLobby: returnToManager, onLeaveMatch: null }}
+      value={{ onReturnToStart, onReturnToLobby: returnToManager, onLeaveMatch: null, onHandoff: handleHandoff }}
     >
       <div className="App">
-        <PersistentLocalClient matchID={gameName} />
+        <PersistentLocalClient key={activePlayerID} matchID={gameName} playerID={activePlayerID} />
       </div>
     </GameNavContext.Provider>
   );
@@ -986,6 +993,7 @@ function RemoteGame({ server, matchID, playerID, credentials }: RemoteGameProps)
         onReturnToLobby: returnToLobby,
         onReturnToStart: returnToStart,
         onLeaveMatch: leaveMatch,
+        onHandoff: null,
       }}
     >
       <div className="App">

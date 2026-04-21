@@ -196,6 +196,32 @@ test.describe("multiplayer — two browsers, one match", () => {
     await ctx0.close();
     await ctx1.close();
   });
+
+  test("WC completing a full turn triggers CC TurnStartModal for player 1", async ({
+    browser,
+  }) => {
+    const freshMatchID = await createMatch();
+
+    const ctx0 = await browser.newContext();
+    const ctx1 = await browser.newContext();
+    const p0 = await ctx0.newPage();
+    const p1 = await ctx1.newPage();
+
+    // Sequential joins to avoid FlatFile concurrent write race (see above).
+    await connectAsPlayer(p0, freshMatchID, "0");
+    await connectAsPlayer(p1, freshMatchID, "1");
+
+    // P0 (WC) completes their full turn.
+    await completeWCTurn(p0);
+
+    // P1 (CC) should now see the TurnStartModal for Capitalist Class.
+    await expect(
+      p1.locator(".start-game-button", { hasText: "Start Capitalist Class Turn" }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    await ctx0.close();
+    await ctx1.close();
+  });
 });
 
 // ─── Server API blackbox tests ────────────────────────────────────────────────
@@ -376,6 +402,30 @@ test.describe("multiplayer — player perspective", () => {
 
 // ─── Local / pass-and-play mode ───────────────────────────────────────────────
 
+/**
+ * Complete WC's turn: Start → End Action Phase → Skip Theorizing → End Turn.
+ * After this, the game has advanced to CC's turn and the WaitingInterstitial
+ * is visible waiting for the device handoff.
+ */
+async function completeWCTurn(page: Page): Promise<void> {
+  // Dismiss the WC TurnStartModal.
+  const startBtn = page.locator(".start-game-button");
+  await startBtn.waitFor({ state: "visible", timeout: 10_000 });
+  await startBtn.click();
+
+  // Wait for the board then end the Action phase.
+  await expect(page.locator(".game-board")).toBeVisible({ timeout: 10_000 });
+  await page.locator(".game-end-turn-button").click();
+
+  // Skip Theorizing (Reproduction phase).
+  await page.locator(".game-finish-theorizing-button").waitFor({ state: "visible", timeout: 5_000 });
+  await page.locator(".game-finish-theorizing-button").click();
+
+  // Dismiss the Deal Result Modal.
+  await page.locator(".deal-result-end-turn-button").waitFor({ state: "visible", timeout: 5_000 });
+  await page.locator(".deal-result-end-turn-button").click();
+}
+
 test.describe("local / pass-and-play mode", () => {
   test("clicking Play Locally opens the game board without a server", async ({
     page,
@@ -392,5 +442,30 @@ test.describe("local / pass-and-play mode", () => {
     await startBtn.click();
 
     await expect(page.locator(".game-board")).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("WC completing their turn hands off to CC via the WaitingInterstitial", async ({
+    page,
+  }) => {
+    await page.goto(APP_URL);
+    await page.click(".setup-button-local");
+    await page.click(".setup-button-local");
+
+    // WC takes their full turn.
+    await completeWCTurn(page);
+
+    // After dismissing the Deal Result Modal, the WaitingInterstitial prompts
+    // the player to hand the device to CC.
+    await expect(page.locator(".start-game-button", { hasText: "Dismiss" })).toBeVisible({
+      timeout: 5_000,
+    });
+
+    // Dismiss the WaitingInterstitial — triggers the client swap to playerID='1'.
+    await page.locator(".start-game-button").click();
+
+    // CC's TurnStartModal should now be visible.
+    await expect(
+      page.locator(".start-game-button", { hasText: "Start Capitalist Class Turn" }),
+    ).toBeVisible({ timeout: 5_000 });
   });
 });

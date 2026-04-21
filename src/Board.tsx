@@ -118,6 +118,7 @@ function HamburgerMenu() {
 // ─── Board ────────────────────────────────────────────────────────────────────
 
 export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, playerID }) => {
+  const { onHandoff } = useGameNav();
   const [boardState, setBoardState] = useState<BoardState>({ mode: 'normal', selectedSlotId: null });
   const [theorizeSelectedIndexes, setTheorizeSelectedIndexes] = useState<number[]>([]);
   // true = minimized (hidden); false = visible. Starts visible; un-minimizes when a new conflict begins.
@@ -856,7 +857,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             conflictPhase === ConflictPhase.Responding ||
             conflictPhase === ConflictPhase.Resolving
           );
-        const needsMultiplayerWait = !!playerID && !isMyTurn && !handoffDismissed;
+        const needsMultiplayerWait = !!playerID && !isMyTurn && !handoffDismissed && boardState.mode !== 'showingDealtCards';
 
         if (needsLocalHandoff) {
           // The "waiting class" is whoever is handing off the device
@@ -884,7 +885,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           return (
             <WaitingInterstitial
               waitingClass={myClass}
-              onClose={() => setHandoffDismissed(true)}
+              onClose={() => { setHandoffDismissed(true); onHandoff?.(); }}
             />
           );
         }
