@@ -39,6 +39,7 @@ interface ConflictModalProps {
   /** Swap card at leaderSlotIndex with card at conflictCardIndex within the relevant cards array */
   onChangeLeader: (leaderSlotIndex: number, conflictCardIndex: number) => void;
   onPlanResponse: () => void;
+  onEscalate: () => void;
   onResolve: () => void;
 }
 
@@ -117,6 +118,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   onRemoveCard,
   onChangeLeader,
   onPlanResponse,
+  onEscalate,
   onResolve,
 }) => {
   // null = not in swap mode; number = leader slot index being replaced
@@ -126,6 +128,11 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   const isResponding = conflict.phase === ConflictPhase.Responding;
   const isResolving = conflict.phase === ConflictPhase.Resolving;
   const isMyTurn = viewingClass === activeConflictPlayer;
+
+  const myCards = viewingClass === SocialClass.WorkingClass
+    ? conflict.workingClassCards
+    : conflict.capitalistCards;
+  const hasAddedCards = myCards.some(c => c.addedThisStep);
 
   const conflictTypeLabel =
     conflict.conflictType === ConflictType.Strike ? "Strike" :
@@ -570,18 +577,26 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
           )}
           {isResponding && (
             isMyTurn
-              ? <button className="conflict-modal-button conflict-modal-button-respond" onClick={onPlanResponse}>
-                  ✓ Plan Response
-                </button>
+              ? hasAddedCards
+                ? <button className="conflict-modal-button conflict-modal-button-respond" onClick={onPlanResponse}>
+                    ✓ Plan Response
+                  </button>
+                : <button className="conflict-modal-button conflict-modal-button-resolve" onClick={onResolve}>
+                    🎲 Resolve Conflict
+                  </button>
               : <button className="conflict-modal-button" disabled>
                   ⏳ Must wait for your turn
                 </button>
           )}
           {isResolving && (
             isMyTurn
-              ? <button className="conflict-modal-button conflict-modal-button-resolve" onClick={onResolve}>
-                  🎲 Resolve Conflict
-                </button>
+              ? hasAddedCards
+                ? <button className="conflict-modal-button conflict-modal-button-escalate" onClick={onEscalate}>
+                    ⚔ Escalate Conflict
+                  </button>
+                : <button className="conflict-modal-button conflict-modal-button-resolve" onClick={onResolve}>
+                    🎲 Resolve Conflict
+                  </button>
               : <button className="conflict-modal-button" disabled>
                   ⏳ Must wait for your turn
                 </button>

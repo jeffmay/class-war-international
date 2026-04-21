@@ -303,11 +303,11 @@ describe('resolveConflict', () => {
     expect(outcome.capitalistPower.establishedPower).toBe(1);
   });
 
-  test('is a no-op if conflict is still in Responding phase', () => {
+  test('resolves immediately when called from Responding phase', () => {
     const client = makeStrikeResponding();
     client.moves.resolveConflict();
-    expect(client.getStateOrThrow().G.activeConflict).toBeDefined();
-    expect(client.getStateOrThrow().G.conflictOutcome).toBeUndefined();
+    expect(client.getStateOrThrow().G.activeConflict).toBeUndefined();
+    expect(client.getStateOrThrow().G.conflictOutcome).toBeDefined();
   });
 
   test('sends tactic cards to the dustbin after resolution', () => {

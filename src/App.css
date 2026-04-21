@@ -1950,11 +1950,13 @@ body {
   transform: scale(1.05);
 }
 
-.conflict-modal-button-initiate {
+.conflict-modal-button-initiate,
+.conflict-modal-button-escalate {
   background-color: #c53030;
 }
 
-.conflict-modal-button-initiate:hover {
+.conflict-modal-button-initiate:hover,
+.conflict-modal-button-escalate:hover {
   background-color: #e53e3e;
 }
 

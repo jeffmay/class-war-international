@@ -820,6 +820,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             onRemoveCard={(cardIndex, forClass) => moves.removeCardFromConflict(cardIndex, forClass)}
             onChangeLeader={(leaderSlotIndex, conflictCardIndex) => moves.changeConflictLeader(leaderSlotIndex, conflictCardIndex)}
             onPlanResponse={() => { moves.planResponse(); setConflictModalMinimized(true); }}
+            onEscalate={() => { moves.escalateConflict(); setConflictModalMinimized(true); }}
             onResolve={() => moves.resolveConflict()}
           />
         );

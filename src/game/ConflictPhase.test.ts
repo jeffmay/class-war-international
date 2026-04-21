@@ -514,3 +514,102 @@ describe('changeConflictLeader', () => {
     });
   });
 });
+
+describe('Conflict Phase - Escalation ping-pong', () => {
+  /** Helper: advance to Resolving phase (WC initiates, CC responds with no cards). */
+  function advanceToResolving(client: ReturnType<typeof clientFromFixture>) {
+    client.moves.planStrike('cashier', 0);
+    client.moves.initiateConflict();
+    client.moves.planResponse(); // CC responds with no cards → Resolving
+  }
+
+  describe('escalateConflict', () => {
+    test('transitions Resolving → Responding with responding class active', () => {
+      const G = makeActionPhaseState({ figures: [readyWcFigure] });
+      const client = clientFromFixture(G);
+      advanceToResolving(client);
+
+      const before = client.getStateOrThrow().G;
+      expect(before.activeConflict?.phase).toBe(ConflictPhase.Resolving);
+      expect(before.activeConflict?.activeConflictPlayer).toBe(SocialClass.WorkingClass);
+
+      client.moves.escalateConflict();
+
+      const after = client.getStateOrThrow().G;
+      expect(after.activeConflict?.phase).toBe(ConflictPhase.Responding);
+      expect(after.activeConflict?.activeConflictPlayer).toBe(SocialClass.CapitalistClass);
+    });
+
+    test('clears addedThisStep flags on all cards', () => {
+      const cleaning_crew = playFigureCard('cleaning_crew', { in_training: false });
+      const G = makeActionPhaseState({ figures: [readyWcFigure, cleaning_crew] });
+      const client = clientFromFixture(G);
+      advanceToResolving(client);
+
+      // WC adds a card during Resolving — it has addedThisStep = true
+      client.moves.addFigureToConflict('cleaning_crew');
+      const before = client.getStateOrThrow().G;
+      expect(before.activeConflict?.workingClassCards.some(c => c.addedThisStep)).toBe(true);
+
+      client.moves.escalateConflict();
+
+      const after = client.getStateOrThrow().G;
+      expect(after.activeConflict?.workingClassCards.every(c => !c.addedThisStep)).toBe(true);
+      expect(after.activeConflict?.capitalistCards.every(c => !c.addedThisStep)).toBe(true);
+    });
+
+    test('rejects escalateConflict outside Resolving phase', () => {
+      const G = makeActionPhaseState({ figures: [readyWcFigure] });
+      const client = clientFromFixture(G);
+      client.moves.planStrike('cashier', 0);
+      client.moves.initiateConflict();
+      // Now in Responding — escalateConflict should be rejected
+      client.moves.escalateConflict();
+      const state = client.getStateOrThrow().G;
+      expect(state.activeConflict?.phase).toBe(ConflictPhase.Responding);
+    });
+  });
+
+  describe('resolveConflict from Responding phase', () => {
+    test('ends the conflict immediately when called during Responding', () => {
+      const G = makeActionPhaseState({ figures: [readyWcFigure] });
+      const client = clientFromFixture(G);
+      client.moves.planStrike('cashier', 0);
+      client.moves.initiateConflict();
+      // CC is now in Responding — resolve without responding
+      client.moves.resolveConflict();
+
+      const state = client.getStateOrThrow().G;
+      expect(state.activeConflict).toBeUndefined();
+      expect(state.conflictOutcome).toBeDefined();
+    });
+  });
+
+  describe('full ping-pong sequence', () => {
+    test('Responding → Resolving → Responding → resolve from Responding', () => {
+      const cleaning_crew = playFigureCard('cleaning_crew', { in_training: false });
+      const G = makeActionPhaseState({ figures: [readyWcFigure, cleaning_crew] });
+      const client = clientFromFixture(G);
+
+      // WC initiates
+      client.moves.planStrike('cashier', 0);
+      client.moves.initiateConflict();
+      expect(client.getStateOrThrow().G.activeConflict?.phase).toBe(ConflictPhase.Responding);
+
+      // CC responds (no cards) → WC's Resolving turn
+      client.moves.planResponse();
+      expect(client.getStateOrThrow().G.activeConflict?.phase).toBe(ConflictPhase.Resolving);
+
+      // WC escalates (adds a card and commits) → CC's Responding turn
+      client.moves.addFigureToConflict('cleaning_crew');
+      client.moves.escalateConflict();
+      expect(client.getStateOrThrow().G.activeConflict?.phase).toBe(ConflictPhase.Responding);
+      expect(client.getStateOrThrow().G.activeConflict?.activeConflictPlayer).toBe(SocialClass.CapitalistClass);
+
+      // CC resolves from Responding → conflict ends
+      client.moves.resolveConflict();
+      expect(client.getStateOrThrow().G.activeConflict).toBeUndefined();
+      expect(client.getStateOrThrow().G.conflictOutcome).toBeDefined();
+    });
+  });
+});

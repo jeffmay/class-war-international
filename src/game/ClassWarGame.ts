@@ -875,12 +875,40 @@ export const Moves = {
   },
 
   /**
-   * Resolve the conflict: roll dice, apply effects, store outcome.
+   * The initiating class commits their escalation cards and returns move rights
+   * to the responding class for another Responding round (ping-pong escalation).
    * Only valid when phase === Resolving.
+   */
+  escalateConflict: ({ G, events }) => {
+    if (!G.activeConflict) return;
+    if (G.activeConflict.phase !== ConflictPhase.Resolving) return;
+
+    clearUndo(G, 'Cannot undo after escalating conflict');
+    for (const card of G.activeConflict.workingClassCards) { card.addedThisStep = false; }
+    for (const card of G.activeConflict.capitalistCards) { card.addedThisStep = false; }
+
+    const respondingClass = G.activeConflict.initiatingClass === SocialClass.WorkingClass
+      ? SocialClass.CapitalistClass
+      : SocialClass.WorkingClass;
+
+    G.activeConflict.phase = ConflictPhase.Responding;
+    G.activeConflict.activeConflictPlayer = respondingClass;
+    G.errorMessage = undefined;
+
+    const respondingPlayerID = respondingClass === SocialClass.WorkingClass ? '0' : '1';
+    events?.endTurn?.({ next: respondingPlayerID });
+  },
+
+  /**
+   * Resolve the conflict: roll dice, apply effects, store outcome.
+   * Valid from both Responding and Resolving phases so either class can end the conflict.
    */
   resolveConflict: ({ G }) => {
     if (!G.activeConflict) return;
-    if (G.activeConflict.phase !== ConflictPhase.Resolving) return;
+    if (
+      G.activeConflict.phase !== ConflictPhase.Resolving &&
+      G.activeConflict.phase !== ConflictPhase.Responding
+    ) return;
 
     clearUndo(G, 'Cannot undo after resolving conflict');
     const conflict = G.activeConflict;

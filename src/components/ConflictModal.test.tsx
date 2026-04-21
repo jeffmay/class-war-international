@@ -102,6 +102,7 @@ const baseProps = {
   onRemoveCard: vi.fn(),
   onChangeLeader: vi.fn(),
   onPlanResponse: vi.fn(),
+  onEscalate: vi.fn(),
   onResolve: vi.fn(),
 };
 
