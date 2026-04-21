@@ -213,7 +213,9 @@ const PersistentLocalClient = Client({
   board: ClassWarBoard,
   numPlayers: 2,
   multiplayer: Local({ persist: true, storageKey: BGIO_STORAGE_KEY }),
-  debug: import.meta.env.DEV,
+  debug: {
+    collapseOnLoad: true,
+  },
 });
 
 function makeRemoteClient(server: string) {
@@ -328,11 +330,11 @@ const LocalGameManager: React.FC<LocalGameManagerProps> = ({ onBack }) => {
                       <span className="local-game-date">
                         {entry.lastPlayed
                           ? new Date(entry.lastPlayed).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
                           : "—"}
                       </span>
                     </div>
