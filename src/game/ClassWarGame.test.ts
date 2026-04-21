@@ -58,8 +58,8 @@ describe('ClassWarGame Setup', () => {
     const wp0 = gameState.workplaces[0];
     assertNotEqual(wp0, WorkplaceForSale);
     expect(wp0.id).toBe('corner_store');
-    expect(wp0.wages).toBe(2);
-    expect(wp0.profits).toBe(6);
+    expect(wp0.wages).toBe(1);
+    expect(wp0.profits).toBe(4);
     expect(wp0.established_power).toBe(1);
     expect(wp0.unionized).toBe(false);
 
@@ -68,7 +68,7 @@ describe('ClassWarGame Setup', () => {
     assertNotEqual(wp1, WorkplaceForSale);
     expect(wp1.id).toBe('parts_producer');
     expect(wp1.wages).toBe(3);
-    expect(wp1.profits).toBe(9);
+    expect(wp1.profits).toBe(12);
     expect(wp1.established_power).toBe(2);
     expect(wp1.unionized).toBe(false);
 

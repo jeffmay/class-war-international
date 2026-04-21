@@ -622,8 +622,9 @@ describe('resolveConflict - legislation', () => {
     const nonEmptyInitialWages = initialWages.filter((_, i) => G.workplaces[i] !== WorkplaceForSale);
     const nonEmptyInitialProfits = initialProfits.filter((_, i) => G.workplaces[i] !== WorkplaceForSale);
     nonEmpty.forEach((wp, i) => {
-      expect(wp.wages).toBe(Math.max(1, nonEmptyInitialWages[i] - 1));
-      expect(wp.profits).toBe(nonEmptyInitialProfits[i] + 1);
+      const shifted = nonEmptyInitialWages[i] > 1 ? 1 : 0;
+      expect(wp.wages).toBe(nonEmptyInitialWages[i] - shifted);
+      expect(wp.profits).toBe(nonEmptyInitialProfits[i] + shifted);
     });
   });
 });
@@ -639,17 +640,17 @@ describe('law effects - wealth_tax', () => {
 
     const client = clientFromFixture(G);
 
-    // WC collects production (corner_store wages=2 + parts_producer wages=3 = 5)
-    // wealth before: 25, after income: 30 → wealth_tax: floor(30/2) = 15
+    // WC collects production (corner_store wages=1 + parts_producer wages=3 = 4)
+    // wealth before: 25, after income: 29 → wealth_tax: floor(29/2) = 14
     client.moves.collectProduction();
-    expect(client.getStateOrThrow().G.players[SocialClass.WorkingClass].wealth).toBe(15);
+    expect(client.getStateOrThrow().G.players[SocialClass.WorkingClass].wealth).toBe(14);
   });
 
   test('wealth_tax does not apply when wealth is exactly $20 after income', () => {
     const G = makeActionPhaseState();
     G.laws = ['wealth_tax'];
     G.turnPhase = TurnPhase.Production;
-    G.players[SocialClass.WorkingClass].wealth = 15; // after +5 wages = 20, not > 20
+    G.players[SocialClass.WorkingClass].wealth = 16; // after +4 wages = 20, not > 20
 
     const client = clientFromFixture(G);
 

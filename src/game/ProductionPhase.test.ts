@@ -76,8 +76,8 @@ describe('Production Phase', () => {
     client.moves.collectProduction();
     const newState = client.getStateOrThrow();
 
-    // Should collect wages: Corner Store (2) + Parts Producer (3) = 5
-    expect(newState?.G.players[SocialClass.WorkingClass].wealth).toBe(5);
+    // Should collect wages: Corner Store (1) + Parts Producer (3) = 4
+    expect(newState?.G.players[SocialClass.WorkingClass].wealth).toBe(4);
     expect(newState?.G.turnPhase).toBe(TurnPhase.Action);
   });
 
@@ -99,8 +99,8 @@ describe('Production Phase', () => {
     client.moves.collectProduction('1'); // Specify playerID
     const newState = client.getStateOrThrow();
 
-    // Should collect profits: Corner Store (6) + Parts Producer (9) = 15
-    expect(newState.G.players[SocialClass.CapitalistClass].wealth).toBe(15);
+    // Should collect profits: Corner Store (4) + Parts Producer (12) = 16
+    expect(newState.G.players[SocialClass.CapitalistClass].wealth).toBe(16);
     expect(newState.G.turnPhase).toBe(TurnPhase.Action);
   });
 
@@ -177,8 +177,8 @@ describe('Production Phase', () => {
     // Collect production
     client.moves.collectProduction();
     const newState = client.getStateOrThrow();
-    // Should only collect from non-empty workplaces (2 + 3 = 5)
-    expect(newState.G.players[SocialClass.WorkingClass].wealth).toBe(5);
+    // Should only collect from non-empty workplaces (1 + 3 = 4)
+    expect(newState.G.players[SocialClass.WorkingClass].wealth).toBe(4);
   });
 
   test('collectProduction uses ctx.currentPlayer (not playerID) for class determination', () => {
@@ -196,9 +196,9 @@ describe('Production Phase', () => {
     client.moves.collectProduction();
     const newState = client.getStateOrThrow();
 
-    // CC should have collected profits (6 + 9 = 15)
-    expect(newState.G.players[SocialClass.CapitalistClass].wealth).toBe(ccWealthBefore + 15);
+    // CC should have collected profits (4 + 12 = 16)
+    expect(newState.G.players[SocialClass.CapitalistClass].wealth).toBe(ccWealthBefore + 16);
     // WC wealth should be unchanged
-    expect(newState.G.players[SocialClass.WorkingClass].wealth).toBe(5);
+    expect(newState.G.players[SocialClass.WorkingClass].wealth).toBe(4);
   });
 });

@@ -54,9 +54,11 @@ function parseBool(value: string): boolean | null {
   return null;
 }
 
-function socialClassExpr(cls: string): string {
+/** Returns null for default cards that have no class affiliation. */
+function socialClassExpr(cls: string): string | null {
   if (cls === "Capitalist") return "SocialClass.CapitalistClass";
   if (cls === "Labor") return "SocialClass.WorkingClass";
+  if (cls === "") return null;
   throw new Error(`Unknown class: ${cls}`);
 }
 
@@ -72,6 +74,8 @@ function cardTypeExpr(type: string): string {
       return "CardType.Tactic";
     case "Workplace":
       return "CardType.Workplace";
+    case "State Figure":
+      return "CardType.DefaultStateFigure";
     default:
       throw new Error(`Unknown card type: ${type}`);
   }
@@ -103,6 +107,7 @@ function buildCardProps(card: CardRow): string[] {
   const name = card["Name"];
   const cls = card["Class"];
   const type = card["Type"];
+  const isDefault = parseBool(card["Default"]) === true;
   const qty = parseInt(card["Qty"], 10);
   const cost = parseMoney(card["Cost"]);
   const dice = parseDice(card["Dice"]);
@@ -113,49 +118,66 @@ function buildCardProps(card: CardRow): string[] {
   const rules = card["Rules"];
   const demandSupport = card["Demand Support"];
   const quote = card["Quote"];
+  const socialClass = socialClassExpr(cls);
 
   const props: string[] = [];
   props.push(`id: ${quoteString(id)}`);
   props.push(`name: ${quoteString(name)}`);
-  props.push(`social_class: ${socialClassExpr(cls)}`);
+  if (socialClass !== null) {
+    props.push(`social_class: ${socialClass}`);
+  }
   props.push(`card_type: ${cardTypeExpr(type)}`);
 
-  if (type === "Demand") {
-    props.push(`cost: 0`);
-  } else {
-    props.push(`cost: ${cost}`);
-  }
-
-  props.push(`qty: ${qty}`);
-
-  if (type === "Figure") {
-    if (dice !== null) props.push(`dice: ${dice}`);
-    props.push(`hero: ${hero !== null ? hero : false}`);
-  }
-  if (type === "Institution") {
-    // established_power is required; default to 0 if not in TSV
+  if (type === "State Figure") {
+    // Default state figures: established_power, then rules/quote below
     props.push(`established_power: ${power !== null ? power : 0}`);
-  }
-  if (type === "Tactic") {
-    if (dice !== null) props.push(`dice: ${dice}`);
-    if (power !== null) props.push(`established_power: ${power}`);
-    const conflictsRaw = card["Conflicts"];
-    if (conflictsRaw) {
-      const conflictList = conflictsRaw
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((c) => `ConflictType.${c}`);
-      if (conflictList.length > 0) {
-        props.push(`enabled_by_conflict: [${conflictList.join(", ")}]`);
-      }
-    }
-  }
-  if (type === "Workplace") {
+  } else if (isDefault && type === "Workplace") {
+    // Default workplaces: cost/qty are always 0 (not purchasable)
+    props.push(`cost: 0`);
+    props.push(`qty: 0`);
     props.push(`established_power: ${power !== null ? power : 0}`);
     if (wage !== null) props.push(`starting_wages: ${wage}`);
     if (profit !== null) props.push(`starting_profits: ${profit}`);
+  } else {
+    // Regular playable cards
+    if (type === "Demand") {
+      props.push(`cost: 0`);
+    } else {
+      props.push(`cost: ${cost}`);
+    }
+    props.push(`qty: ${qty}`);
+
+    if (type === "Figure") {
+      if (dice !== null) props.push(`dice: ${dice}`);
+      props.push(`hero: ${hero !== null ? hero : false}`);
+    }
+    if (type === "Institution") {
+      // established_power is required; default to 0 if not in TSV
+      props.push(`established_power: ${power !== null ? power : 0}`);
+    }
+    if (type === "Tactic") {
+      if (dice !== null) props.push(`dice: ${dice}`);
+      if (power !== null) props.push(`established_power: ${power}`);
+      // Strip surrounding TSV-quoting double-quotes before splitting by comma
+      const conflictsRaw = card["Conflicts"].replace(/^"|"$/g, "");
+      if (conflictsRaw) {
+        const conflictList = conflictsRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((c) => `ConflictType.${c}`);
+        if (conflictList.length > 0) {
+          props.push(`enabled_by_conflict: [${conflictList.join(", ")}]`);
+        }
+      }
+    }
+    if (type === "Workplace") {
+      props.push(`established_power: ${power !== null ? power : 0}`);
+      if (wage !== null) props.push(`starting_wages: ${wage}`);
+      if (profit !== null) props.push(`starting_profits: ${profit}`);
+    }
   }
+
   if (rules) props.push(`rules: ${quoteString(rules)}`);
   if (demandSupport) props.push(`demand_power_basis: ${quoteString(demandSupport)}`);
   if (quote) props.push(`quote: ${quoteString(quote)}`);
@@ -170,11 +192,17 @@ function renderCardEntry(card: CardRow, indent = "  "): string {
   return `${indent}${id}: {\n${lines}\n${indent}}`;
 }
 
-// ─── Group cards by class and type ───────────────────────────────────────────
+// ─── Group cards by default flag, class, and type ────────────────────────────
+
+const defaultCards = cards.filter((c) => parseBool(c["Default"]) === true);
+const regularCards = cards.filter((c) => parseBool(c["Default"]) !== true);
+
+const defaultStateFigures = defaultCards.filter((c) => c["Type"] === "State Figure");
+const defaultWorkplaces = defaultCards.filter((c) => c["Type"] === "Workplace");
 
 const byClass = {
-  capitalist: cards.filter((c) => c["Class"] === "Capitalist"),
-  labor: cards.filter((c) => c["Class"] === "Labor"),
+  capitalist: regularCards.filter((c) => c["Class"] === "Capitalist"),
+  labor: regularCards.filter((c) => c["Class"] === "Labor"),
 };
 
 const groups = {
@@ -223,62 +251,19 @@ import {
 // ─── All cards parsed from docs/cards.tsv ─────────────────────────────────────
 
 export const cardById = {
-${renderCardEntries(cards)},
+${renderCardEntries(regularCards)},
 } as const satisfies Record<string, AnyCardData>;
 
 // ─── Default state figures (always in play, never in player decks) ────────────
 
 export const defaultStateFigureCardById = {
-  populist: {
-    id: "populist",
-    name: "The Populist",
-    card_type: CardType.DefaultStateFigure,
-    established_power: 1,
-    rules: "Sides with the class that has more figures in play for a legislative contest",
-  },
-  centrist: {
-    id: "centrist",
-    name: "The Centrist",
-    card_type: CardType.DefaultStateFigure,
-    established_power: 3,
-    rules: "Always supports the incumbent in elections",
-  },
-  opportunist: {
-    id: "opportunist",
-    name: "The Opportunist",
-    card_type: CardType.DefaultStateFigure,
-    established_power: 2,
-    rules: "Can be influenced with money (not yet implemented)",
-  },
+${renderCardEntries(defaultStateFigures)},
 } as const satisfies Record<string, DefaultStateFigureCardData>;
 
 // ─── Default workplaces (always in play at game start, never in player decks) ─
 
 export const defaultWorkplaceCardById = {
-  corner_store: {
-    id: "corner_store",
-    name: "Corner Store",
-    social_class: SocialClass.CapitalistClass,
-    card_type: CardType.Workplace,
-    cost: 0,
-    qty: 0,
-    starting_wages: 2,
-    starting_profits: 6,
-    established_power: 1,
-    quote: "Where dreams go to die, one scanning beep at a time.",
-  },
-  parts_producer: {
-    id: "parts_producer",
-    name: "Parts Producer",
-    social_class: SocialClass.CapitalistClass,
-    card_type: CardType.Workplace,
-    cost: 0,
-    qty: 0,
-    starting_wages: 3,
-    starting_profits: 9,
-    established_power: 2,
-    quote: "Making the little widgets that hold the big widgets together.",
-  },
+${renderCardEntries(defaultWorkplaces)},
 } as const satisfies Record<string, WorkplaceCardData>;
 
 // ─── Capitalist subcategories ──────────────────────────────────────────────────
