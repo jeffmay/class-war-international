@@ -2,7 +2,7 @@
  * Component tests for App
  *
  * Tests cover:
- *   - SetupScreen rendering and navigation
+ *   - SetupScreen rendering, player profile management, and navigation
  *   - Local play mode (pass-and-play)
  *   - Lobby connection flow (connecting → ready | error)
  *   - Leave match from lobby
@@ -64,27 +64,79 @@ describe("SetupScreen", () => {
     expect(screen.getByRole("button", { name: /Connect to Lobby/i })).toBeInTheDocument();
   });
 
-  test("shows Player Name, Host Address, and Port fields", () => {
+  test("shows Choose Player section with Host Address and Port fields", () => {
     renderApp();
-    expect(screen.getByLabelText(/Player Name/i)).toBeInTheDocument();
+    expect(screen.getByText("Choose Player")).toBeInTheDocument();
     expect(screen.getByLabelText(/Host Address/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Port/i)).toBeInTheDocument();
   });
 
-  test("pre-fills Player Name from localStorage", () => {
-    localStorage.setItem("cwi_player_name", "Rosa");
+  test("Connect to Lobby is disabled when no player is selected", () => {
     renderApp();
-    expect(screen.getByLabelText(/Player Name/i)).toHaveValue("Rosa");
+    expect(screen.getByRole("button", { name: /Connect to Lobby/i })).toBeDisabled();
   });
 
-  test("saves Player Name to localStorage on Connect", () => {
-    vi.spyOn(global, "fetch").mockImplementation(() => new Promise(() => {}));
+  test("Connect to Lobby is enabled after a player is selected", () => {
     renderApp();
-    fireEvent.change(screen.getByLabelText(/Player Name/i), {
+    fireEvent.change(screen.getByPlaceholderText(/New player name/i), {
       target: { value: "Alice" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Connect to Lobby/i }));
-    expect(localStorage.getItem("cwi_player_name")).toBe("Alice");
+    fireEvent.click(screen.getByRole("button", { name: /^Create$/i }));
+    expect(screen.getByRole("button", { name: /Connect to Lobby/i })).not.toBeDisabled();
+  });
+
+  test("creating a player adds it to the list and auto-selects it", () => {
+    renderApp();
+    fireEvent.change(screen.getByPlaceholderText(/New player name/i), {
+      target: { value: "Alice" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Create$/i }));
+    expect(screen.getByRole("button", { name: "Alice" })).toHaveClass("setup-player-button-active");
+  });
+
+  test("selecting a different profile changes the active player", () => {
+    localStorage.setItem("cwi_players", JSON.stringify(["Bob", "Alice"]));
+    localStorage.setItem("cwi_last_player", "Bob");
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Alice" }));
+    expect(screen.getByRole("button", { name: "Alice" })).toHaveClass("setup-player-button-active");
+    expect(screen.getByRole("button", { name: "Bob" })).not.toHaveClass(
+      "setup-player-button-active",
+    );
+  });
+
+  test("deleting the active player selects the next profile", () => {
+    localStorage.setItem("cwi_players", JSON.stringify(["Alice", "Bob"]));
+    localStorage.setItem("cwi_last_player", "Alice");
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: "Delete player Alice" }));
+    expect(screen.queryByRole("button", { name: "Alice" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Bob" })).toHaveClass("setup-player-button-active");
+  });
+
+  test("pre-selects the last used player from cwi_last_player", () => {
+    localStorage.setItem("cwi_players", JSON.stringify(["Alice", "Bob"]));
+    localStorage.setItem("cwi_last_player", "Bob");
+    renderApp();
+    expect(screen.getByRole("button", { name: "Bob" })).toHaveClass("setup-player-button-active");
+  });
+
+  test("falls back to cwi_player_name for migration", () => {
+    localStorage.setItem("cwi_players", JSON.stringify(["Rosa"]));
+    localStorage.setItem("cwi_player_name", "Rosa");
+    renderApp();
+    expect(screen.getByRole("button", { name: "Rosa" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Connect to Lobby/i })).not.toBeDisabled();
+  });
+
+  test("saves player list and last player to localStorage on create", () => {
+    renderApp();
+    fireEvent.change(screen.getByPlaceholderText(/New player name/i), {
+      target: { value: "Alice" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Create$/i }));
+    expect(localStorage.getItem("cwi_last_player")).toBe("Alice");
+    expect(JSON.parse(localStorage.getItem("cwi_players") ?? "[]")).toContain("Alice");
   });
 });
 
@@ -153,9 +205,10 @@ describe("Lobby connection", () => {
 
   test("clicking Connect to Lobby shows connecting screen", async () => {
     vi.spyOn(global, "fetch").mockImplementation(() => new Promise(() => {}));
+    localStorage.setItem("cwi_players", JSON.stringify(["Alice"]));
+    localStorage.setItem("cwi_last_player", "Alice");
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: /Connect to Lobby/i }));
-    // Hash change is async in jsdom; wait for the route update
     await waitFor(() => {
       expect(screen.getByText(/Connecting/i)).toBeInTheDocument();
     });
@@ -193,6 +246,7 @@ describe("Lobby connection", () => {
 describe("Lobby: Leave match", () => {
   const SERVER = "http://localhost:8000";
   const MATCH_ID = "match-abc";
+  const PROFILE = "Alice";
 
   const matchWithMe = {
     matchID: MATCH_ID,
@@ -204,8 +258,12 @@ describe("Lobby: Leave match", () => {
   };
 
   beforeEach(() => {
-    localStorage.setItem("cwi_player_name", "Alice");
-    localStorage.setItem(`cwi_creds_${MATCH_ID}_0`, "test-creds");
+    localStorage.setItem("cwi_players", JSON.stringify([PROFILE]));
+    localStorage.setItem("cwi_last_player", PROFILE);
+    localStorage.setItem(
+      `cwi_match_${MATCH_ID}_${PROFILE}`,
+      JSON.stringify({ playerID: "0", credentials: "test-creds", displayName: PROFILE }),
+    );
   });
 
   test("shows Rejoin and Leave buttons for a match I am in", async () => {
@@ -263,7 +321,7 @@ describe("Lobby: Leave match", () => {
     fireEvent.click(screen.getByRole("button", { name: /Leave/i }));
 
     await waitFor(() => {
-      expect(localStorage.getItem(`cwi_creds_${MATCH_ID}_0`)).toBeNull();
+      expect(localStorage.getItem(`cwi_match_${MATCH_ID}_${PROFILE}`)).toBeNull();
     });
   });
 });

@@ -16,9 +16,10 @@
  * Local game state is persisted by boardgame.io's Local transport with
  * { persist: true, storageKey: "cwi" } — no custom serialization needed.
  *
- * Player name is persisted in localStorage (cwi_player_name).
- * Per-match credentials are persisted in localStorage (cwi_creds_<id>_<pid>)
- * so a player can rejoin after a page refresh.
+ * Player profiles are persisted in localStorage (cwi_players, cwi_last_player).
+ * Per-match credentials are persisted in localStorage (cwi_match_<id>_<profile>)
+ * keyed by profile name so a player can rejoin after a page refresh and
+ * two profiles can play the same match from the same device.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -44,34 +45,72 @@ const GAME_NAME = "class-war-international";
 const DEFAULT_HOST = "localhost";
 const DEFAULT_PORT = 8000;
 const DEFAULT_TIMEOUT_MS = 5000;
-const PLAYER_NAME_KEY = "cwi_player_name";
+const PLAYER_NAME_KEY = "cwi_player_name"; // kept for migration reads only
+const PLAYERS_KEY = "cwi_players";
+const LAST_PLAYER_KEY = "cwi_last_player";
 const TIMEOUT_MS_KEY = "cwi_timeout_ms";
 
-/** Per-match credentials stored so the player can rejoin after a refresh. */
-function credentialsKey(matchID: string, playerID: string): string {
-  return `cwi_creds_${matchID}_${playerID}`;
+function getPlayers(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(PLAYERS_KEY) ?? "[]") as string[];
+  } catch {
+    return [];
+  }
 }
 
-/** Tracks which playerID was most recently used to join a match on this device. */
-function activePlayerKey(matchID: string): string {
-  return `cwi_active_${matchID}`;
+function savePlayers(names: string[]): void {
+  localStorage.setItem(PLAYERS_KEY, JSON.stringify(names));
+}
+
+function matchCredentialsKey(matchID: string, profileName: string): string {
+  return `cwi_match_${matchID}_${profileName}`;
+}
+
+interface StoredMatchCredentials {
+  playerID: "0" | "1";
+  credentials: string;
+  displayName: string;
+}
+
+function getMatchCredentials(matchID: string, profileName: string): StoredMatchCredentials | null {
+  const raw = localStorage.getItem(matchCredentialsKey(matchID, profileName));
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as StoredMatchCredentials;
+  } catch {
+    return null;
+  }
+}
+
+function setMatchCredentials(
+  matchID: string,
+  profileName: string,
+  data: StoredMatchCredentials,
+): void {
+  localStorage.setItem(matchCredentialsKey(matchID, profileName), JSON.stringify(data));
+}
+
+function removeMatchCredentials(matchID: string, profileName: string): void {
+  localStorage.removeItem(matchCredentialsKey(matchID, profileName));
 }
 
 /**
- * Find stored credentials for a multiplayer match.
- * Checks the most recently active player slot first to handle the case where
- * credentials for both players exist in the same localStorage (e.g. when
- * testing both sides on the same device).
+ * Find stored credentials for a multiplayer match by profile name.
+ * Falls back to the old slot-keyed format for backward compatibility.
  */
 function findMatchCredentials(
   matchID: string,
+  profileName: string,
 ): { playerID: "0" | "1"; credentials: string } | null {
-  const activePID = localStorage.getItem(activePlayerKey(matchID)) as "0" | "1" | null;
+  const stored = getMatchCredentials(matchID, profileName);
+  if (stored) return { playerID: stored.playerID, credentials: stored.credentials };
+  // Migration: old slot-keyed format
+  const activePID = localStorage.getItem(`cwi_active_${matchID}`) as "0" | "1" | null;
   const lookupOrder: Array<"0" | "1"> = activePID
     ? [activePID, activePID === "0" ? "1" : "0"]
     : ["0", "1"];
   for (const pid of lookupOrder) {
-    const creds = localStorage.getItem(credentialsKey(matchID, pid));
+    const creds = localStorage.getItem(`cwi_creds_${matchID}_${pid}`);
     if (creds) return { playerID: pid, credentials: creds };
   }
   return null;
@@ -129,7 +168,7 @@ function parseHash(): Route {
       const matchID = legacyM[2];
       const playerID = legacyM[3] as "0" | "1";
       const credentials = decodeURIComponent(legacyM[4]);
-      localStorage.setItem(credentialsKey(matchID, playerID), credentials);
+      localStorage.setItem(`cwi_creds_${matchID}_${playerID}`, credentials);
       window.location.hash = matchHash(server, matchID);
       return { kind: "match", server, matchID };
     } catch {
@@ -199,7 +238,6 @@ async function leaveAndMaybeDelete(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ playerID, credentials }),
   });
-  localStorage.removeItem(credentialsKey(matchID, playerID));
 
   try {
     const res = await fetch(`${server}/games/${GAME_NAME}`);
@@ -355,17 +393,25 @@ const LocalGameRoute: React.FC<LocalGameRouteProps> = ({ gameName, onReturnToSta
 // ─── Setup screen ──────────────────────────────────────────────────────────────
 
 interface SetupScreenProps {
-  initialPlayerName: string;
+  players: string[];
+  activePlayer: string;
+  onSelectPlayer: (name: string) => void;
+  onCreatePlayer: (name: string) => void;
+  onDeletePlayer: (name: string) => void;
   onLocal: () => void;
-  onConnectToLobby: (server: string, playerName: string) => void;
+  onConnectToLobby: (server: string) => void;
 }
 
 const SetupScreen: React.FC<SetupScreenProps> = ({
-  initialPlayerName,
+  players,
+  activePlayer,
+  onSelectPlayer,
+  onCreatePlayer,
+  onDeletePlayer,
   onLocal,
   onConnectToLobby,
 }) => {
-  const [playerName, setPlayerName] = useState(initialPlayerName);
+  const [newPlayerName, setNewPlayerName] = useState("");
   const [host, setHost] = useState(DEFAULT_HOST);
   const [port, setPort] = useState(DEFAULT_PORT);
   const [timeoutMs, setTimeoutMs] = useState(
@@ -373,12 +419,17 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   );
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  const handleCreatePlayer = () => {
+    const name = newPlayerName.trim();
+    if (!name) return;
+    onCreatePlayer(name);
+    setNewPlayerName("");
+  };
+
   const handleConnect = () => {
     const server = buildServer(host, port);
-    const name = playerName.trim();
-    localStorage.setItem(PLAYER_NAME_KEY, name);
     localStorage.setItem(TIMEOUT_MS_KEY, String(timeoutMs));
-    onConnectToLobby(server, name);
+    onConnectToLobby(server);
   };
 
   return (
@@ -386,6 +437,48 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
       <div className="setup-screen-content">
         <div className="setup-screen-title">CLASS WAR</div>
         <div className="setup-screen-subtitle">International</div>
+
+        <section className="setup-section">
+          <h2 className="setup-section-title">Choose Player</h2>
+          {players.length > 0 && (
+            <div className="setup-player-list">
+              {players.map((name) => (
+                <div key={name} className="setup-player-item">
+                  <button
+                    className={`setup-player-button${name === activePlayer ? " setup-player-button-active" : ""}`}
+                    onClick={() => onSelectPlayer(name)}
+                  >
+                    {name}
+                  </button>
+                  <button
+                    className="setup-player-delete-btn"
+                    onClick={() => onDeletePlayer(name)}
+                    aria-label={`Delete player ${name}`}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="setup-player-new">
+            <input
+              className="setup-field-input setup-player-new-input"
+              type="text"
+              value={newPlayerName}
+              onChange={(e) => setNewPlayerName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleCreatePlayer()}
+              placeholder="New player name…"
+            />
+            <button
+              className="setup-button setup-button-secondary setup-player-new-btn"
+              onClick={handleCreatePlayer}
+              disabled={!newPlayerName.trim()}
+            >
+              Create
+            </button>
+          </div>
+        </section>
 
         <section className="setup-section">
           <h2 className="setup-section-title">Local / Pass-and-Play</h2>
@@ -403,17 +496,6 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
             Join a game hosted on another device. Start a server with{" "}
             <code>npm run host</code>.
           </p>
-
-          <label className="setup-field">
-            <span className="setup-field-label">Player Name</span>
-            <input
-              className="setup-field-input"
-              type="text"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              placeholder="e.g. Alice"
-            />
-          </label>
 
           <label className="setup-field">
             <span className="setup-field-label">Host Address (IP or Domain)</span>
@@ -468,9 +550,18 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
             </div>
           )}
 
-          <button className="setup-button setup-button-host" onClick={handleConnect}>
+          <button
+            className="setup-button setup-button-host"
+            onClick={handleConnect}
+            disabled={!activePlayer}
+          >
             ▶ Connect to Lobby
           </button>
+          {!activePlayer && (
+            <p className="setup-section-description">
+              Create or select a player above to connect.
+            </p>
+          )}
         </section>
       </div>
     </div>
@@ -486,8 +577,8 @@ type LobbyStatus =
 
 interface LobbyRouteProps {
   server: string;
-  playerName: string;
-  onEnterMatch: (matchID: string, playerID: "0" | "1", credentials: string) => void;
+  activePlayer: string;
+  onEnterMatch: (matchID: string, playerID: "0" | "1", credentials: string, displayName: string) => void;
   onBack: () => void;
 }
 
@@ -496,12 +587,13 @@ const PLAYER_CLASS_LABEL: Record<string, string> = {
   "1": "Capitalist Class",
 };
 
-const LobbyRoute: React.FC<LobbyRouteProps> = ({ server, playerName, onEnterMatch, onBack }) => {
+const LobbyRoute: React.FC<LobbyRouteProps> = ({ server, activePlayer, onEnterMatch, onBack }) => {
   const [status, setStatus] = useState<LobbyStatus>({ kind: "connecting" });
   const [timeoutMs] = useState(
     () => parseInt(localStorage.getItem(TIMEOUT_MS_KEY) ?? String(DEFAULT_TIMEOUT_MS), 10),
   );
   const [selectedPlayerID, setSelectedPlayerID] = useState<Record<string, "0" | "1">>({});
+  const [displayName, setDisplayName] = useState<Record<string, string>>({});
   const [joining, setJoining] = useState<string | null>(null);
   const [leaving, setLeaving] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -568,46 +660,51 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({ server, playerName, onEnterMatc
     setJoining(match.matchID);
     setActionError(null);
     try {
-      const displayName = playerName || PLAYER_CLASS_LABEL[pid];
+      const name = (displayName[match.matchID] ?? activePlayer).trim() || PLAYER_CLASS_LABEL[pid];
       const res = await fetch(`${server}/games/${GAME_NAME}/${match.matchID}/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ playerID: pid, playerName: displayName }),
+        body: JSON.stringify({ playerID: pid, playerName: name }),
       });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `HTTP ${res.status}`);
       }
       const data: LobbyJoinResponse = (await res.json()) as LobbyJoinResponse;
-      localStorage.setItem(credentialsKey(match.matchID, pid), data.playerCredentials);
-      onEnterMatch(match.matchID, pid as "0" | "1", data.playerCredentials);
+      setMatchCredentials(match.matchID, activePlayer, {
+        playerID: pid as "0" | "1",
+        credentials: data.playerCredentials,
+        displayName: name,
+      });
+      onEnterMatch(match.matchID, pid as "0" | "1", data.playerCredentials, name);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Unknown error");
       setJoining(null);
     }
   };
 
-  const handleRejoin = (match: LobbyMatch, pid: "0" | "1") => {
-    const storedCreds = localStorage.getItem(credentialsKey(match.matchID, pid));
-    if (!storedCreds) {
+  const handleRejoin = (match: LobbyMatch) => {
+    const stored = getMatchCredentials(match.matchID, activePlayer);
+    if (!stored) {
       setActionError(
         "Cannot rejoin: credentials not found. Try clearing match history or rejoining from the original device.",
       );
       return;
     }
-    onEnterMatch(match.matchID, pid, storedCreds);
+    onEnterMatch(match.matchID, stored.playerID, stored.credentials, stored.displayName);
   };
 
-  const handleLeave = async (match: LobbyMatch, pid: "0" | "1") => {
-    const creds = localStorage.getItem(credentialsKey(match.matchID, pid));
-    if (!creds) {
+  const handleLeave = async (match: LobbyMatch) => {
+    const stored = getMatchCredentials(match.matchID, activePlayer);
+    if (!stored) {
       setActionError("Cannot leave: credentials not found.");
       return;
     }
     setLeaving(match.matchID);
     setActionError(null);
     try {
-      await leaveAndMaybeDelete(server, match.matchID, pid, creds);
+      await leaveAndMaybeDelete(server, match.matchID, stored.playerID, stored.credentials);
+      removeMatchCredentials(match.matchID, activePlayer);
       await fetchMatches();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Unknown error");
@@ -693,10 +790,10 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({ server, playerName, onEnterMatc
           </div>
           <div className="lobby-server-info">
             <p className="setup-section-description lobby-server-label">Server: {server}</p>
-            {playerName && (
+            {activePlayer && (
               <p className="lobby-current-player">
                 Playing as:{" "}
-                <span className="lobby-current-player-name">{playerName}</span>
+                <span className="lobby-current-player-name">{activePlayer}</span>
               </p>
             )}
           </div>
@@ -724,10 +821,11 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({ server, playerName, onEnterMatc
           ) : (
             <div className="lobby-match-list">
               {matches.map((match) => {
-                const mySlot = playerName
-                  ? match.players.find((p) => p.name === playerName)
+                const storedCreds = getMatchCredentials(match.matchID, activePlayer);
+                const mySlot = storedCreds
+                  ? match.players[parseInt(storedCreds.playerID)]
                   : undefined;
-                const isRejoinable = mySlot !== undefined;
+                const isRejoinable = mySlot !== undefined && mySlot.name !== undefined;
                 const isFull = !isRejoinable && match.players.every((p) => p.name !== undefined);
                 const pid = selectedPlayerID[match.matchID] ?? getDefaultPlayerID(match);
                 const isBusy = joining === match.matchID || leaving === match.matchID;
@@ -742,7 +840,7 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({ server, playerName, onEnterMatc
                     </div>
                     <div className="lobby-match-players">
                       {match.players.map((player) => {
-                        const isMine = Boolean(playerName && player.name === playerName);
+                        const isMine = isRejoinable && mySlot && player.id === mySlot.id;
                         let slotClass = "lobby-player-slot";
                         if (isMine) slotClass += " lobby-player-slot-mine";
                         else if (player.name) slotClass += " lobby-player-slot-taken";
@@ -765,18 +863,14 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({ server, playerName, onEnterMatc
                           <button
                             className="lobby-rejoin-button"
                             disabled={isBusy}
-                            onClick={() =>
-                              handleRejoin(match, String(mySlot.id) as "0" | "1")
-                            }
+                            onClick={() => handleRejoin(match)}
                           >
                             {joining === match.matchID ? "Rejoining…" : "↩ Rejoin"}
                           </button>
                           <button
                             className="setup-button setup-button-secondary lobby-leave-button"
                             disabled={isBusy}
-                            onClick={() =>
-                              void handleLeave(match, String(mySlot.id) as "0" | "1")
-                            }
+                            onClick={() => void handleLeave(match)}
                           >
                             {leaving === match.matchID ? "Leaving…" : "Leave"}
                           </button>
@@ -805,6 +899,19 @@ const LobbyRoute: React.FC<LobbyRouteProps> = ({ server, playerName, onEnterMatc
                               </option>
                             ))}
                           </select>
+                          <input
+                            className="setup-field-input lobby-display-name-input"
+                            type="text"
+                            value={displayName[match.matchID] ?? activePlayer}
+                            onChange={(e) =>
+                              setDisplayName((prev) => ({
+                                ...prev,
+                                [match.matchID]: e.target.value,
+                              }))
+                            }
+                            placeholder={activePlayer || "Display name"}
+                            disabled={isFull || isBusy}
+                          />
                           <button
                             className="setup-button setup-button-host lobby-join-button"
                             disabled={isFull || isBusy}
@@ -892,8 +999,12 @@ function RemoteGame({ server, matchID, playerID, credentials }: RemoteGameProps)
 
 function App() {
   const [route, setRoute] = useState<Route>(parseHash);
-  const [playerName, setPlayerName] = useState<string>(
-    () => localStorage.getItem(PLAYER_NAME_KEY) ?? "",
+  const [players, setPlayers] = useState<string[]>(getPlayers);
+  const [activePlayer, setActivePlayer] = useState<string>(
+    () =>
+      localStorage.getItem(LAST_PLAYER_KEY) ??
+      localStorage.getItem(PLAYER_NAME_KEY) ??
+      "",
   );
 
   useEffect(() => {
@@ -902,22 +1013,52 @@ function App() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
+  const selectPlayer = useCallback((name: string) => {
+    setActivePlayer(name);
+    localStorage.setItem(LAST_PLAYER_KEY, name);
+    setPlayers((prev) => {
+      const updated = [name, ...prev.filter((p) => p !== name)];
+      savePlayers(updated);
+      return updated;
+    });
+  }, []);
+
+  const createPlayer = useCallback(
+    (name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed || players.includes(trimmed)) return;
+      const updated = [trimmed, ...players];
+      setPlayers(updated);
+      savePlayers(updated);
+      selectPlayer(trimmed);
+    },
+    [players, selectPlayer],
+  );
+
+  const deletePlayer = useCallback(
+    (name: string) => {
+      const updated = players.filter((p) => p !== name);
+      setPlayers(updated);
+      savePlayers(updated);
+      if (activePlayer === name) {
+        const next = updated[0] ?? "";
+        setActivePlayer(next);
+        localStorage.setItem(LAST_PLAYER_KEY, next);
+      }
+    },
+    [players, activePlayer],
+  );
+
   const goToSetup = useCallback(() => {
     window.location.hash = "#/";
   }, []);
 
-  const goToLobby = useCallback((server: string, name: string) => {
-    setPlayerName(name);
-    window.location.hash = lobbyHash(server);
-  }, []);
-
   const goToMatch = useCallback(
-    (server: string, matchID: string, playerID: "0" | "1", credentials: string) => {
-      localStorage.setItem(credentialsKey(matchID, playerID), credentials);
-      localStorage.setItem(activePlayerKey(matchID), playerID);
+    (server: string, matchID: string, playerID: "0" | "1", credentials: string, displayName: string) => {
+      setMatchCredentials(matchID, activePlayer, { playerID, credentials, displayName });
       window.location.hash = matchHash(server, matchID);
     },
-    [],
+    [activePlayer],
   );
 
   if (route.kind === "localManager") {
@@ -932,9 +1073,9 @@ function App() {
     return (
       <LobbyRoute
         server={route.server}
-        playerName={playerName}
-        onEnterMatch={(matchID, playerID, credentials) =>
-          goToMatch(route.server, matchID, playerID, credentials)
+        activePlayer={activePlayer}
+        onEnterMatch={(matchID, playerID, credentials, displayName) =>
+          goToMatch(route.server, matchID, playerID, credentials, displayName)
         }
         onBack={goToSetup}
       />
@@ -942,7 +1083,7 @@ function App() {
   }
 
   if (route.kind === "match") {
-    const found = findMatchCredentials(route.matchID);
+    const found = findMatchCredentials(route.matchID, activePlayer);
     if (!found) {
       return <MatchRedirectToLobby server={route.server} />;
     }
@@ -959,11 +1100,17 @@ function App() {
   // route.kind === "setup"
   return (
     <SetupScreen
-      initialPlayerName={playerName}
+      players={players}
+      activePlayer={activePlayer}
+      onSelectPlayer={selectPlayer}
+      onCreatePlayer={createPlayer}
+      onDeletePlayer={deletePlayer}
       onLocal={() => {
         window.location.hash = localManagerHash();
       }}
-      onConnectToLobby={goToLobby}
+      onConnectToLobby={(server) => {
+        window.location.hash = lobbyHash(server);
+      }}
     />
   );
 }

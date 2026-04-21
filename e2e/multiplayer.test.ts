@@ -44,6 +44,11 @@ async function connectAsPlayer(
 ): Promise<void> {
   await page.goto(APP_URL);
 
+  // Create a test-unique player profile so each seat has its own credentials.
+  const profileName = `TestPlayer${playerID}`;
+  await page.fill('.setup-player-new-input', profileName);
+  await page.click('.setup-player-new-btn');
+
   // Fill in host address and port on the setup screen
   await page.fill('input[placeholder*="192.168"]', "localhost");
   await page.fill('input[type="number"]', String(E2E_SERVER_PORT));
@@ -93,11 +98,18 @@ test.describe("setup screen", () => {
   });
 });
 
+/** Create a player profile on the setup screen. */
+async function createProfile(page: Page, name: string): Promise<void> {
+  await page.fill(".setup-player-new-input", name);
+  await page.click(".setup-player-new-btn");
+}
+
 test.describe("lobby connection", () => {
   test("connecting to a running server shows the Open Matches screen", async ({
     page,
   }) => {
     await page.goto(APP_URL);
+    await createProfile(page, "Tester");
 
     await page.fill('input[placeholder*="192.168"]', "localhost");
     await page.fill('input[type="number"]', String(E2E_SERVER_PORT));
@@ -112,6 +124,7 @@ test.describe("lobby connection", () => {
     page,
   }) => {
     await page.goto(APP_URL);
+    await createProfile(page, "Tester");
 
     await page.fill('input[placeholder*="192.168"]', "localhost");
     await page.fill('input[type="number"]', "19999"); // nothing listening here

@@ -3349,6 +3349,103 @@ body {
   border-radius: 0.6vw;
 }
 
+/* ─── Player profile selector ────────────────────────────────────────────── */
+
+.setup-player-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vw;
+  margin-bottom: 1.2vw;
+}
+
+.setup-player-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6vw;
+}
+
+.setup-player-button {
+  flex: 1;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.5vw;
+  color: #e2e8f0;
+  padding: 0.7vw 1vw;
+  font-size: 1.4vw;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.setup-player-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.setup-player-button-active {
+  background: rgba(85, 136, 204, 0.25);
+  border-color: #5588cc;
+  color: #90cdf4;
+}
+
+.setup-player-delete-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.5vw;
+  color: #a0aec0;
+  padding: 0.5vw 0.8vw;
+  font-size: 1.1vw;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.setup-player-delete-btn:hover {
+  background: rgba(204, 85, 85, 0.3);
+  color: #fc8181;
+  border-color: #cc5555;
+}
+
+.setup-player-new {
+  display: flex;
+  gap: 0.6vw;
+  align-items: center;
+}
+
+.setup-player-new-input {
+  flex: 1;
+}
+
+.setup-player-new-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ─── Lobby display name input ───────────────────────────────────────────── */
+
+.lobby-display-name-input {
+  width: 100%;
+  margin-top: 0.4vw;
+}
+
+@media (max-width: 600px) {
+  .setup-player-button {
+    font-size: 3.5vw;
+    padding: 1.8vw 2.5vw;
+    border-radius: 1.2vw;
+  }
+
+  .setup-player-delete-btn {
+    font-size: 2.8vw;
+    padding: 1.2vw 2vw;
+    border-radius: 1.2vw;
+  }
+
+  .setup-player-new {
+    gap: 1.5vw;
+  }
+}
+
 /* ─── Lobby connecting screen ────────────────────────────────────────────── */
 
 .lobby-connecting-box {
