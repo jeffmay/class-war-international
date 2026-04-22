@@ -70,12 +70,14 @@ export interface ConflictOutcome {
   winner?: SocialClass;
   workingClassPower: {
     diceCount: number;
+    /** Dice results as face sides (0–5). Map through DIE_FACES to get values. */
     diceRolls: number[];
     establishedPower: number;
     total: number;
   };
   capitalistPower: {
     diceCount: number;
+    /** Dice results as face sides (0–5). Map through DIE_FACES to get values. */
     diceRolls: number[];
     establishedPower: number;
     total: number;

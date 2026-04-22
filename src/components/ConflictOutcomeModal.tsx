@@ -10,6 +10,7 @@ import React from 'react';
 import { ConflictType, SocialClass } from '../types/cards';
 import { ConflictOutcome } from '../types/conflicts';
 import { getAnyCardData } from '../data/cards';
+import { sideToValue } from '../game/ClassWarGame';
 import { CardComponent } from './CardComponent';
 import { Die } from './Die';
 
@@ -99,13 +100,13 @@ export const ConflictOutcomeModal: React.FC<ConflictOutcomeModalProps> = ({
           <span className="conflict-outcome-dice-label">🎲 {power.diceCount} dice:</span>
           <span className="conflict-outcome-dice-rolls">
             {power.diceRolls.length > 0
-              ? power.diceRolls.map((v, i) => (
-                  <Die key={i} value={v} socialClass={socialClass} />
+              ? power.diceRolls.map((side, i) => (
+                  <Die key={i} value={sideToValue(side)} socialClass={socialClass} />
                 ))
               : "—"}
           </span>
           <span className="conflict-outcome-dice-sum">
-            = {power.diceRolls.reduce((a, b) => a + b, 0)}
+            = {power.diceRolls.reduce((a, side) => a + sideToValue(side), 0)}
           </span>
         </div>
         {power.establishedPower > 0 && (

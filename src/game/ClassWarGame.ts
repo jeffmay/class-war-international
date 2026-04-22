@@ -11,35 +11,66 @@ import { type GameState, type PlayerState, TurnPhase } from '../types/game';
 import { isAnyWorkplaceCardID, isDefaultWorkplaceCard, isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard, playWorkplaceCard } from '../util/game';
 import { type StrictGameOf } from '../util/typedboardgame';
 
+const MIN_WAGE = 1;
+/** Base maximum dice per class. WC has higher cap to reflect solidarity. */
+const WC_MAX_DICE = 9;
+const CC_MAX_DICE = 6;
+
 /**
  * Compute the power contribution of a set of conflict cards (figures + tactics).
- * Figures contribute dice; established_power is added separately at resolution.
+ * - Figures contribute dice.
+ * - Tactics with `dice` contribute extra dice; `canvass` contributes 1 die per figure instead.
+ * - Tactics with `established_power` (e.g. call_the_police) add to established power.
  */
 function powerStats(cards: ConflictCardInPlay[]): PowerStats {
   let diceCount = 0;
+  let establishedPower = 0;
+  const figureCount = cards.filter(c => c.card_type === CardType.Figure).length;
   for (const card of cards) {
     const data = getAnyCardData(card.id);
     if (data.card_type === CardType.Figure) {
       diceCount += data.dice;
-    } else if (data.card_type === CardType.Tactic && data.dice) {
-      diceCount += data.dice;
+    } else if (data.card_type === CardType.Tactic) {
+      if (data.id === 'canvass') {
+        diceCount += figureCount;
+      } else if (data.dice) {
+        diceCount += data.dice;
+      }
+      if (data.established_power) {
+        establishedPower += data.established_power;
+      }
     }
   }
-  return { diceCount, establishedPower: 0 };
+  return { diceCount, establishedPower };
 }
 
 /**
- * Roll N custom dice, each with equal odds of rolling 0 (❌), 1 (•), or 2 (••).
+ * Die face map: 6 sides → values.
+ * Sides 0,2 = value 0 (2-in-6); sides 1,3,4 = value 1 (3-in-6); side 5 = value 2 (1-in-6).
+ */
+export const DIE_FACES = [0, 1, 0, 1, 1, 2] as const;
+
+/** Convert a rolled die side (0–5) to its point value. */
+export function sideToValue(side: number): number {
+  return DIE_FACES[side] ?? 0;
+}
+
+/** Flip a die side to its physical opposite: flipSide(s) = (s + 3) % 6 */
+export function flipSide(side: number): number {
+  return (side + 3) % 6;
+}
+
+/**
+ * Roll N custom dice; returns face sides (0–5).
+ * Use sideToValue() to convert sides to point values.
  */
 function rollDice(numDice: number, random: () => number): number[] {
-  return Array.from({ length: numDice }, () => Math.floor(random() * 3));
+  return Array.from({ length: numDice }, () => Math.floor(random() * 6));
 }
 
-/**
- * Sum of an array of numbers.
- */
-function sum(arr: number[]): number {
-  return arr.reduce((a, b) => a + b, 0);
+/** Sum point values from an array of die sides. */
+function sumSides(sides: number[]): number {
+  return sides.reduce((a, s) => a + sideToValue(s), 0);
 }
 
 /**
@@ -96,10 +127,10 @@ function clearUndo(G: GameState, reason: string): void {
  */
 function applyLawEffect(demandCardId: string, G: GameState): void {
   if (demandCardId === 'deregulation') {
-    // Shift $1 from wages to profits at every existing workplace
     for (const wp of G.workplaces) {
       if (wp === WorkplaceForSale) continue;
-      if (wp.wages > 1) {
+      wp.unionized = false;
+      if (wp.wages > MIN_WAGE) {
         wp.wages -= 1;
         wp.profits += 1;
       }
@@ -107,6 +138,27 @@ function applyLawEffect(demandCardId: string, G: GameState): void {
   }
   // wealth_tax and free_health_care effects are checked each production phase
   // tax_breaks cost reduction is checked when cards are played
+}
+
+/** True when deregulation law prevents new unions from forming */
+function canUnionize(G: GameState): boolean {
+  return !G.laws.includes('deregulation');
+}
+
+/**
+ * Compute the effective cost of a card after applying active law effects.
+ * - tax_breaks: cards/abilities costing $15+ cost $5 less
+ * - free_health_care: all figures cost $2 less
+ */
+function effectiveCost(G: GameState, cardData: ReturnType<typeof getAnyCardData>): number {
+  let cost = cardData.cost ?? 0;
+  if (G.laws.includes('free_health_care') && cardData.card_type === CardType.Figure) {
+    cost = Math.max(0, cost - 2);
+  }
+  if (G.laws.includes('tax_breaks') && cost >= 15) {
+    cost = Math.max(0, cost - 5);
+  }
+  return cost;
 }
 
 /**
@@ -168,7 +220,7 @@ export const Moves = {
 
     const cardId = player.hand[handIndex];
     const cardData = getAnyCardData(cardId);
-    const cost = cardData?.cost ?? 0
+    const cost = effectiveCost(G, cardData);
 
     const expandMatch = targetSlot.match(/^workplaces\[(\d+)\]\/expand$/);
     if (expandMatch) {
@@ -345,11 +397,23 @@ export const Moves = {
   /**
    * End Action Phase and move to Reproduction
    */
-  endActionPhase: ({ G }) => {
+  endActionPhase: ({ G, ctx }) => {
     if (G.turnPhase !== TurnPhase.Action) {
       return;
     }
     saveUndo(G, 'End Action Phase');
+
+    // welfare_reform: figures costing $6 or less become exhausted at end of their class's turn
+    if (G.laws.includes('welfare_reform')) {
+      const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+      for (const figure of G.players[currentClass].figures) {
+        const figData = getAnyCardData(figure.id);
+        if (figData.cost !== undefined && figData.cost <= 6) {
+          figure.exhausted = true;
+        }
+      }
+    }
+
     G.turnPhase = TurnPhase.Reproduction;
   },
 
@@ -403,11 +467,13 @@ export const Moves = {
 
     const strikeLeader: FigureCardInPlay = { ...figure };
     const workingClassCards = [strikeLeader];
+    // labor_organizer as captain allows up to 3 strike leaders
+    const maxStrikeLeaders = figure.id === 'labor_organizer' ? 3 : 1;
     const conflictState: StrikeConflictState = {
       conflictType: ConflictType.Strike,
       targetWorkplaceIndex: workplaceIndex,
       targetWorkplace: { ...targetWorkplace },
-      maxStrikeLeaders: 1,
+      maxStrikeLeaders,
       workingClassCards,
       capitalistCards: [],
       active: true,
@@ -914,9 +980,13 @@ export const Moves = {
     const conflict = G.activeConflict;
     const rng = Math.random;
 
-    // Roll dice for both sides
-    const wcRolls = rollDice(conflict.workingClassPower.diceCount, rng);
-    const ccRolls = rollDice(conflict.capitalistPower.diceCount, rng);
+    // Apply per-class max dice caps; stop_voter_fraud reduces both to 6 in elections
+    const isElection = conflict.conflictType === ConflictType.Election;
+    const svfActive = isElection && G.laws.includes('stop_voter_fraud');
+    const wcMaxDice = svfActive ? 6 : WC_MAX_DICE;
+    const ccMaxDice = svfActive ? 6 : CC_MAX_DICE;
+    const wcDice = Math.min(conflict.workingClassPower.diceCount, wcMaxDice);
+    const ccDice = Math.min(conflict.capitalistPower.diceCount, ccMaxDice);
 
     let wcEstablished = conflict.workingClassPower.establishedPower;
     let ccEstablished = conflict.capitalistPower.establishedPower;
@@ -929,22 +999,80 @@ export const Moves = {
         G.errorMessage = 'Target workplace does not exist.';
         return;
       }
+
+      // Helper: check if a figure is in a strike leader slot
+      const strikeLeaderIds = new Set(
+        conflict.workingClassCards
+          .slice(0, conflict.maxStrikeLeaders)
+          .filter(c => c.card_type === CardType.Figure)
+          .map(c => c.id)
+      );
+
+      // agitator: reduce workplace established_power by 1 before dice
+      if (strikeLeaderIds.has('agitator')) {
+        workplace.established_power = Math.max(0, workplace.established_power - 1);
+      }
+
       // Workplace's established_power goes to the capitalist side
       ccEstablished += workplace.established_power ?? 0;
 
-      const wcTotal = sum(wcRolls) + wcEstablished;
-      const ccTotal = sum(ccRolls) + ccEstablished;
+      // union_thugs: opponent rolls 1 fewer die
+      const strikeCcDice = strikeLeaderIds.has('union_thugs') ? Math.max(0, ccDice - 1) : ccDice;
+      const wcRolls = rollDice(wcDice, rng);
+      const ccRolls = rollDice(strikeCcDice, rng);
 
-      if (wcTotal > ccTotal) {
+      const wcTotal = sumSides(wcRolls) + wcEstablished;
+      const ccTotal = sumSides(ccRolls) + ccEstablished;
+
+      // barnyard_rustin: ties count as WC victory
+      const hasBarnyard = conflict.workingClassCards.some(c => c.id === 'barnyard_rustin');
+      const margin = wcTotal - ccTotal;
+      if (margin > 0 || (margin === 0 && hasBarnyard)) {
         // Workers win: shift $1 from profits to wages
-        const shift = Math.min(1, workplace.profits - 1);
-        workplace.wages = Math.max(1, workplace.wages + shift);
-        workplace.profits = Math.max(1, workplace.profits - shift);
-        workplace.unionized = true;
+        const shift = Math.min(1, workplace.profits - MIN_WAGE);
+        workplace.wages = Math.max(MIN_WAGE, workplace.wages + shift);
+        workplace.profits = Math.max(MIN_WAGE, workplace.profits - shift);
+        if (canUnionize(G)) workplace.unionized = true;
+
+        // mechanic: extra $1 shift profits→wages on strike win
+        if (strikeLeaderIds.has('mechanic')) {
+          const mechShift = Math.min(1, workplace.profits - MIN_WAGE);
+          workplace.wages = Math.max(MIN_WAGE, workplace.wages + mechShift);
+          workplace.profits = Math.max(MIN_WAGE, workplace.profits - mechShift);
+        }
+
         winner = SocialClass.WorkingClass;
       } else {
         winner = SocialClass.CapitalistClass;
+
+        // hire_scabs bonus: CC wins → shift $1 from wages to profits
+        const hasHireScabs = conflict.capitalistCards.some(c => c.id === 'hire_scabs');
+        if (hasHireScabs && workplace.wages > MIN_WAGE) {
+          workplace.wages -= 1;
+          workplace.profits += 1;
+        }
+
+        // cleaning_crew: WC loss → steal $1 from CC wealth
+        if (strikeLeaderIds.has('cleaning_crew')) {
+          const ccPlayer = G.players[SocialClass.CapitalistClass];
+          const wcPlayer = G.players[SocialClass.WorkingClass];
+          if (ccPlayer.wealth > 0) {
+            ccPlayer.wealth -= 1;
+            wcPlayer.wealth += 1;
+          }
+        }
       }
+
+      // hire_private_security: CC wins by 3+ → WC captain to dustbin (handled in cleanup below)
+      const hpsBonus = winner === SocialClass.CapitalistClass
+        && Math.abs(margin) >= 3
+        && conflict.capitalistCards.some(c => c.id === 'hire_private_security');
+      // outlaw_strikes: CC wins → WC captain to dustbin
+      const outlawStrikes = winner === SocialClass.CapitalistClass && G.laws.includes('outlaw_strikes');
+      const captainTodustbin = hpsBonus || outlawStrikes;
+      const wcCaptainId = conflict.workingClassCards[0]?.card_type === CardType.Figure
+        ? conflict.workingClassCards[0].id
+        : undefined;
 
       // Exhaust all participating figures and return them; send tactics to dustbin
       for (const socialClass of [SocialClass.WorkingClass, SocialClass.CapitalistClass] as const) {
@@ -954,7 +1082,11 @@ export const Moves = {
         const clasPlayer = G.players[socialClass];
         for (const card of cards) {
           if (card.card_type === CardType.Figure) {
-            clasPlayer.figures.push({ ...card, exhausted: true });
+            if (captainTodustbin && card.id === wcCaptainId) {
+              clasPlayer.dustbin.push(card.id);
+            } else {
+              clasPlayer.figures.push({ ...card, exhausted: true });
+            }
           } else if (card.card_type === CardType.Tactic) {
             clasPlayer.dustbin.push(card.id);
           }
@@ -964,8 +1096,8 @@ export const Moves = {
       G.conflictOutcome = {
         conflict: { ...conflict },
         winner,
-        workingClassPower: { diceCount: conflict.workingClassPower.diceCount, diceRolls: wcRolls, establishedPower: wcEstablished, total: sum(wcRolls) + wcEstablished },
-        capitalistPower: { diceCount: conflict.capitalistPower.diceCount, diceRolls: ccRolls, establishedPower: ccEstablished, total: sum(ccRolls) + ccEstablished },
+        workingClassPower: { diceCount: wcDice, diceRolls: wcRolls, establishedPower: wcEstablished, total: sumSides(wcRolls) + wcEstablished },
+        capitalistPower: { diceCount: ccDice, diceRolls: ccRolls, establishedPower: ccEstablished, total: sumSides(ccRolls) + ccEstablished },
         dismissedBy: [],
       };
 
@@ -981,12 +1113,17 @@ export const Moves = {
         wcEstablished += incumbentPower;
       }
 
-      const wcTotal = sum(wcRolls) + wcEstablished;
-      const ccTotal = sum(ccRolls) + ccEstablished;
+      const wcRolls = rollDice(wcDice, rng);
+      const ccRolls = rollDice(ccDice, rng);
+      const wcTotal = sumSides(wcRolls) + wcEstablished;
+      const ccTotal = sumSides(ccRolls) + ccEstablished;
 
+      // barnyard_rustin: ties count as WC victory
+      const hasBarnyard = conflict.workingClassCards.some(c => c.id === 'barnyard_rustin');
+      const effectiveWcTotal = (wcTotal === ccTotal && hasBarnyard) ? ccTotal + 1 : wcTotal;
       const challengerWins = conflict.initiatingClass === SocialClass.WorkingClass
-        ? wcTotal > ccTotal
-        : ccTotal > wcTotal;
+        ? effectiveWcTotal > ccTotal
+        : ccTotal > effectiveWcTotal;
 
       // The candidate is the first card of the initiating class's conflict cards
       const initiatingCards = conflict.initiatingClass === SocialClass.WorkingClass
@@ -1000,10 +1137,10 @@ export const Moves = {
           G.errorMessage = 'Invalid election: no figure candidate at index 0 of initiating class cards.';
           return;
         }
-        // Place elected candidate in the office; exhaust them; set cooldown
+        // Place elected candidate in the office; exhaust them (birdie_feathers never exhausts); set cooldown
         G.politicalOffices[conflict.targetOfficeIndex] = {
           ...candidateCard,
-          exhausted: true,
+          exhausted: candidateCard.id !== 'birdie_feathers',
           electionCooldownTurnsRemaining: 1,
         };
       } else {
@@ -1023,7 +1160,8 @@ export const Moves = {
             // Winning candidate stays in the office slot (not returned to figures)
             const isWinningCandidate = challengerWins && card.id === candidateCard?.id;
             if (!isWinningCandidate) {
-              clasPlayer.figures.push({ ...card, exhausted: true });
+              // birdie_feathers never becomes exhausted from elections
+              clasPlayer.figures.push({ ...card, exhausted: card.id !== 'birdie_feathers' });
             }
           } else if (card.card_type === CardType.Tactic) {
             clasPlayer.dustbin.push(card.id);
@@ -1034,19 +1172,24 @@ export const Moves = {
       G.conflictOutcome = {
         conflict: { ...conflict },
         winner,
-        workingClassPower: { diceCount: conflict.workingClassPower.diceCount, diceRolls: wcRolls, establishedPower: wcEstablished, total: wcTotal },
-        capitalistPower: { diceCount: conflict.capitalistPower.diceCount, diceRolls: ccRolls, establishedPower: ccEstablished, total: ccTotal },
+        workingClassPower: { diceCount: wcDice, diceRolls: wcRolls, establishedPower: wcEstablished, total: wcTotal },
+        capitalistPower: { diceCount: ccDice, diceRolls: ccRolls, establishedPower: ccEstablished, total: ccTotal },
         dismissedBy: [],
       };
 
     } else {
       // Legislation
-      const wcTotal = sum(wcRolls) + wcEstablished;
-      const ccTotal = sum(ccRolls) + ccEstablished;
+      const wcRolls = rollDice(wcDice, rng);
+      const ccRolls = rollDice(ccDice, rng);
+      const wcTotal = sumSides(wcRolls) + wcEstablished;
+      const ccTotal = sumSides(ccRolls) + ccEstablished;
 
+      // barnyard_rustin: ties count as WC victory
+      const hasBarnyard = conflict.workingClassCards.some(c => c.id === 'barnyard_rustin');
+      const effectiveWcTotal = (wcTotal === ccTotal && hasBarnyard) ? ccTotal + 1 : wcTotal;
       const proposerWins = conflict.initiatingClass === SocialClass.WorkingClass
-        ? wcTotal > ccTotal
-        : ccTotal > wcTotal;
+        ? effectiveWcTotal > ccTotal
+        : ccTotal > effectiveWcTotal;
 
       if (proposerWins) {
         winner = conflict.initiatingClass;
@@ -1089,8 +1232,8 @@ export const Moves = {
       G.conflictOutcome = {
         conflict: { ...conflict },
         winner,
-        workingClassPower: { diceCount: conflict.workingClassPower.diceCount, diceRolls: wcRolls, establishedPower: wcEstablished, total: wcTotal },
-        capitalistPower: { diceCount: conflict.capitalistPower.diceCount, diceRolls: ccRolls, establishedPower: ccEstablished, total: ccTotal },
+        workingClassPower: { diceCount: wcDice, diceRolls: wcRolls, establishedPower: wcEstablished, total: wcTotal },
+        capitalistPower: { diceCount: ccDice, diceRolls: ccRolls, establishedPower: ccEstablished, total: ccTotal },
         dismissedBy: [],
       };
     }

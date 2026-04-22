@@ -939,6 +939,20 @@ body {
   background-color: #ed5e72;
 }
 
+.workplace-unionized-badge {
+  flex: 0 0 auto;
+  background-color: #f5a623;
+  color: #000;
+  font-weight: bold;
+  font-size: 0.8em;
+  padding: 0.2em 0.4em;
+  border-radius: 0.3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
 .card-back-content {
   display: flex;
   align-items: center;

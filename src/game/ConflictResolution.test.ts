@@ -18,8 +18,9 @@ import { CardType, SocialClass, WorkplaceForSale, type FigureCardInPlay } from '
 import { ConflictPhase, ConflictType } from '../types/conflicts';
 import { TurnPhase } from '../types/game';
 import { filterMap } from '../util/fun';
-import { playDemandCard, playFigureCard } from '../util/game';
+import { playDemandCard, playFigureCard, playTacticCard } from '../util/game';
 import { clientFromFixture, makeActionPhaseState } from './generate';
+import { vi } from 'vitest';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -272,14 +273,14 @@ describe('resolveConflict', () => {
     expect(outcome.dismissedBy).toHaveLength(0);
   });
 
-  test('each die roll is 0, 1, or 2 (custom die faces)', () => {
-    // Run several resolutions and assert every roll value is in {0, 1, 2}
+  test('each die roll is a valid face side (0–5)', () => {
+    // diceRolls stores face sides 0–5; sideToValue maps them to 0/1/2
     for (let i = 0; i < 20; i++) {
       const client = makeStrikeResolving();
       client.moves.resolveConflict();
       const outcome = client.getStateOrThrow().G.conflictOutcome!;
       for (const roll of [...outcome.workingClassPower.diceRolls, ...outcome.capitalistPower.diceRolls]) {
-        expect([0, 1, 2]).toContain(roll);
+        expect([0, 1, 2, 3, 4, 5]).toContain(roll);
       }
     }
   });
@@ -805,5 +806,346 @@ describe('conflict player switching via endTurn', () => {
     expect(state.G.activeConflict!.activeConflictPlayer).toBe(SocialClass.WorkingClass);
     // boardgame.io currentPlayer should be back to WC '0'
     expect(state.ctx.currentPlayer).toBe('0');
+  });
+});
+
+// ── Tactic conflict bonuses ───────────────────────────────────────────────────
+
+describe('tactic bonus - call_the_police established power', () => {
+  test('call_the_police adds 2 established power to score', () => {
+    const wcCaptain = playFigureCard('cashier', { in_training: false });
+    const ccTactic = { ...playTacticCard('call_the_police'), addedThisStep: false as const };
+    const G = makeActionPhaseState({ figures: [wcCaptain] });
+
+    G.activeConflict = {
+      conflictType: ConflictType.Strike,
+      targetWorkplaceIndex: 0,
+      targetWorkplace: { ...(G.workplaces[0] as Exclude<typeof G.workplaces[0], string>) },
+      maxStrikeLeaders: 1,
+      workingClassCards: [{ ...wcCaptain }],
+      capitalistCards: [ccTactic],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 1, establishedPower: 0 },
+      capitalistPower: { diceCount: 0, establishedPower: 2 },
+    };
+
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    const outcome = client.getStateOrThrow().G.conflictOutcome!;
+    // 2 from call_the_police + 1 from corner_store established_power = 3
+    expect(outcome.capitalistPower.establishedPower).toBe(3);
+  });
+});
+
+describe('tactic bonus - hire_scabs', () => {
+  test('CC wins with hire_scabs: shifts $1 from wages to profits at the workplace', () => {
+    const wcCaptain = playFigureCard('cashier', { in_training: false });
+    const ccTactic = { ...playTacticCard('hire_scabs'), addedThisStep: false as const };
+    const G = makeActionPhaseState({ figures: [wcCaptain] });
+    const workplace = G.workplaces[1] as Exclude<typeof G.workplaces[0], string>; // parts_producer wages=3
+    const initialWages = workplace.wages;
+
+    G.activeConflict = {
+      conflictType: ConflictType.Strike,
+      targetWorkplaceIndex: 1,
+      targetWorkplace: { ...workplace },
+      maxStrikeLeaders: 1,
+      workingClassCards: [{ ...wcCaptain }],
+      capitalistCards: [ccTactic],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 1, establishedPower: 0 },
+      capitalistPower: { diceCount: 2, establishedPower: 0 },
+    };
+
+    // All dice roll 0 (value 0); workplace established_power breaks tie for CC
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0);
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+    spy.mockRestore();
+
+    const state = client.getStateOrThrow();
+    expect(state.G.conflictOutcome!.winner).toBe(SocialClass.CapitalistClass);
+    const wp = state.G.workplaces[1] as Exclude<typeof state.G.workplaces[1], string>;
+    expect(wp.wages).toBe(initialWages - 1);
+    expect(wp.profits).toBe(workplace.profits + 1);
+  });
+});
+
+describe('tactic bonus - hire_private_security', () => {
+  test('CC wins by 3+ with hire_private_security: WC captain put in dustbin', () => {
+    const wcCaptain = playFigureCard('cashier', { in_training: false });
+    const hps = { ...playTacticCard('hire_private_security'), addedThisStep: false as const };
+    const G = makeActionPhaseState({ figures: [] }); // figure is in conflict, not player area
+
+    G.activeConflict = {
+      conflictType: ConflictType.Strike,
+      targetWorkplaceIndex: 0,
+      targetWorkplace: { ...(G.workplaces[0] as Exclude<typeof G.workplaces[0], string>) },
+      maxStrikeLeaders: 1,
+      workingClassCards: [{ ...wcCaptain }],
+      capitalistCards: [hps],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 1, establishedPower: 0 },
+      capitalistPower: { diceCount: 3, establishedPower: 0 },
+    };
+
+    // All dice roll max (side 5, value 2): WC=2, CC=6+wp_power → margin ≥ 3
+    const spy = vi.spyOn(Math, 'random').mockReturnValue(0.9);
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+    spy.mockRestore();
+
+    const state = client.getStateOrThrow();
+    expect(state.G.conflictOutcome!.winner).toBe(SocialClass.CapitalistClass);
+    expect(state.G.players[SocialClass.WorkingClass].dustbin).toContain('cashier');
+    expect(state.G.players[SocialClass.WorkingClass].figures.map(f => f.id)).not.toContain('cashier');
+  });
+});
+
+describe('figure strike effect - cleaning_crew', () => {
+  test('cleaning_crew in leader slot steals $1 from CC when WC loses', () => {
+    const cleaningCrew = playFigureCard('cleaning_crew', { in_training: false });
+    const G = makeActionPhaseState({ figures: [] });
+    G.players[SocialClass.WorkingClass].wealth = 5;
+    G.players[SocialClass.CapitalistClass].wealth = 10;
+
+    G.activeConflict = {
+      conflictType: ConflictType.Strike,
+      targetWorkplaceIndex: 0,
+      targetWorkplace: { ...(G.workplaces[0] as Exclude<typeof G.workplaces[0], string>) },
+      maxStrikeLeaders: 1,
+      workingClassCards: [{ ...cleaningCrew }],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      // CC wins via overwhelming established power
+      workingClassPower: { diceCount: 0, establishedPower: 0 },
+      capitalistPower: { diceCount: 0, establishedPower: 10 },
+    };
+
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    const state = client.getStateOrThrow();
+    expect(state.G.conflictOutcome!.winner).toBe(SocialClass.CapitalistClass);
+    expect(state.G.players[SocialClass.CapitalistClass].wealth).toBe(9);
+    expect(state.G.players[SocialClass.WorkingClass].wealth).toBe(6);
+  });
+
+  test('cleaning_crew does NOT steal when WC wins', () => {
+    const cleaningCrew = playFigureCard('cleaning_crew', { in_training: false });
+    const G = makeActionPhaseState({ figures: [] });
+    G.players[SocialClass.WorkingClass].wealth = 5;
+    G.players[SocialClass.CapitalistClass].wealth = 10;
+
+    G.activeConflict = {
+      conflictType: ConflictType.Strike,
+      targetWorkplaceIndex: 0,
+      targetWorkplace: { ...(G.workplaces[0] as Exclude<typeof G.workplaces[0], string>) },
+      maxStrikeLeaders: 1,
+      workingClassCards: [{ ...cleaningCrew }],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 0, establishedPower: 10 },
+      capitalistPower: { diceCount: 0, establishedPower: 0 },
+    };
+
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    const state = client.getStateOrThrow();
+    expect(state.G.conflictOutcome!.winner).toBe(SocialClass.WorkingClass);
+    expect(state.G.players[SocialClass.CapitalistClass].wealth).toBe(10);
+    expect(state.G.players[SocialClass.WorkingClass].wealth).toBe(5);
+  });
+});
+
+describe('figure strike effect - labor_organizer captain', () => {
+  test('labor_organizer captain sets maxStrikeLeaders to 3', () => {
+    const laborOrganizer = playFigureCard('labor_organizer', { in_training: false });
+    const G = makeActionPhaseState({ figures: [laborOrganizer] });
+    const client = clientFromFixture(G);
+
+    client.moves.planStrike('labor_organizer', 0);
+
+    const state = client.getStateOrThrow();
+    expect(state.G.activeConflict).toBeDefined();
+    expect((state.G.activeConflict as Extract<typeof state.G.activeConflict, { conflictType: ConflictType.Strike }>)?.maxStrikeLeaders).toBe(3);
+  });
+
+  test('non-labor_organizer captain sets maxStrikeLeaders to 1', () => {
+    const cashier = playFigureCard('cashier', { in_training: false });
+    const G = makeActionPhaseState({ figures: [cashier] });
+    const client = clientFromFixture(G);
+
+    client.moves.planStrike('cashier', 0);
+
+    const state = client.getStateOrThrow();
+    expect((state.G.activeConflict as Extract<typeof state.G.activeConflict, { conflictType: ConflictType.Strike }>)?.maxStrikeLeaders).toBe(1);
+  });
+});
+
+describe('figure passive - birdie_feathers election', () => {
+  test('birdie_feathers is not exhausted after winning an election', () => {
+    const birdie = playFigureCard('birdie_feathers', { in_training: false });
+    const G = makeActionPhaseState({ figures: [birdie] });
+
+    G.activeConflict = {
+      conflictType: ConflictType.Election,
+      targetOfficeIndex: 0,
+      targetIncumbent: { ...G.politicalOffices[0] },
+      workingClassCards: [{ ...birdie }],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 0, establishedPower: 100 },
+      capitalistPower: { diceCount: 0, establishedPower: 0 },
+    };
+
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    const state = client.getStateOrThrow();
+    expect(state.G.conflictOutcome!.winner).toBe(SocialClass.WorkingClass);
+    // birdie_feathers should be in the office and not exhausted
+    const officeCard = state.G.politicalOffices[0];
+    expect(officeCard.id).toBe('birdie_feathers');
+    expect(officeCard.exhausted).toBe(false);
+  });
+
+  test('birdie_feathers is not exhausted after losing an election', () => {
+    const birdie = playFigureCard('birdie_feathers', { in_training: false });
+    const G = makeActionPhaseState({ figures: [birdie] });
+
+    G.activeConflict = {
+      conflictType: ConflictType.Election,
+      targetOfficeIndex: 0,
+      targetIncumbent: { ...G.politicalOffices[0] },
+      workingClassCards: [{ ...birdie }],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 0, establishedPower: 0 },
+      capitalistPower: { diceCount: 0, establishedPower: 100 },
+    };
+
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    const state = client.getStateOrThrow();
+    expect(state.G.conflictOutcome!.winner).toBe(SocialClass.CapitalistClass);
+    // birdie_feathers loses and is returned to hand but NOT exhausted
+    const birdieInFigures = state.G.players[SocialClass.WorkingClass].figures.find(f => f.id === 'birdie_feathers');
+    expect(birdieInFigures).toBeDefined();
+    expect(birdieInFigures!.exhausted).toBe(false);
+  });
+});
+
+describe('figure passive - barnyard_rustin tie-breaking', () => {
+  test('barnyard_rustin in WC cards converts a strike tie to WC victory', () => {
+    const barnyardRustin = playFigureCard('barnyard_rustin', { in_training: false });
+    const G = makeActionPhaseState({ figures: [] });
+    // Zero out workplace established_power so CC gets no bonus from it
+    const workplace = G.workplaces[0] as Exclude<typeof G.workplaces[0], string>;
+    workplace.established_power = 0;
+
+    G.activeConflict = {
+      conflictType: ConflictType.Strike,
+      targetWorkplaceIndex: 0,
+      targetWorkplace: { ...workplace },
+      maxStrikeLeaders: 1,
+      workingClassCards: [{ ...barnyardRustin }],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      // Equal power → tie
+      workingClassPower: { diceCount: 0, establishedPower: 5 },
+      capitalistPower: { diceCount: 0, establishedPower: 5 },
+    };
+
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    expect(client.getStateOrThrow().G.conflictOutcome!.winner).toBe(SocialClass.WorkingClass);
+  });
+
+  test('barnyard_rustin converts a legislation tie to WC victory', () => {
+    const barnyardRustin = { ...playFigureCard('barnyard_rustin', { in_training: false }), card_type: CardType.Figure as const };
+    const G = makeActionPhaseState({});
+    G.politicalOffices[0] = { ...playFigureCard('cashier') };
+
+    G.activeConflict = {
+      conflictType: ConflictType.Legislation,
+      demandCardId: 'wealth_tax',
+      demandSlotIndex: 0,
+      proposingOfficeIndex: 0,
+      workingClassCards: [{ ...G.politicalOffices[0] }, { ...barnyardRustin }],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      workingClassPower: { diceCount: 0, establishedPower: 5 },
+      capitalistPower: { diceCount: 0, establishedPower: 5 },
+    };
+
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    expect(client.getStateOrThrow().G.conflictOutcome!.winner).toBe(SocialClass.WorkingClass);
+    expect(client.getStateOrThrow().G.laws).toContain('wealth_tax');
+  });
+});
+
+describe('tactic bonus - canvass', () => {
+  test('canvass contributes 1 extra die per participating figure', () => {
+    const fig1 = playFigureCard('cashier', { in_training: false });
+    const fig2 = playFigureCard('cleaning_crew', { in_training: false });
+    const canvass = { ...playTacticCard('canvass'), addedThisStep: false as const };
+    const G = makeActionPhaseState({ figures: [fig1, fig2] });
+
+    G.activeConflict = {
+      conflictType: ConflictType.Strike,
+      targetWorkplaceIndex: 0,
+      targetWorkplace: { ...(G.workplaces[0] as Exclude<typeof G.workplaces[0], string>) },
+      maxStrikeLeaders: 1,
+      workingClassCards: [{ ...fig1 }, { ...fig2 }, canvass],
+      capitalistCards: [],
+      active: true,
+      phase: ConflictPhase.Resolving,
+      initiatingClass: SocialClass.WorkingClass,
+      activeConflictPlayer: SocialClass.WorkingClass,
+      // 2 figures (1 die each) + canvass (2 extra dice for 2 figures) = 4 total
+      workingClassPower: { diceCount: 4, establishedPower: 0 },
+      capitalistPower: { diceCount: 0, establishedPower: 0 },
+    };
+
+    const client = clientFromFixture(G);
+    client.moves.resolveConflict();
+
+    const outcome = client.getStateOrThrow().G.conflictOutcome!;
+    expect(outcome.workingClassPower.diceCount).toBe(4);
+    expect(outcome.workingClassPower.diceRolls).toHaveLength(4);
   });
 });

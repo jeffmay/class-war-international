@@ -207,6 +207,9 @@ export const CardComponent: React.FC<CardComponentProps> = ({
             <div className="workplace-profits">
               <div>Profits: ${cardProps.profits}</div>
             </div>
+            {cardProps.unionized && (
+              <div className="workplace-unionized-badge">🦺 Unionized</div>
+            )}
           </div>
         )}
         {/* Quote and rules for non-workplace cards */}
