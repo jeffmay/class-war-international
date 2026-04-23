@@ -252,23 +252,99 @@ A 2-player board game based on **Class War: International** rules, built with th
 
 ---
 
+## Completed Card Effects
+
+### Group 9: Unionization UI
+- "🦺 Unionized" badge on workplace cards when `unionized === true`
+- `restructure` and `automate` blocked on unionized workplaces
+
+### Group 1: Demand Law Enforcement
+- `tax_breaks`: Cards/abilities costing $15+ cost $5 less (checked via `effectiveCost()`)
+- `free_health_care`: All figures cost $2 less
+- `welfare_reform`: Figures costing ≤$6 exhausted at end of their class's Action phase
+- `stop_voter_fraud`: Election dice capped at 6 for both sides
+- `outlaw_strikes`: Strike captain sent to dustbin when CC wins
+- `deregulation`: All workplaces become nonunion on law pass; $1 wages→profits shift; prevents new unions while active
+
+### Group 2: Complex Demand Laws
+- `jobs_program`: Shifts $2 profits→wages at all workplaces on law pass, and at new workplaces when built
+- `anti_corruption`: Opportunist bribe blocked in legislation; `mafia_hit` cannot target elected figures
+- `nationalization`: WC chooses a unionized workplace via `nationalizeWorkplace` move; doubles wages, zeroes profits, marks `ownedBy: WorkingClass`; CC cannot collect profits from or replace nationalized workplaces
+
+### Group 3: Figure Activation Effects
+- `trust_fund_kid`: Costs 0 if a workplace was played this turn
+- `student_activist`: Searches deck for first Demand → puts on Platform
+- `rosa_luxembear`: `pendingActivation` → WC picks any tactic from dustbin → hand
+- `barx_and_eagels`: Searches deck for first Demand or Institution → top of deck
+- `steve_amphibannon`: Searches deck/dustbin for Demand → top of deck
+- `sheryl_sandbar`: `pendingActivation` → CC picks one WC hand card → WC dustbin
+- `nelson_crockafeller`: Searches deck for Institution or Workplace → top of deck
+- `consultant`: `pendingActivation` → CC chooses: shift $1 wages→profits at a workplace OR opponent discards 2 cards
+
+### Group 4: Figure Strike Leader Effects
+- `agitator`: Reduces target workplace `established_power` by 1 before resolution
+- `union_thugs`: CC rolls 1 fewer die in the strike
+- `mechanic`: On WC strike win, extra $1 shift profits→wages
+- `cleaning_crew`: On WC strike loss, steal $1 from CC
+- `labor_organizer`: On WC strike win, unionize workplace; sets `maxStrikeLeaders = 3`
+
+### Group 5: Figure Passive Effects
+- `birdie_feathers`: Never exhausted after elections (win or loss)
+- `barnyard_rustin`: Ties in any conflict become WC victories
+- `nurse`: Deferred (Reproduction phase unexhaust move — not yet implemented)
+- `saboteur` / `corporate_lawyer`: Deferred (requires `DiceRolled` conflict phase)
+
+### Group 6: Institution Effects
+- `activist_organization`: First figure per turn played without `in_training`
+- `tv_network`: Reduces opponent `maxHandSize` by 1 when played; restores on replacement
+- `hedge_fund`: `hedgeFundAction('deposit', n)` / `hedgeFundAction('withdraw')` — stored wealth doubles on withdrawal
+- `labor_council`: Adds established power to WC side in strikes; win by 2+ unionizes workplace even with deregulation
+- `workers_party`: On first play, searches deck for Demand → Platform; adds established power in elections and legislation
+- `capitalist_party`: Same as workers_party but for CC side in elections and legislation
+
+### Group 7: Tactic Out-of-Conflict Moves
+- `restructure`: CC shifts $1 wages→profits at non-unionized workplace
+- `automate`: CC gains $3 from bank then shifts $1 wages→profits at non-unionized workplace
+- `mafia_hit`: CC rolls 3v2; win → WC figure to dustbin; tie → reroll once
+- `arson`: WC rolls 3v2; win → CC institution/non-default workplace destroyed; lose → WC figure to dustbin; tie → both
+
+### Group 8: Tactic Conflict Bonuses
+- `call_the_police`: Adds 2 established power to CC in conflicts (fixed — was giving 0 dice)
+- `hire_scabs`: 2 extra dice; on CC win → shift $1 wages→profits at target workplace
+- `hire_private_security`: 3 extra dice; on CC win by 3+ → WC leader to dustbin
+- `union_drive`: 3 extra dice (strike only); on WC win → unionize workplace
+- `canvass`: 1 extra die per participating WC figure
+
+### Die Mechanics
+- 6-sided die faces: `[0, 1, 0, 1, 1, 2]` (correct probability distribution)
+- `sideToValue(side)` converts a rolled side (0–5) to a face value
+- `flipSide(side) = (side + 3) % 6` for Saboteur (deferred)
+- WC max 9 dice, CC max 6 dice per conflict; `stop_voter_fraud` reduces both to max 6
+
+---
+
 ## Test Coverage
 
-### Test Suites: 14 unit + e2e
+### Test Suites: 22 unit + e2e
 1. **ClassWarGame.test.ts** - Setup tests
 2. **ProductionPhase.test.ts** - Production + Reproduction mechanics (incl. theorizing)
 3. **ActionPhase.test.ts** - Card playing
 4. **ConflictPhase.test.ts** - Strike and election planning; `changeConflictLeader` move
-5. **ConflictResolution.test.ts** - Conflict resolution + player-switching
+5. **ConflictResolution.test.ts** - Conflict resolution + die mechanics + figure effects
 6. **ConflictCardTracking.test.ts** - Step card add/remove tracking during conflicts (E2E)
-7. **Undo.test.ts** - Undo mechanics
-8. **Board.test.tsx** - Board component (incl. multiplayer guards)
-9. **CardComponent.test.tsx** - Card component (incl. new border variant system)
-10. **ActionMenuBar.test.tsx** - Action menu bar
-11. **ConflictModal.test.tsx** - Conflict modal (leader row, HtH election row, swap mode, effects list)
-12. **ConflictOutcomeModal.test.tsx** - Conflict outcome modal
-13. **DealResultModal.test.tsx** - Deal result modal
-14. **statusText.test.ts** - Status text DOM utility (setStatusText, logError)
+7. **FigureActivation.test.ts** - Figure activation effects (Groups 3, 4, 5 applicable figures)
+8. **InstitutionEffects.test.ts** - Institution card effects (Group 6)
+9. **TacticMoves.test.ts** - Tactic out-of-conflict moves (Group 7)
+10. **DemandLaws.test.ts** - Complex demand law effects (Group 2)
+11. **Undo.test.ts** - Undo mechanics
+12. **ClassWarGame.playthrough.test.ts** - Full singleplayer integration test
+13. **Board.test.tsx** - Board component (incl. multiplayer guards)
+14. **CardComponent.test.tsx** - Card component (incl. new border variant system)
+15. **ActionMenuBar.test.tsx** - Action menu bar
+16. **ConflictModal.test.tsx** - Conflict modal (leader row, HtH election row, swap mode, effects list)
+17. **ConflictOutcomeModal.test.tsx** - Conflict outcome modal
+18. **DealResultModal.test.tsx** - Deal result modal
+19. **statusText.test.ts** - Status text DOM utility (setStatusText, logError)
 
 **E2E (Playwright): `e2e/multiplayer.test.ts`** — 13 tests across 5 suites
 - `setup screen` — title and button visibility
@@ -277,7 +353,7 @@ A 2-player board game based on **Class War: International** rules, built with th
 - `server API — match lifecycle` — REST API blackbox: list, create, join both slots, leave, slot independence
 - `multiplayer — player perspective` — separate contexts see correct class; same-device CC regression test
 
-**Total: 288 passing + 2 skipped = 290 tests**
+**Total: 364 passing + 2 skipped = 366 tests**
 
 ### Testing Architecture
 
@@ -287,6 +363,7 @@ All game-logic tests use explicit per-test fixtures generated via `src/game/gene
 - `withCardInHand(deck, cardId)` - returns a hand/deck split guaranteeing a specific card is at hand[0]
 - `withCardsInHand(deck, cardIds)` - same for multiple cards
 - `clientFromFixture(G)` - creates a StrictClient starting from the provided GameState
+- `makeCCActionPhaseClient(initialWealth, ccOverrides?)` - advances WC through a full turn to reach CC's Action phase
 
 Every test explicitly sets its pre-conditions (hand contents, wealth, figures in play) so no test ever skips or branches on randomly generated values.
 
@@ -310,34 +387,43 @@ Component tests use React Testing Library with `@testing-library/jest-dom` match
 ```
 src/
 ├── game/
-│   ├── ClassWarGame.ts          # Main game definition, all moves
-│   ├── generate.ts              # Test fixture generators
-│   ├── ClassWarGame.test.ts     # Setup tests
-│   ├── ProductionPhase.test.ts  # Production tests
-│   ├── ActionPhase.test.ts      # playFigure tests
-│   └── ConflictPhase.test.ts    # planStrike / planElection tests
+│   ├── ClassWarGame.ts              # Main game definition, all moves, all card effects
+│   ├── generate.ts                  # Test fixture generators
+│   ├── ClassWarGame.test.ts         # Setup tests
+│   ├── ClassWarGame.playthrough.test.ts # Full singleplayer integration test
+│   ├── ProductionPhase.test.ts      # Production + Reproduction tests
+│   ├── ActionPhase.test.ts          # playFigure / playCardFromHand tests
+│   ├── ConflictPhase.test.ts        # planStrike / planElection / changeConflictLeader
+│   ├── ConflictResolution.test.ts   # resolveConflict + figure effects
+│   ├── ConflictCardTracking.test.ts # Step card add/remove during conflicts
+│   ├── FigureActivation.test.ts     # Figure activation effects (Groups 3–5)
+│   ├── InstitutionEffects.test.ts   # Institution card effects (Group 6)
+│   ├── TacticMoves.test.ts          # Tactic out-of-conflict moves (Group 7)
+│   ├── DemandLaws.test.ts           # Complex demand law effects (Group 2)
+│   └── Undo.test.ts                 # Undo mechanics
 ├── types/
-│   ├── cards.ts                 # Card type definitions, SocialClass enum
-│   ├── game.ts                  # GameState, PlayerState, TurnPhase
-│   └── conflicts.ts             # ConflictState, ConflictType, ConflictPhase
+│   ├── cards.ts                     # Card type definitions, SocialClass enum; WorkplaceCardInPlay.ownedBy
+│   ├── game.ts                      # GameState, PlayerState, TurnPhase, PendingActivation
+│   └── conflicts.ts                 # ConflictState, ConflictType, ConflictPhase
 ├── data/
-│   └── cards.ts                 # Card database, buildDeck(), defaultWorkplaces
+│   └── cards.ts                     # Card database, buildDeck(), defaultWorkplaces
 ├── components/
-│   ├── StartGameScreen.tsx      # TurnStartModal + WaitingInterstitial overlays
-│   ├── CardComponent.tsx        # Reusable card display with optional status banner
-│   ├── ActionMenuBar.tsx        # Action menu bar for selected cards
-│   ├── ConflictModal.tsx        # Conflict setup modal (Initiating/Responding/Resolving)
-│   ├── ConflictOutcomeModal.tsx # Conflict result display
-│   └── DealResultModal.tsx      # Theorize/draw preview modal
+│   ├── StartGameScreen.tsx          # TurnStartModal + WaitingInterstitial overlays
+│   ├── CardComponent.tsx            # Reusable card display with optional status banner
+│   ├── ActionMenuBar.tsx            # Action menu bar for selected cards
+│   ├── ConflictModal.tsx            # Conflict setup modal (Initiating/Responding/Resolving)
+│   ├── ConflictOutcomeModal.tsx     # Conflict result display
+│   └── DealResultModal.tsx          # Theorize/draw preview modal
 ├── contexts/
-│   └── GameNav.ts               # GameNavContext for passing nav callbacks into Board
+│   └── GameNav.ts                   # GameNavContext for passing nav callbacks into Board
 ├── util/
-│   ├── assertions.ts            # assertDefined helper
-│   ├── statusText.ts            # setStatusText, logError, getErrorLog (imperative DOM utility)
-│   └── typedboardgame.ts        # StrictClient, StrictGameOf types
-├── Board.tsx                    # Main board component (HamburgerMenu)
-├── App.tsx                      # boardgame.io client setup, lobby flow
-└── App.css                      # Responsive styles
+│   ├── assertions.ts                # assertDefined helper
+│   ├── game.ts                      # Card ID guards, playXxxCard helpers, effectiveCost
+│   ├── statusText.ts                # setStatusText, logError, getErrorLog (imperative DOM utility)
+│   └── typedboardgame.ts            # StrictClient, StrictGameOf types
+├── Board.tsx                        # Main board component
+├── App.tsx                          # boardgame.io client setup, lobby flow
+└── App.css                          # Responsive styles
 ```
 
 ---
@@ -380,27 +466,25 @@ npm start             # Start dev server at localhost:5173
 
 ## Future Development Goals
 
-### Conflict Resolution
-- [ ] Dice rolling mechanics for strikes and elections
-- [ ] Power calculation (figures + established power)
-- [ ] Conflict resolution outcome applying workplace/office changes
-- [ ] Win conditions tied to conflict outcomes
+### Remaining Card Effects (Deferred)
+- [ ] `nurse`: Reproduction phase `nurseUnexhaust` move — unexhaust 1 other figure if nurse is not exhausted
+- [ ] `saboteur`: `DiceRolled` conflict phase — flip 1 opponent die to opposite face
+- [ ] `corporate_lawyer`: `DiceRolled` conflict phase — pay $10 to reroll 1 die or $16 to reroll 2 dice
+- [ ] `campaign_contribution`: Tactic played during legislation conflict — add chosen figure to CC's conflict side
+- [ ] `general_strike`: Skip CC's next turn; WC does not collect wages next turn
+- [ ] `political_education_group`: Institution effect (not yet implemented)
 
-### Action Phase Expansion
-- [ ] Play institution cards (2 slots per player)
-- [ ] Play demand cards (2 slots per player)
-- [ ] Build / purchase workplaces
-- [ ] Play tactic cards during conflicts
+### Win Conditions
+- [ ] Working Class wins by passing 3 demand laws
+- [ ] Capitalist Class wins by maintaining economic dominance (TBD per rules)
+- [ ] Victory screen / end-of-game modal
+
+### UI for Pending Activations
+- [ ] UI prompts for `pendingActivation` states (rosa_luxembear, sheryl_sandbar, consultant, nationalization)
+- [ ] Currently only playable via direct `moves.rosaRetrieveTactic()` etc. calls
 
 ### Law System
-- [ ] Legislative conflicts (pass laws)
-- [ ] Law effects on gameplay (wages, profits, hand size, etc.)
-- [ ] Repeal mechanics
-
-### Advanced Features
-- [ ] Special card abilities and hero powers
-- [ ] Undo system (UndoState type already present in GameState)
-- [ ] Win conditions (control enough workplaces / offices)
+- [ ] Repeal mechanics for passed laws
 
 ### UI Enhancements
 - [ ] Conflict resolution animation / modal
@@ -436,4 +520,4 @@ npm start             # Start dev server at localhost:5173
 
 ---
 
-*Last updated: April 19, 2026*
+*Last updated: April 22, 2026*
