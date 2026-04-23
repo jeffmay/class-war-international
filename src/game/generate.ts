@@ -34,6 +34,7 @@ export function makePlayerState(
     maxHandSize: 4,
     theorizeLimit: 1,
     playedWorkplaceThisTurn: false,
+    figurePlayedThisTurn: false,
     ...overrides,
   };
 }

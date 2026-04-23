@@ -30,6 +30,7 @@ const emptyPlayer: PlayerState = {
   maxHandSize: 4,
   theorizeLimit: 1,
   playedWorkplaceThisTurn: false,
+  figurePlayedThisTurn: false,
 };
 
 const players = {

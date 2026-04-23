@@ -98,6 +98,8 @@ export interface InstitutionCardData extends BaseDeckCardData {
 export interface InstitutionCardInPlay extends BaseCardInPlay {
   id: InstitutionCardID;
   card_type: CardType.Institution;
+  /** hedge_fund only: wealth stored on the card */
+  storedWealth?: number;
 }
 
 // Demand cards (legislation)

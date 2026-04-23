@@ -252,6 +252,33 @@ function triggerFigureActivation(figureId: string, G: GameState, actingClass: So
 }
 
 /**
+ * Apply institution "when first played" activation effects.
+ * workers_party / capitalist_party: search deck for Demand → put on Platform.
+ */
+function triggerInstitutionActivation(institutionId: string, G: GameState, actingClass: SocialClass): void {
+  const player = G.players[actingClass];
+  switch (institutionId) {
+    case 'workers_party':
+    case 'capitalist_party': {
+      const demandIdx = player.deck.findIndex(id => isDemandCardID(id));
+      if (demandIdx !== -1) {
+        const demandId = player.deck.splice(demandIdx, 1)[0];
+        if (!demandId || !isDemandCardID(demandId)) break;
+        const emptySlot = player.demands.findIndex(d => d === null);
+        if (emptySlot !== -1) {
+          player.demands[emptySlot] = playDemandCard(demandId);
+        } else {
+          player.deck.unshift(demandId);
+        }
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+/**
  * Draw cards from deck to fill hand up to max hand size
  */
 function drawCards(player: PlayerState): void {
@@ -285,6 +312,7 @@ function createPlayerState(socialClass: SocialClass, random: () => number): Play
     maxHandSize: 4,
     theorizeLimit: 1,
     playedWorkplaceThisTurn: false,
+    figurePlayedThisTurn: false,
   };
 }
 
@@ -351,7 +379,11 @@ export const Moves = {
       player.wealth -= cost;
       player.hand.splice(handIndex, 1);
 
-      player.figures.push(playFigureCard(cardId));
+      // activist_organization: first figure this turn enters without training
+      const skipTraining = !player.figurePlayedThisTurn
+        && player.institutions.some(i => i?.id === 'activist_organization');
+      player.figures.push(playFigureCard(cardId, skipTraining ? { in_training: false } : undefined));
+      player.figurePlayedThisTurn = true;
       triggerFigureActivation(cardId, G, currentClass);
 
     } else if (slotType === 'demands') {
@@ -388,12 +420,27 @@ export const Moves = {
       player.hand.splice(handIndex, 1);
 
       const existing = player.institutions[resolvedInstIndex];
-      if (existing) player.dustbin.push(existing.id);
+      if (existing) {
+        player.dustbin.push(existing.id);
+        // tv_network: restore opponent's max hand size when replaced
+        if (existing.id === 'tv_network') {
+          const opponentClass = currentClass === SocialClass.WorkingClass ? SocialClass.CapitalistClass : SocialClass.WorkingClass;
+          G.players[opponentClass].maxHandSize += 1;
+        }
+      }
 
       player.institutions[resolvedInstIndex] = playInstitutionCard(cardId);
 
       // "When first played" effect: increase max hand size
       player.maxHandSize += 1;
+
+      // tv_network: reduce opponent's max hand size by 1
+      if (cardId === 'tv_network') {
+        const opponentClass = currentClass === SocialClass.WorkingClass ? SocialClass.CapitalistClass : SocialClass.WorkingClass;
+        G.players[opponentClass].maxHandSize = Math.max(0, G.players[opponentClass].maxHandSize - 1);
+      }
+
+      triggerInstitutionActivation(cardId, G, currentClass);
 
     } else if (slotType === 'workplaces') {
       if (!isWorkplaceCardID(cardId)) return;
@@ -1108,6 +1155,13 @@ export const Moves = {
       // Workplace's established_power goes to the capitalist side
       ccEstablished += workplace.established_power ?? 0;
 
+      // labor_council: add its established_power to WC side in strikes
+      const hasLaborCouncil = G.players[SocialClass.WorkingClass].institutions.some(i => i?.id === 'labor_council');
+      if (hasLaborCouncil) {
+        const lcData = getAnyCardData('labor_council');
+        if (lcData.card_type === CardType.Institution) wcEstablished += lcData.established_power;
+      }
+
       // union_thugs: opponent rolls 1 fewer die
       const strikeCcDice = strikeLeaderIds.has('union_thugs') ? Math.max(0, ccDice - 1) : ccDice;
       const wcRolls = rollDice(wcDice, rng);
@@ -1131,6 +1185,11 @@ export const Moves = {
           const mechShift = Math.min(1, workplace.profits - MIN_WAGE);
           workplace.wages = Math.max(MIN_WAGE, workplace.wages + mechShift);
           workplace.profits = Math.max(MIN_WAGE, workplace.profits - mechShift);
+        }
+
+        // labor_council: win by 2+ → unionize even if deregulation is active
+        if (hasLaborCouncil && Math.abs(margin) >= 2) {
+          workplace.unionized = true;
         }
 
         winner = SocialClass.WorkingClass;
@@ -1205,6 +1264,17 @@ export const Moves = {
         wcEstablished += incumbentPower;
       }
 
+      // workers_party / capitalist_party: add their established_power in elections
+      for (const [socialClass, established] of [[SocialClass.WorkingClass, 'workers_party'], [SocialClass.CapitalistClass, 'capitalist_party']] as const) {
+        if (G.players[socialClass].institutions.some(i => i?.id === established)) {
+          const partyData = getAnyCardData(established);
+          if (partyData.card_type === CardType.Institution) {
+            if (socialClass === SocialClass.WorkingClass) wcEstablished += partyData.established_power;
+            else ccEstablished += partyData.established_power;
+          }
+        }
+      }
+
       const wcRolls = rollDice(wcDice, rng);
       const ccRolls = rollDice(ccDice, rng);
       const wcTotal = sumSides(wcRolls) + wcEstablished;
@@ -1271,6 +1341,17 @@ export const Moves = {
 
     } else {
       // Legislation
+      // workers_party / capitalist_party: add their established_power in legislation
+      for (const [socialClass, partyId] of [[SocialClass.WorkingClass, 'workers_party'], [SocialClass.CapitalistClass, 'capitalist_party']] as const) {
+        if (G.players[socialClass].institutions.some(i => i?.id === partyId)) {
+          const partyData = getAnyCardData(partyId);
+          if (partyData.card_type === CardType.Institution) {
+            if (socialClass === SocialClass.WorkingClass) wcEstablished += partyData.established_power;
+            else ccEstablished += partyData.established_power;
+          }
+        }
+      }
+
       const wcRolls = rollDice(wcDice, rng);
       const ccRolls = rollDice(ccDice, rng);
       const wcTotal = sumSides(wcRolls) + wcEstablished;
@@ -1350,6 +1431,34 @@ export const Moves = {
 
     if (G.conflictOutcome.dismissedBy.length >= 2) {
       G.conflictOutcome = undefined;
+    }
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * hedge_fund: Deposit up to $10 onto the card, or withdraw all stored wealth
+   * plus an equal amount from the bank.
+   * option 'deposit': move amount from player wealth to card storedWealth (max $10 total)
+   * option 'withdraw': take all stored wealth plus equal from bank; storedWealth resets to 0
+   */
+  hedgeFundAction: ({ G, ctx }, option: 'deposit' | 'withdraw', amount?: number) => {
+    if (G.turnPhase !== TurnPhase.Action) return;
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    const player = G.players[currentClass];
+    const hedgeFund = player.institutions.find(i => i?.id === 'hedge_fund');
+    if (!hedgeFund) return;
+
+    saveUndo(G, 'Hedge Fund');
+    if (option === 'deposit') {
+      const depositAmount = Math.max(0, Math.min(amount ?? 0, player.wealth, 10 - (hedgeFund.storedWealth ?? 0)));
+      if (depositAmount === 0) return;
+      player.wealth -= depositAmount;
+      hedgeFund.storedWealth = (hedgeFund.storedWealth ?? 0) + depositAmount;
+    } else {
+      const stored = hedgeFund.storedWealth ?? 0;
+      if (stored === 0) return;
+      player.wealth += stored * 2;
+      hedgeFund.storedWealth = 0;
     }
     G.errorMessage = undefined;
   },
@@ -1569,9 +1678,9 @@ export const ClassWarGame: StrictGameOf<typeof Moves> = {
 
   turn: {
     onBegin: ({ G, ctx }) => {
-      // Reset played workplace flag at start of turn
       const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
       G.players[currentClass].playedWorkplaceThisTurn = false;
+      G.players[currentClass].figurePlayedThisTurn = false;
     },
   },
 

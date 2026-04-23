@@ -23,6 +23,7 @@ export interface PlayerState {
   maxHandSize: number; // Base 4, can be increased by institutions
   theorizeLimit: number;
   playedWorkplaceThisTurn: boolean;
+  figurePlayedThisTurn: boolean;
 }
 
 export type UndoState =
