@@ -149,8 +149,12 @@ function canUnionize(G: GameState): boolean {
  * Compute the effective cost of a card after applying active law effects.
  * - tax_breaks: cards/abilities costing $15+ cost $5 less
  * - free_health_care: all figures cost $2 less
+ * - trust_fund_kid: costs 0 if a workplace was played this turn by the current class
  */
-function effectiveCost(G: GameState, cardData: ReturnType<typeof getAnyCardData>): number {
+function effectiveCost(G: GameState, cardData: ReturnType<typeof getAnyCardData>, currentClass?: SocialClass): number {
+  if (cardData.id === 'trust_fund_kid' && currentClass !== undefined) {
+    if (G.players[currentClass].playedWorkplaceThisTurn) return 0;
+  }
   let cost = cardData.cost ?? 0;
   if (G.laws.includes('free_health_care') && cardData.card_type === CardType.Figure) {
     cost = Math.max(0, cost - 2);
@@ -159,6 +163,92 @@ function effectiveCost(G: GameState, cardData: ReturnType<typeof getAnyCardData>
     cost = Math.max(0, cost - 5);
   }
   return cost;
+}
+
+/**
+ * Apply figure activation effects when a figure is first played.
+ * Simple deterministic effects fire immediately; choice-based effects set pendingActivation.
+ */
+function triggerFigureActivation(figureId: string, G: GameState, actingClass: SocialClass): void {
+  const player = G.players[actingClass];
+  const opponentClass = actingClass === SocialClass.WorkingClass
+    ? SocialClass.CapitalistClass
+    : SocialClass.WorkingClass;
+
+  switch (figureId) {
+    case 'student_activist': {
+      // Search deck for first Demand → put in first empty demand slot
+      const demandIdx = player.deck.findIndex(id => isDemandCardID(id));
+      if (demandIdx !== -1) {
+        const demandId = player.deck.splice(demandIdx, 1)[0];
+        if (!demandId || !isDemandCardID(demandId)) break;
+        const emptySlot = player.demands.findIndex(d => d === null);
+        if (emptySlot !== -1) {
+          player.demands[emptySlot] = playDemandCard(demandId);
+        } else {
+          // Demand slots full — put back on top of deck
+          player.deck.unshift(demandId);
+        }
+      }
+      break;
+    }
+    case 'rosa_luxembear': {
+      // Player picks any tactic from their dustbin to add to hand
+      const hasTactic = player.dustbin.some(id => isTacticCardID(id));
+      if (hasTactic) {
+        G.pendingActivation = { type: 'rosa_luxembear', actingClass };
+      }
+      break;
+    }
+    case 'barx_and_eagels': {
+      // Search deck for first Demand or Institution → put on top of deck
+      const matchIdx = player.deck.findIndex(id => isDemandCardID(id) || isInstitutionCardID(id));
+      if (matchIdx !== -1) {
+        const [cardId] = player.deck.splice(matchIdx, 1);
+        if (cardId) player.deck.unshift(cardId);
+      }
+      break;
+    }
+    case 'steve_amphibannon': {
+      // Search deck or dustbin for a Demand → put on top of deck
+      const deckIdx = player.deck.findIndex(id => isDemandCardID(id));
+      if (deckIdx !== -1) {
+        const [cardId] = player.deck.splice(deckIdx, 1);
+        if (cardId) player.deck.unshift(cardId);
+      } else {
+        const dustbinIdx = player.dustbin.findIndex(id => isDemandCardID(id));
+        if (dustbinIdx !== -1) {
+          const [cardId] = player.dustbin.splice(dustbinIdx, 1);
+          if (cardId) player.deck.unshift(cardId);
+        }
+      }
+      break;
+    }
+    case 'sheryl_sandbar': {
+      // CC looks at WC's hand; picks one card to discard — requires opponent interaction
+      const opponent = G.players[opponentClass];
+      if (opponent.hand.length > 0) {
+        G.pendingActivation = { type: 'sheryl_sandbar', actingClass };
+      }
+      break;
+    }
+    case 'nelson_crockafeller': {
+      // Search deck for first Institution or Workplace → put on top of deck
+      const matchIdx = player.deck.findIndex(id => isInstitutionCardID(id) || isWorkplaceCardID(id));
+      if (matchIdx !== -1) {
+        const [cardId] = player.deck.splice(matchIdx, 1);
+        if (cardId) player.deck.unshift(cardId);
+      }
+      break;
+    }
+    case 'consultant': {
+      // CC chooses: shift $1 wages→profits at a workplace OR WC discards 2 cards
+      G.pendingActivation = { type: 'consultant_choose', actingClass };
+      break;
+    }
+    default:
+      break;
+  }
 }
 
 /**
@@ -220,7 +310,7 @@ export const Moves = {
 
     const cardId = player.hand[handIndex];
     const cardData = getAnyCardData(cardId);
-    const cost = effectiveCost(G, cardData);
+    const cost = effectiveCost(G, cardData, currentClass);
 
     const expandMatch = targetSlot.match(/^workplaces\[(\d+)\]\/expand$/);
     if (expandMatch) {
@@ -262,6 +352,7 @@ export const Moves = {
       player.hand.splice(handIndex, 1);
 
       player.figures.push(playFigureCard(cardId));
+      triggerFigureActivation(cardId, G, currentClass);
 
     } else if (slotType === 'demands') {
       if (!isDemandCardID(cardId)) return;
@@ -337,6 +428,7 @@ export const Moves = {
         established_power: wpData.established_power,
         unionized: false,
       };
+      player.playedWorkplaceThisTurn = true;
     }
   },
 
@@ -1258,6 +1350,97 @@ export const Moves = {
 
     if (G.conflictOutcome.dismissedBy.length >= 2) {
       G.conflictOutcome = undefined;
+    }
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * rosa_luxembear: Acting player picks a tactic from their dustbin to retrieve to hand.
+   */
+  rosaRetrieveTactic: ({ G }, dustbinIndex: number) => {
+    if (!G.pendingActivation || G.pendingActivation.type !== 'rosa_luxembear') return;
+    const { actingClass } = G.pendingActivation;
+    const player = G.players[actingClass];
+    if (dustbinIndex < 0 || dustbinIndex >= player.dustbin.length) return;
+    const cardId = player.dustbin[dustbinIndex];
+    if (!cardId || !isTacticCardID(cardId)) {
+      G.errorMessage = 'Selected card is not a tactic.';
+      return;
+    }
+    player.dustbin.splice(dustbinIndex, 1);
+    player.hand.push(cardId);
+    G.pendingActivation = undefined;
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * sheryl_sandbar: CC picks one card from the opponent's hand to discard.
+   */
+  sherylDiscardCard: ({ G }, opponentHandIndex: number) => {
+    if (!G.pendingActivation || G.pendingActivation.type !== 'sheryl_sandbar') return;
+    const { actingClass } = G.pendingActivation;
+    const opponentClass = actingClass === SocialClass.WorkingClass
+      ? SocialClass.CapitalistClass
+      : SocialClass.WorkingClass;
+    const opponent = G.players[opponentClass];
+    if (opponentHandIndex < 0 || opponentHandIndex >= opponent.hand.length) return;
+    const [cardId] = opponent.hand.splice(opponentHandIndex, 1);
+    if (cardId) opponent.dustbin.push(cardId);
+    G.pendingActivation = undefined;
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * consultant: CC picks effect option.
+   * 'wage_shift' — shift $1 from wages to profits at the given workplace index.
+   * 'discard' — WC must discard 2 cards (sets pendingActivation to consultant_discard).
+   */
+  consultantChoose: ({ G }, option: 'wage_shift' | 'discard', workplaceIndex?: number) => {
+    if (!G.pendingActivation || G.pendingActivation.type !== 'consultant_choose') return;
+    const { actingClass } = G.pendingActivation;
+    if (option === 'wage_shift') {
+      if (workplaceIndex === undefined) {
+        G.errorMessage = 'workplaceIndex is required for wage_shift.';
+        return;
+      }
+      const workplace = G.workplaces[workplaceIndex];
+      if (!workplace || workplace === WorkplaceForSale) {
+        G.errorMessage = 'No workplace at that index.';
+        return;
+      }
+      if (workplace.wages > MIN_WAGE) {
+        workplace.wages -= 1;
+        workplace.profits += 1;
+      }
+      G.pendingActivation = undefined;
+    } else {
+      const opponentClass = actingClass === SocialClass.WorkingClass
+        ? SocialClass.CapitalistClass
+        : SocialClass.WorkingClass;
+      const discardCount = Math.min(2, G.players[opponentClass].hand.length);
+      if (discardCount === 0) {
+        G.pendingActivation = undefined;
+      } else {
+        G.pendingActivation = { type: 'consultant_discard', actingClass: opponentClass, remaining: discardCount };
+      }
+    }
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * consultant: Opponent discards one card at a time until remaining reaches 0.
+   */
+  consultantDiscard: ({ G }, handIndex: number) => {
+    if (!G.pendingActivation || G.pendingActivation.type !== 'consultant_discard') return;
+    const { actingClass, remaining } = G.pendingActivation;
+    const player = G.players[actingClass];
+    if (handIndex < 0 || handIndex >= player.hand.length) return;
+    const [cardId] = player.hand.splice(handIndex, 1);
+    if (cardId) player.dustbin.push(cardId);
+    if (remaining <= 1) {
+      G.pendingActivation = undefined;
+    } else {
+      G.pendingActivation = { type: 'consultant_discard', actingClass, remaining: remaining - 1 };
     }
     G.errorMessage = undefined;
   },
