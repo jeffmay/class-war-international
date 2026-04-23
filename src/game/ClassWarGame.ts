@@ -1464,6 +1464,197 @@ export const Moves = {
   },
 
   /**
+   * restructure: CC plays from hand; shift $1 wages→profits at a non-unionized workplace.
+   */
+  playRestructure: ({ G, ctx }, handIndex: number, workplaceIndex: number) => {
+    if (G.turnPhase !== TurnPhase.Action) return;
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    if (currentClass !== SocialClass.CapitalistClass) return;
+    const player = G.players[currentClass];
+    if (handIndex < 0 || handIndex >= player.hand.length) return;
+    if (player.hand[handIndex] !== 'restructure') {
+      G.errorMessage = 'Must play restructure from hand.';
+      return;
+    }
+    const workplace = G.workplaces[workplaceIndex];
+    if (!workplace || workplace === WorkplaceForSale) {
+      G.errorMessage = 'No workplace at that index.';
+      return;
+    }
+    if (workplace.unionized) {
+      G.errorMessage = 'Cannot restructure a unionized workplace.';
+      return;
+    }
+    if (workplace.wages <= MIN_WAGE) {
+      G.errorMessage = 'Wages already at minimum.';
+      return;
+    }
+    saveUndo(G, 'Restructure');
+    player.hand.splice(handIndex, 1);
+    player.dustbin.push('restructure');
+    workplace.wages -= 1;
+    workplace.profits += 1;
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * automate: CC plays from hand; gain $3 from bank, then shift $1 wages→profits
+   * at a non-unionized workplace.
+   */
+  playAutomate: ({ G, ctx }, handIndex: number, workplaceIndex: number) => {
+    if (G.turnPhase !== TurnPhase.Action) return;
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    if (currentClass !== SocialClass.CapitalistClass) return;
+    const player = G.players[currentClass];
+    if (handIndex < 0 || handIndex >= player.hand.length) return;
+    if (player.hand[handIndex] !== 'automate') {
+      G.errorMessage = 'Must play automate from hand.';
+      return;
+    }
+    const workplace = G.workplaces[workplaceIndex];
+    if (!workplace || workplace === WorkplaceForSale) {
+      G.errorMessage = 'No workplace at that index.';
+      return;
+    }
+    if (workplace.unionized) {
+      G.errorMessage = 'Cannot automate a unionized workplace.';
+      return;
+    }
+    saveUndo(G, 'Automate');
+    player.hand.splice(handIndex, 1);
+    player.dustbin.push('automate');
+    player.wealth += 3;
+    if (workplace.wages > MIN_WAGE) {
+      workplace.wages -= 1;
+      workplace.profits += 1;
+    }
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * mafia_hit: CC plays from hand; roll 3 dice vs target player's 2 dice.
+   * Attacker (CC) wins → target figure goes to dustbin.
+   * Tie → reroll once (automatic). Loser → nothing extra.
+   * targetFigureId must be a WC figure currently in play.
+   */
+  playMafiaHit: ({ G, ctx }, handIndex: number, targetFigureId: string) => {
+    if (G.turnPhase !== TurnPhase.Action) return;
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    if (currentClass !== SocialClass.CapitalistClass) return;
+    const player = G.players[currentClass];
+    if (handIndex < 0 || handIndex >= player.hand.length) return;
+    if (player.hand[handIndex] !== 'mafia_hit') {
+      G.errorMessage = 'Must play mafia_hit from hand.';
+      return;
+    }
+    const opponentClass = SocialClass.WorkingClass;
+    const opponent = G.players[opponentClass];
+    const figureIdx = opponent.figures.findIndex(f => f.id === targetFigureId);
+    if (figureIdx === -1) {
+      G.errorMessage = `Figure ${targetFigureId} is not in play.`;
+      return;
+    }
+    const rng = Math.random;
+    const rollBattle = () => {
+      const attackRolls = rollDice(3, rng);
+      const defendRolls = rollDice(2, rng);
+      return sumSides(attackRolls) - sumSides(defendRolls);
+    };
+
+    saveUndo(G, 'Mafia Hit');
+    player.hand.splice(handIndex, 1);
+    player.dustbin.push('mafia_hit');
+
+    let margin = rollBattle();
+    if (margin === 0) margin = rollBattle(); // tie: one reroll
+
+    if (margin > 0) {
+      // Attacker wins — target figure to dustbin
+      const [removedFig] = opponent.figures.splice(figureIdx, 1);
+      if (removedFig) opponent.dustbin.push(removedFig.id);
+    }
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * arson: WC plays from hand; roll 3 dice vs target's 2 dice.
+   * Win → target workplace or institution goes to dustbin.
+   * Lose → first available WC non-exhausted figure goes to dustbin.
+   * Tie → both.
+   * Specify either workplaceIndex (≥0) or institutionIndex (≥0), not both.
+   */
+  playArson: ({ G, ctx }, handIndex: number, workplaceIndex?: number, institutionIndex?: number) => {
+    if (G.turnPhase !== TurnPhase.Action) return;
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    if (currentClass !== SocialClass.WorkingClass) return;
+    const player = G.players[currentClass];
+    if (handIndex < 0 || handIndex >= player.hand.length) return;
+    if (player.hand[handIndex] !== 'arson') {
+      G.errorMessage = 'Must play arson from hand.';
+      return;
+    }
+    if (workplaceIndex === undefined && institutionIndex === undefined) {
+      G.errorMessage = 'Must specify workplaceIndex or institutionIndex.';
+      return;
+    }
+    if (workplaceIndex !== undefined && institutionIndex !== undefined) {
+      G.errorMessage = 'Specify only one target: workplaceIndex or institutionIndex.';
+      return;
+    }
+
+    const rng = Math.random;
+    const attackRolls = rollDice(3, rng);
+    const defendRolls = rollDice(2, rng);
+    const margin = sumSides(attackRolls) - sumSides(defendRolls);
+
+    saveUndo(G, 'Arson');
+    player.hand.splice(handIndex, 1);
+    player.dustbin.push('arson');
+
+    const attackerWins = margin > 0;
+    const defenderWins = margin < 0;
+
+    if (attackerWins || margin === 0) {
+      // Attacker wins or tie: destroy target
+      if (workplaceIndex !== undefined) {
+        const workplace = G.workplaces[workplaceIndex];
+        if (!workplace || workplace === WorkplaceForSale) {
+          G.errorMessage = 'No workplace at that index.';
+          return;
+        }
+        // Default workplaces can't be destroyed; only non-default (DeckCardID) go to dustbin
+        if (!isDefaultWorkplaceCard(workplace.id) && isWorkplaceCardID(workplace.id)) {
+          const ccPlayer = G.players[SocialClass.CapitalistClass];
+          ccPlayer.dustbin.push(workplace.id);
+          G.workplaces[workplaceIndex] = WorkplaceForSale;
+        }
+      } else if (institutionIndex !== undefined) {
+        const ccPlayer = G.players[SocialClass.CapitalistClass];
+        const institution = ccPlayer.institutions[institutionIndex];
+        if (institution) {
+          ccPlayer.dustbin.push(institution.id);
+          ccPlayer.institutions[institutionIndex] = null;
+          // tv_network: restore WC max hand size
+          if (institution.id === 'tv_network') {
+            player.maxHandSize += 1;
+          }
+        }
+      }
+    }
+
+    if (defenderWins || margin === 0) {
+      // Defender wins or tie: WC loses a figure
+      const availFigureIdx = player.figures.findIndex(f => !f.exhausted);
+      if (availFigureIdx !== -1) {
+        const [fig] = player.figures.splice(availFigureIdx, 1);
+        if (fig) player.dustbin.push(fig.id);
+      }
+    }
+
+    G.errorMessage = undefined;
+  },
+
+  /**
    * rosa_luxembear: Acting player picks a tactic from their dustbin to retrieve to hand.
    */
   rosaRetrieveTactic: ({ G }, dustbinIndex: number) => {
