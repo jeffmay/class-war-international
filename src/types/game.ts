@@ -42,7 +42,9 @@ export type PendingActivation =
   /** consultant step 1: CC picks the effect (wage shift or opponent discards) */
   | { type: 'consultant_choose'; actingClass: SocialClass; workplaceIndex?: number }
   /** consultant step 2: WC discards remaining cards */
-  | { type: 'consultant_discard'; actingClass: SocialClass; remaining: number };
+  | { type: 'consultant_discard'; actingClass: SocialClass; remaining: number }
+  /** nationalization: WC picks a unionized workplace to nationalize */
+  | { type: 'nationalization'; actingClass: SocialClass };
 
 export interface GameState {
   // Turn management

@@ -133,6 +133,8 @@ export interface WorkplaceCardInPlay extends BaseCardInPlay {
   established_power: number;
   /** Number of times this workplace has been expanded (0 = base, 1 = x2, 2 = x3, …) */
   expansionCount?: number;
+  /** Set when nationalization law is passed; CC cannot collect profits or replace this workplace */
+  ownedBy?: SocialClass;
 }
 
 // Tactic cards

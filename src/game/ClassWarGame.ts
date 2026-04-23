@@ -135,9 +135,24 @@ function applyLawEffect(demandCardId: string, G: GameState): void {
         wp.profits += 1;
       }
     }
+  } else if (demandCardId === 'jobs_program') {
+    // Shift $2 profits→wages at all existing workplaces
+    for (const wp of G.workplaces) {
+      if (wp === WorkplaceForSale) continue;
+      const shift = Math.min(2, wp.profits);
+      wp.wages += shift;
+      wp.profits -= shift;
+    }
+  } else if (demandCardId === 'nationalization') {
+    // WC must choose a unionized workplace to nationalize
+    const hasUnionized = G.workplaces.some(wp => wp !== WorkplaceForSale && wp.unionized);
+    if (hasUnionized) {
+      G.pendingActivation = { type: 'nationalization', actingClass: SocialClass.WorkingClass };
+    }
   }
   // wealth_tax and free_health_care effects are checked each production phase
   // tax_breaks cost reduction is checked when cards are played
+  // anti_corruption enforcement is checked in move guards
 }
 
 /** True when deregulation law prevents new unions from forming */
@@ -461,12 +476,22 @@ export const Moves = {
       player.hand.splice(handIndex, 1);
 
       const existing = G.workplaces[resolvedWpIndex];
+      // nationalization: CC cannot replace a WC-owned (nationalized) workplace
+      if (
+        existing &&
+        existing !== WorkplaceForSale &&
+        existing.ownedBy === SocialClass.WorkingClass &&
+        currentClass === SocialClass.CapitalistClass
+      ) {
+        G.errorMessage = 'Nationalized workplaces cannot be replaced by the Capitalist Class.';
+        return;
+      }
       // If replacing an occupied slot, send old workplace card to dustbin
       if (existing && existing !== WorkplaceForSale && !isDefaultWorkplaceCard(existing.id)) {
         player.dustbin.push(existing.id);
       }
 
-      G.workplaces[resolvedWpIndex] = {
+      const newWp: WorkplaceCardInPlay = {
         id: cardId,
         card_type: CardType.Workplace,
         in_play: true,
@@ -475,6 +500,13 @@ export const Moves = {
         established_power: wpData.established_power,
         unionized: false,
       };
+      // jobs_program: apply $2 profits→wages shift to new workplaces when built
+      if (G.laws.includes('jobs_program')) {
+        const shift = Math.min(2, newWp.profits);
+        newWp.wages += shift;
+        newWp.profits -= shift;
+      }
+      G.workplaces[resolvedWpIndex] = newWp;
       player.playedWorkplaceThisTurn = true;
     }
   },
@@ -502,6 +534,8 @@ export const Moves = {
       if (currentClass === SocialClass.WorkingClass) {
         totalIncome += workplace.wages;
       } else {
+        // nationalization: CC cannot collect profits from WC-owned workplaces
+        if (workplace.ownedBy === SocialClass.WorkingClass) return;
         totalIncome += workplace.profits;
       }
     });
@@ -791,9 +825,9 @@ export const Moves = {
         // Always opposes legislation
         opposingSideCards.push({ ...stateOffice });
       } else if (stateOffice.id === 'opportunist') {
-        // Opposes unless paid $15
+        // anti_corruption: state figures cannot be influenced with money
         const OPPORTUNIST_BRIBE = 15;
-        if (player.wealth >= OPPORTUNIST_BRIBE) {
+        if (!G.laws.includes('anti_corruption') && player.wealth >= OPPORTUNIST_BRIBE) {
           player.wealth -= OPPORTUNIST_BRIBE;
           proposingSideCards.push({ ...stateOffice });
         } else {
@@ -1554,6 +1588,14 @@ export const Moves = {
       G.errorMessage = `Figure ${targetFigureId} is not in play.`;
       return;
     }
+    // anti_corruption: tactics cannot target elected figures
+    if (G.laws.includes('anti_corruption')) {
+      const isElected = G.politicalOffices.some(o => o.id === targetFigureId);
+      if (isElected) {
+        G.errorMessage = 'Anti-Corruption law prevents targeting elected figures.';
+        return;
+      }
+    }
     const rng = Math.random;
     const rollBattle = () => {
       const attackRolls = rollDice(3, rng);
@@ -1651,6 +1693,29 @@ export const Moves = {
       }
     }
 
+    G.errorMessage = undefined;
+  },
+
+  /**
+   * nationalization: WC picks a unionized workplace to nationalize.
+   * Doubles wages, zeroes profits, marks ownedBy WorkingClass.
+   */
+  nationalizeWorkplace: ({ G }, workplaceIndex: number) => {
+    if (!G.pendingActivation || G.pendingActivation.type !== 'nationalization') return;
+    if (workplaceIndex < 0 || workplaceIndex >= G.workplaces.length) return;
+    const workplace = G.workplaces[workplaceIndex];
+    if (!workplace || workplace === WorkplaceForSale) {
+      G.errorMessage = 'No workplace at that index.';
+      return;
+    }
+    if (!workplace.unionized) {
+      G.errorMessage = 'Can only nationalize a unionized workplace.';
+      return;
+    }
+    workplace.wages *= 2;
+    workplace.profits = 0;
+    workplace.ownedBy = SocialClass.WorkingClass;
+    G.pendingActivation = undefined;
     G.errorMessage = undefined;
   },
 
