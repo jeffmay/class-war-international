@@ -43,7 +43,7 @@ export default defineConfig({
       command: [
         "PORT=" + E2E_SERVER_PORT,
         "ORIGINS=http://localhost:" + E2E_APP_PORT,
-        "node --no-experimental-require-module --import tsx server/index.ts",
+        "node --no-experimental-require-module --import tsx ../server/index.ts",
       ].join(" "),
       port: E2E_SERVER_PORT,
       reuseExistingServer: false,

@@ -503,7 +503,7 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
           <h2 className="setup-section-title">Connect to Lobby</h2>
           <p className="setup-section-description">
             Join a game hosted on another device. Start a server with{" "}
-            <code>npm run host</code>.
+            <code>npm run server</code>.
           </p>
 
           <label className="setup-field">

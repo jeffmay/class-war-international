@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/generate-cards.ts
-// Generates src/data/cards.ts from docs/cards.tsv
+// Generates web/src/data/cards.ts from docs/cards.tsv
 // Usage: node --experimental-strip-types scripts/generate-cards.ts
 
 import fs from "fs";
@@ -9,7 +9,7 @@ import { fileURLToPath } from "url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const TSV_PATH = path.join(ROOT, "docs", "cards.tsv");
-const OUT_PATH = path.join(ROOT, "src", "data", "cards.ts");
+const OUT_PATH = path.join(ROOT, "web", "src", "data", "cards.ts");
 
 // ─── Parse TSV ────────────────────────────────────────────────────────────────
 

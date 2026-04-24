@@ -65,7 +65,7 @@ npm start          # Start Vite dev server at http://localhost:5173
 ### Online Multiplayer Server
 
 ```bash
-npm run host       # Start boardgame.io server on port 8000
+npm run server     # Start boardgame.io server on port 8000
 ```
 
 Optional environment variables:
@@ -80,7 +80,7 @@ The lobby REST API and the WebSocket game server run on the **same port**. There
 Example with custom settings:
 
 ```bash
-PORT=9000 ORIGINS="http://192.168.1.42:5173" npm run host
+PORT=9000 ORIGINS="http://192.168.1.42:5173" npm run server
 ```
 
 ---
@@ -130,7 +130,7 @@ npm test             # Run unit + component tests
 npm run typecheck    # TypeScript type check
 npm run lint         # ESLint
 npm run build        # Production build
-npm run host         # Start multiplayer server
+npm run server       # Start multiplayer server
 ```
 
 ### Project Structure
