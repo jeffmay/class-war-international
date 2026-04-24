@@ -5,10 +5,14 @@
     "moduleResolution": "NodeNext",
     "strict": true,
     "strictFunctionTypes": false,
-    "noEmit": true,
+    "noEmit": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["."]
+  "include": [
+    "."
+  ]
 }

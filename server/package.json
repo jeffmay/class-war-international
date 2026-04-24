@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "build": "tsc --outDir dist",
+    "deploy": "node dist/server/index.js",
     "start": "node --no-experimental-require-module --import tsx index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."
