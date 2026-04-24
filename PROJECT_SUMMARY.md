@@ -494,7 +494,7 @@ npm start             # Start dev server at localhost:5173
 
 ### Multiplayer
 - [x] Socket.IO integration via boardgame.io SocketIO transport
-- [x] `npm run host` starts boardgame.io server; clients connect via Setup screen
+- [x] `npm run server` starts boardgame.io server; clients connect via Setup screen
 - [x] Conflict player-switching via `endTurn({ next })` works in multiplayer
 - [x] Waiting interstitial shown to non-active player during Production phase
 - [x] Lobby system: match list, join UI, connection timeout/error screen

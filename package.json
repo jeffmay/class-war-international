@@ -2,7 +2,9 @@
   "name": "class-war-international",
   "version": "0.1.0",
   "private": true,
-  "workspaces": ["server"],
+  "workspaces": [
+    "server"
+  ],
   "dependencies": {
     "boardgame.io": "^0.50.2",
     "lodash": "^4.18.1",
@@ -17,7 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "generate": "node --experimental-strip-types scripts/generate-cards.ts",
-    "host": "npm run start --workspace=server",
+    "server": "npm run start --workspace=server",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json && npm run typecheck --workspace=server",
     "lint": "eslint src"

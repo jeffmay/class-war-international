@@ -4,7 +4,7 @@
  * Runs the boardgame.io master server so multiple devices can connect and
  * play in the same match.  Start with:
  *
- *   npm run host
+ *   npm run server
  *
  * Both the Lobby REST API and the Socket.IO game server are served on the
  * same port so that Chrome's Private Network Access middleware can be
