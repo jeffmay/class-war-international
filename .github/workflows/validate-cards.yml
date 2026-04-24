@@ -5,12 +5,12 @@ on:
     paths:
       - "docs/cards.tsv"
       - "scripts/generate-cards.ts"
-      - "src/**"
+      - "web/src/data/cards.ts"
   pull_request:
     paths:
       - "docs/cards.tsv"
       - "scripts/generate-cards.ts"
-      - "src/**"
+      - "web/src/data/cards.ts"
 
 jobs:
   validate:
