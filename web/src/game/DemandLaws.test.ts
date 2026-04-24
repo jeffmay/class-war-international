@@ -93,17 +93,8 @@ describe('anti_corruption', () => {
       { hand: ['mafia_hit', 'manager', 'hire_scabs', 'restructure'], deck: [], wealth: 20 - DEFAULT_CC_INCOME_FROM_WORKPLACES },
     );
     G.laws = ['anti_corruption'];
-    // Make cashier an "elected" figure by placing it as a political office entry
-    // anti_corruption checks if the target ID is in G.politicalOffices
-    // cashier is in WC figures; we check it against politicalOffices
-    // For this test we simulate cashier being in politicalOffices
-    G.politicalOffices[0] = {
-      ...G.politicalOffices[0],
-      id: 'populist', // populist stays; cashier is NOT in offices here
-    };
-    // Actually anti_corruption checks if targetFigureId appears in G.politicalOffices
-    // cashier is a Figure not a state figure, so it won't be in politicalOffices normally.
-    // Let's test the actual mechanic: the opportunist bribe is blocked.
+    // cashier is in WC figures but NOT in G.politicalOffices, so anti_corruption does not
+    // block mafia_hit targeting cashier. The move should proceed normally.
     const client = (() => {
       const c = clientFromFixture(G);
       c.moves.endActionPhase();

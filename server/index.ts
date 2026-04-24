@@ -20,7 +20,7 @@
  */
 
 import { Server, Origins, FlatFile } from "boardgame.io/server";
-import { ClassWarGame } from "../src/game/ClassWarGame";
+import { ClassWarGame } from "../web/src/game/ClassWarGame";
 
 const PORT = parseInt(process.env["PORT"] ?? "8000", 10);
 const DB_DIR = process.env["DB_DIR"] ?? "./data";
