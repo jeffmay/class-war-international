@@ -14,8 +14,7 @@ node_modules/
 test-results/
 
 # production
-/build
-/dist
+dist/
 
 # claude / playwright
 playwright-report/
