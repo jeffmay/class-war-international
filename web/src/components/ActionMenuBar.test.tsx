@@ -4,8 +4,8 @@
 
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { figureCardById } from '../data/cards';
-import { SocialClass } from '../types/cards';
+import { figureCardById } from '@shared/data/cards';
+import { SocialClass } from '@shared/types/cards';
 import { ActionMenuBar } from './ActionMenuBar';
 
 const cashierCard = figureCardById.cashier;

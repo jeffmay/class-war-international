@@ -6,8 +6,8 @@
  * and require a follow-up move.
  */
 
-import { SocialClass } from '../types/cards';
-import { playDemandCard } from '../util/game';
+import { SocialClass } from '@shared/types/cards';
+import { playDemandCard } from '@shared/util/game';
 import { clientFromFixture, DEFAULT_CC_INCOME_FROM_WORKPLACES, makeActionPhaseState } from './generate';
 
 // Helper: advance from WC's Action phase to CC's Action phase.

@@ -4,7 +4,7 @@
 
 import "@testing-library/jest-dom";
 import { render, screen } from "@testing-library/react";
-import { SocialClass } from "../types/cards";
+import { SocialClass } from "@shared/types/cards";
 import { Die } from "./Die";
 
 describe("Die", () => {

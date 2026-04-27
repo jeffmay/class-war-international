@@ -7,10 +7,10 @@
  */
 
 import React from 'react';
-import { ConflictType, SocialClass } from '../types/cards';
-import { ConflictOutcome } from '../types/conflicts';
-import { getAnyCardData } from '../data/cards';
-import { sideToValue } from '../game/ClassWarGame';
+import { ConflictType, SocialClass } from '@shared/types/cards';
+import { ConflictOutcome } from '@shared/types/conflicts';
+import { getAnyCardData } from '@shared/data/cards';
+import { sideToValue } from '@shared/game/ClassWarGame';
 import { CardComponent } from './CardComponent';
 import { Die } from './Die';
 

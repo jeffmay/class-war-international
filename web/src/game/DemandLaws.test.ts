@@ -3,10 +3,10 @@
  * jobs_program, anti_corruption, nationalization
  */
 
-import { workplaceCardById } from '../data/cards';
-import { CardType, ConflictType, SocialClass } from '../types/cards';
-import { ConflictPhase } from '../types/conflicts';
-import { playFigureCard } from '../util/game';
+import { workplaceCardById } from '@shared/data/cards';
+import { CardType, ConflictType, SocialClass } from '@shared/types/cards';
+import { ConflictPhase } from '@shared/types/conflicts';
+import { playFigureCard } from '@shared/util/game';
 import { clientFromFixture, DEFAULT_CC_INCOME_FROM_WORKPLACES, makeActionPhaseState } from './generate';
 
 // ── jobs_program ───────────────────────────────────────────────────────────────

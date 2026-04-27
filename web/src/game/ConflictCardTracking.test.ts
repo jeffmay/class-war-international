@@ -10,11 +10,11 @@
  * - Initiating class can add cards during Resolving phase
  */
 
-import { SocialClass } from '../types/cards';
-import { ConflictPhase, ConflictType } from '../types/conflicts';
-import { playFigureCard } from '../util/game';
+import { SocialClass } from '@shared/types/cards';
+import { ConflictPhase, ConflictType } from '@shared/types/conflicts';
+import { playFigureCard } from '@shared/util/game';
 import { clientFromFixture, makeActionPhaseState, makePlayerState, withCardInHand } from './generate';
-import { buildDeck } from '../data/cards';
+import { buildDeck } from '@shared/data/cards';
 
 const readyCashier = playFigureCard('cashier', { in_training: false });
 const readyCleaningCrew = playFigureCard('cleaning_crew', { in_training: false });

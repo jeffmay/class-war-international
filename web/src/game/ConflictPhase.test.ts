@@ -5,10 +5,10 @@
  * so no test is skipped or branched on randomly generated values.
  */
 
-import { CardType, SocialClass, WorkplaceForSale } from '../types/cards';
-import { ConflictPhase, ConflictType } from '../types/conflicts';
-import { TurnPhase } from '../types/game';
-import { playDemandCard, playFigureCard } from '../util/game';
+import { CardType, SocialClass, WorkplaceForSale } from '@shared/types/cards';
+import { ConflictPhase, ConflictType } from '@shared/types/conflicts';
+import { TurnPhase } from '@shared/types/game';
+import { playDemandCard, playFigureCard } from '@shared/util/game';
 import { clientFromFixture, makeActionPhaseState } from './generate';
 
 // A ready (not exhausted, not in_training) WC figure fixture

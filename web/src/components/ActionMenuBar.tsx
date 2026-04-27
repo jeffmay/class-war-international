@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { CardSlotEntity, SocialClass } from '../types/cards';
+import { CardSlotEntity, SocialClass } from '@shared/types/cards';
 import { CardComponent } from './CardComponent';
 
 /**

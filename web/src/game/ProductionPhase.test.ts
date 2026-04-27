@@ -2,10 +2,10 @@
  * Tests for Production Phase and Reproduction Phase mechanics
  */
 
-import { SocialClass, WorkplaceForSale } from '../types/cards';
-import { TurnPhase } from '../types/game';
-import { StrictClient, type StrictClientOf } from '../util/typedboardgame';
-import { ClassWarGame } from './ClassWarGame';
+import { SocialClass, WorkplaceForSale } from '@shared/types/cards';
+import { TurnPhase } from '@shared/types/game';
+import { StrictClient, type StrictClientOf } from '@shared/util/typedboardgame';
+import { ClassWarGame } from '@shared/game/ClassWarGame';
 
 describe('Reproduction Phase - Theorizing', () => {
   test('theorizing moves selected card to dustbin and draws a replacement', () => {

@@ -3,8 +3,8 @@
  * playRestructure, playAutomate, playMafiaHit, playArson
  */
 
-import { SocialClass } from '../types/cards';
-import { playFigureCard, playInstitutionCard } from '../util/game';
+import { SocialClass } from '@shared/types/cards';
+import { playFigureCard, playInstitutionCard } from '@shared/util/game';
 import { clientFromFixture, DEFAULT_CC_INCOME_FROM_WORKPLACES, makeActionPhaseState } from './generate';
 
 function advanceToCCAction(G: ReturnType<typeof makeActionPhaseState>) {

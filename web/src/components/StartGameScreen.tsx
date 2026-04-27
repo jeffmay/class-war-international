@@ -10,7 +10,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { SocialClass } from '../types/cards';
+import { SocialClass } from '@shared/types/cards';
 
 const WAITING_MESSAGES: Record<SocialClass, string[]> = {
   [SocialClass.WorkingClass]: [

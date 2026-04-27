@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { CardSlotEntity } from '../types/cards';
+import { CardSlotEntity } from '@shared/types/cards';
 import { CardComponent } from './CardComponent';
 
 interface DealResultModalProps {

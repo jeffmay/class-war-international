@@ -1,6 +1,6 @@
 import React from 'react';
-import { getAnyCardData } from '../data/cards';
-import { CardSlotEntity, CardType, SocialClass, WorkplaceForSale } from '../types/cards';
+import { getAnyCardData } from '@shared/data/cards';
+import { CardSlotEntity, CardType, SocialClass, WorkplaceForSale } from '@shared/types/cards';
 
 /**
  * Semantic border color applied to all cards everywhere on the board.

@@ -4,7 +4,7 @@
 
 import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
-import { figureCardById } from '../data/cards';
+import { figureCardById } from '@shared/data/cards';
 import { CardBorderVariant, CardComponent } from './CardComponent';
 
 const cashierCard = figureCardById.cashier;

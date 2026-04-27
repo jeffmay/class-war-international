@@ -4,7 +4,7 @@
 
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { figureCardById } from '../data/cards';
+import { figureCardById } from '@shared/data/cards';
 import { DealResultModal } from './DealResultModal';
 
 const cashierCard = figureCardById.cashier;

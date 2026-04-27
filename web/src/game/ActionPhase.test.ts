@@ -9,10 +9,10 @@
  * withCardInHand / withCardsInHand helpers from generate.ts.
  */
 
-import { allCards, buildDeck, defaultWorkplaceCardById } from '../data/cards';
-import { CardType, SocialClass, WorkplaceForSale, type FigureCardInPlay } from '../types/cards';
-import { TurnPhase } from '../types/game';
-import { assertNotEqual } from '../util/assertions';
+import { allCards, buildDeck, defaultWorkplaceCardById } from '@shared/data/cards';
+import { CardType, SocialClass, WorkplaceForSale, type FigureCardInPlay } from '@shared/types/cards';
+import { TurnPhase } from '@shared/types/game';
+import { assertNotEqual } from '@shared/util/assertions';
 import {
   DEFAULT_CC_INCOME_FROM_WORKPLACES as CC_INCOME,
   clientFromFixture,

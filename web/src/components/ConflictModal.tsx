@@ -12,11 +12,11 @@
  */
 
 import React, { useState } from 'react';
-import { CardSlotEntity, CardType, ConflictType, SocialClass } from '../types/cards';
-import { ConflictCardInPlay, ConflictPhase, ConflictState } from '../types/conflicts';
-import { PlayerState } from '../types/game';
-import { getAnyCardData, getTacticDataById } from '../data/cards';
-import { isTacticCardID } from '../util/game';
+import { CardSlotEntity, CardType, ConflictType, SocialClass } from '@shared/types/cards';
+import { ConflictCardInPlay, ConflictPhase, ConflictState } from '@shared/types/conflicts';
+import { PlayerState } from '@shared/types/game';
+import { getAnyCardData, getTacticDataById } from '@shared/data/cards';
+import { isTacticCardID } from '@shared/util/game';
 import { CardComponent } from './CardComponent';
 
 interface ConflictModalProps {
