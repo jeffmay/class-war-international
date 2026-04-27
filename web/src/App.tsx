@@ -25,7 +25,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Client } from "boardgame.io/react";
 import { SocketIO, Local } from "boardgame.io/multiplayer";
-import { ClassWarGame } from "./game/ClassWarGame";
+import { ClassWarGame } from "@shared/game/ClassWarGame";
 import { ClassWarBoard } from "./Board";
 import { LobbyMatch, LobbyMatchList, LobbyJoinResponse } from "./types/lobby";
 import { GameNavContext } from "./contexts/GameNav";

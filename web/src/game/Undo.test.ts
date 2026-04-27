@@ -6,9 +6,9 @@
  * opponent decisions).
  */
 
-import { buildDeck } from '../data/cards';
-import { CardType, SocialClass } from '../types/cards';
-import { TurnPhase } from '../types/game';
+import { buildDeck } from '@shared/data/cards';
+import { CardType, SocialClass } from '@shared/types/cards';
+import { TurnPhase } from '@shared/types/game';
 import { clientFromFixture, makeActionPhaseState, withCardInHand } from './generate';
 
 describe('Undo - saveUndo / undoMove', () => {

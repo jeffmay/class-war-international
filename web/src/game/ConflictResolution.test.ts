@@ -13,12 +13,12 @@
  * play where both players share the same client.
  */
 
-import { buildDeck } from '../data/cards';
-import { CardType, SocialClass, WorkplaceForSale, type FigureCardInPlay } from '../types/cards';
-import { ConflictPhase, ConflictType } from '../types/conflicts';
-import { TurnPhase } from '../types/game';
+import { buildDeck } from '@shared/data/cards';
+import { CardType, SocialClass, WorkplaceForSale, type FigureCardInPlay } from '@shared/types/cards';
+import { ConflictPhase, ConflictType } from '@shared/types/conflicts';
+import { TurnPhase } from '@shared/types/game';
 import { filterMap } from '../util/fun';
-import { playDemandCard, playFigureCard, playTacticCard } from '../util/game';
+import { playDemandCard, playFigureCard, playTacticCard } from '@shared/util/game';
 import { clientFromFixture, makeActionPhaseState } from './generate';
 import { vi } from 'vitest';
 

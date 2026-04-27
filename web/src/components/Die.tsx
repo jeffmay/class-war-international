@@ -6,7 +6,7 @@
  */
 
 import React from "react";
-import { SocialClass } from "../types/cards";
+import { SocialClass } from "@shared/types/cards";
 
 export interface DieProps {
   value: number;

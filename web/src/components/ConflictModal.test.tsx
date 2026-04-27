@@ -11,10 +11,10 @@
 
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { figureCardById, getAnyCardData } from "../data/cards";
-import { CardType, ConflictType, SocialClass } from "../types/cards";
-import { ConflictPhase, StrikeConflictState, ElectionConflictState } from "../types/conflicts";
-import { PlayerState } from "../types/game";
+import { figureCardById, getAnyCardData } from "@shared/data/cards";
+import { CardType, ConflictType, SocialClass } from "@shared/types/cards";
+import { ConflictPhase, StrikeConflictState, ElectionConflictState } from "@shared/types/conflicts";
+import { PlayerState } from "@shared/types/game";
 import { ConflictModal } from "./ConflictModal";
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────

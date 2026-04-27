@@ -1,0 +1,18 @@
+{
+  "name": "class-war-international-shared",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "boardgame.io": "^0.50.2",
+    "lodash": "^4.18.1",
+    "ts-brand": "^0.2.0"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.17.24",
+    "@types/node": "^25.5.2",
+    "typescript": "~5.8"
+  }
+}

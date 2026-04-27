@@ -2,9 +2,9 @@
  * Tests for Group 6: Institution Effects
  */
 
-import { CardType, SocialClass } from '../types/cards';
-import { ConflictPhase, ConflictType } from '../types/conflicts';
-import { playFigureCard, playInstitutionCard } from '../util/game';
+import { CardType, SocialClass } from '@shared/types/cards';
+import { ConflictPhase, ConflictType } from '@shared/types/conflicts';
+import { playFigureCard, playInstitutionCard } from '@shared/util/game';
 import { clientFromFixture, DEFAULT_CC_INCOME_FROM_WORKPLACES, makeActionPhaseState } from './generate';
 
 function advanceToCCAction(G: ReturnType<typeof makeActionPhaseState>) {

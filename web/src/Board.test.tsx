@@ -8,10 +8,10 @@
 import "@testing-library/jest-dom";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ClassWarBoard, ClassWarBoardProps } from "./Board";
-import { SocialClass } from "./types/cards";
-import { TurnPhase } from "./types/game";
+import { SocialClass } from "@shared/types/cards";
+import { TurnPhase } from "@shared/types/game";
 import { makeActionPhaseState, withCardInHand } from "./game/generate";
-import { buildDeck } from "./data/cards";
+import { buildDeck } from "@shared/data/cards";
 
 // Minimal mock for boardgame.io context — only the fields Board.tsx actually reads
 const mockCtx = {

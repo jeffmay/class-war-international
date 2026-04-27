@@ -12,11 +12,11 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { buildDeck, cardById } from "../data/cards";
-import { CardType, SocialClass, WorkplaceForSale } from "../types/cards";
-import { ConflictPhase } from "../types/conflicts";
-import { GameState, TurnPhase } from "../types/game";
-import { playDemandCard, playFigureCard, playWorkplaceCard } from "../util/game";
+import { buildDeck, cardById } from "@shared/data/cards";
+import { CardType, SocialClass, WorkplaceForSale } from "@shared/types/cards";
+import { ConflictPhase } from "@shared/types/conflicts";
+import { GameState, TurnPhase } from "@shared/types/game";
+import { playDemandCard, playFigureCard, playWorkplaceCard } from "@shared/util/game";
 import { clientFromFixture, makeActionPhaseState, withCardInHand } from "./generate";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────

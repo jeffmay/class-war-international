@@ -6,11 +6,11 @@
  * None of these functions shuffle or otherwise randomise state.
  */
 
-import { buildDeck, DeckCardID, defaultWorkplaceCardById } from '../data/cards';
-import { SocialClass } from '../types/cards';
-import { type GameState, type PlayerState, TurnPhase } from '../types/game';
-import { StrictClient, type StrictClientOf, type StrictGameOf } from '../util/typedboardgame';
-import { ClassWarGame, Moves, setup } from './ClassWarGame';
+import { buildDeck, DeckCardID, defaultWorkplaceCardById } from '@shared/data/cards';
+import { SocialClass } from '@shared/types/cards';
+import { type GameState, type PlayerState, TurnPhase } from '@shared/types/game';
+import { StrictClient, type StrictClientOf, type StrictGameOf } from '@shared/util/typedboardgame';
+import { ClassWarGame, Moves, setup } from '@shared/game/ClassWarGame';
 
 /**
  * Builds a PlayerState for the given class using the unshuffled deck from
