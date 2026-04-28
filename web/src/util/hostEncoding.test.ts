@@ -1,10 +1,88 @@
-import { encodeHostID, decodeHostID } from "./hostEncoding";
+import { encodeHostID, decodeHostID, normalizeServerURL } from "./hostEncoding";
 
 // ─── Round-trip helpers ───────────────────────────────────────────────────────
 
 function roundTrip(server: string): string {
   return decodeHostID(encodeHostID(server));
 }
+
+// ─── normalizeServerURL ───────────────────────────────────────────────────────
+
+describe("normalizeServerURL", () => {
+  test("adds http:// scheme when missing", () => {
+    expect(normalizeServerURL("localhost:8000")).toBe("http://localhost:8000");
+  });
+
+  test("lowercases the scheme", () => {
+    expect(normalizeServerURL("HTTP://localhost:8000")).toBe("http://localhost:8000");
+  });
+
+  test("strips trailing slashes", () => {
+    expect(normalizeServerURL("http://localhost:8000/")).toBe("http://localhost:8000");
+    expect(normalizeServerURL("https://example.com/")).toBe("https://example.com");
+  });
+
+  test("keeps non-default port", () => {
+    expect(normalizeServerURL("http://localhost:8000")).toBe("http://localhost:8000");
+  });
+
+  test("strips default http port 80", () => {
+    expect(normalizeServerURL("http://localhost:80")).toBe("http://localhost");
+  });
+
+  test("strips default https port 443", () => {
+    expect(normalizeServerURL("https://example.com:443")).toBe("https://example.com");
+  });
+
+  test("upgrades http to https when port is 443", () => {
+    expect(normalizeServerURL("http://example.com:443")).toBe("https://example.com");
+  });
+
+  test("downgrades https to http when port is 80", () => {
+    expect(normalizeServerURL("https://example.com:80")).toBe("http://example.com");
+  });
+
+  test("infers https from port 443 and no scheme", () => {
+    expect(normalizeServerURL("example.com:443")).toBe("https://example.com");
+  });
+
+  test("keeps https with non-default port", () => {
+    expect(normalizeServerURL("https://example.com:8443")).toBe("https://example.com:8443");
+  });
+});
+
+// ─── Default port normalization ───────────────────────────────────────────────
+
+describe("default port normalization in encode/decode", () => {
+  test("http://localhost:80 and http://localhost encode identically", () => {
+    expect(encodeHostID("http://localhost:80")).toBe(encodeHostID("http://localhost"));
+  });
+
+  test("https://example.com:443 and https://example.com encode identically", () => {
+    expect(encodeHostID("https://example.com:443")).toBe(encodeHostID("https://example.com"));
+  });
+
+  test("http://host:443 and https://host encode identically (scheme inferred from port)", () => {
+    expect(encodeHostID("http://example.com:443")).toBe(encodeHostID("https://example.com"));
+  });
+
+  test("round-trip strips default http port", () => {
+    expect(roundTrip("http://localhost:80")).toBe("http://localhost");
+  });
+
+  test("round-trip strips default https port and produces https scheme", () => {
+    expect(roundTrip("https://example.com:443")).toBe("https://example.com");
+  });
+
+  test("round-trip upgrades scheme when port is 443", () => {
+    expect(roundTrip("http://example.com:443")).toBe("https://example.com");
+  });
+
+  test("round-trip DigitalOcean app URL normalizes correctly", () => {
+    const input = "http://class-war-international-az3ke.ondigitalocean.app:443";
+    expect(roundTrip(input)).toBe("https://class-war-international-az3ke.ondigitalocean.app");
+  });
+});
 
 // ─── IPv4 ─────────────────────────────────────────────────────────────────────
 

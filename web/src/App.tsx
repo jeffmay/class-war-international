@@ -29,7 +29,7 @@ import { ClassWarGame } from "@shared/game/ClassWarGame";
 import { ClassWarBoard } from "./Board";
 import { LobbyMatch, LobbyMatchList, LobbyJoinResponse } from "./types/lobby";
 import { GameNavContext } from "./contexts/GameNav";
-import { encodeHostID, decodeHostID } from "./util/hostEncoding";
+import { encodeHostID, decodeHostID, normalizeServerURL } from "./util/hostEncoding";
 import {
   listLocalGames,
   deleteLocalGame,
@@ -42,8 +42,7 @@ import "./App.css";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const GAME_NAME = "class-war-international";
-const DEFAULT_HOST = "localhost";
-const DEFAULT_PORT = 8000;
+const DEFAULT_SERVER_URL = "http://localhost:8000";
 const DEFAULT_TIMEOUT_MS = 5000;
 const PLAYER_NAME_KEY = "cwi_player_name"; // kept for migration reads only
 const PLAYERS_KEY = "cwi_players";
@@ -195,10 +194,6 @@ function matchHash(server: string, matchID: string): string {
   return `#/host/${encodeHostID(server)}/match/${matchID}`;
 }
 
-function buildServer(host: string, port: number): string {
-  const base = host.startsWith("http") ? host : `http://${host}`;
-  return `${base}:${port}`;
-}
 
 // ─── boardgame.io client factories ────────────────────────────────────────────
 
@@ -421,8 +416,10 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   onConnectToLobby,
 }) => {
   const [newPlayerName, setNewPlayerName] = useState("");
-  const [host, setHost] = useState(DEFAULT_HOST);
-  const [port, setPort] = useState(DEFAULT_PORT);
+  const [serverUrl, setServerUrl] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("server") ?? DEFAULT_SERVER_URL;
+  });
   const [timeoutMs, setTimeoutMs] = useState(
     () => parseInt(localStorage.getItem(TIMEOUT_MS_KEY) ?? String(DEFAULT_TIMEOUT_MS), 10),
   );
@@ -436,9 +433,8 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
   };
 
   const handleConnect = () => {
-    const server = buildServer(host, port);
     localStorage.setItem(TIMEOUT_MS_KEY, String(timeoutMs));
-    onConnectToLobby(server);
+    onConnectToLobby(normalizeServerURL(serverUrl));
   };
 
   return (
@@ -507,25 +503,13 @@ const SetupScreen: React.FC<SetupScreenProps> = ({
           </p>
 
           <label className="setup-field">
-            <span className="setup-field-label">Host Address (IP or Domain)</span>
+            <span className="setup-field-label">Server URL</span>
             <input
               className="setup-field-input"
               type="text"
-              value={host}
-              onChange={(e) => setHost(e.target.value)}
-              placeholder="192.168.1.x or mygame.example.com"
-            />
-          </label>
-
-          <label className="setup-field">
-            <span className="setup-field-label">Port</span>
-            <input
-              className="setup-field-input setup-field-input-port"
-              type="number"
-              min={1}
-              max={65535}
-              value={port}
-              onChange={(e) => setPort(parseInt(e.target.value, 10))}
+              value={serverUrl}
+              onChange={(e) => setServerUrl(e.target.value)}
+              placeholder={DEFAULT_SERVER_URL}
             />
           </label>
 

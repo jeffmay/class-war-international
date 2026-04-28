@@ -5,6 +5,10 @@
  *   '_' (0x5F) = DNS hostname — rest is encodeURI(host:port)
  *   '4' (0x34) = IPv4 address — rest is base64url([b0,b1,b2,b3,portHi,portLo])
  *   '6' (0x36) = IPv6 address — rest is base64url([...16 bytes, portHi, portLo])
+ *
+ * URLs are normalized before encoding and after decoding so that equivalent
+ * URLs (e.g. http://host:80 and http://host) always produce the same hash.
+ * Canonical form: scheme lowercase, default ports stripped (80 for http, 443 for https).
  */
 
 function toBase64Url(bytes: Uint8Array): string {
@@ -20,20 +24,33 @@ function fromBase64Url(s: string): Uint8Array {
   return new Uint8Array([...binary].map((c) => c.charCodeAt(0)));
 }
 
-function parseServerURL(server: string): { host: string; port: number } {
-  const withoutScheme = server.replace(/^https?:\/\//, "");
-  // IPv6 in brackets: [::1]:8000
-  const ipv6M = /^\[([^\]]+)\]:(\d+)$/.exec(withoutScheme);
-  if (ipv6M) return { host: ipv6M[1], port: parseInt(ipv6M[2], 10) };
+function schemeDefaultPort(scheme: string): number {
+  return scheme === "https" ? 443 : 80;
+}
+
+function parseServerURL(server: string): { scheme: string; host: string; port: number } {
+  const schemeMatch = /^(https?):\/\//i.exec(server);
+  const scheme = schemeMatch ? schemeMatch[1].toLowerCase() : "http";
+  const withoutScheme = server.replace(/^https?:\/\//i, "");
+  const defaultPort = schemeDefaultPort(scheme);
+
+  // IPv6 in brackets with port: [::1]:8000
+  const ipv6WithPort = /^\[([^\]]+)\]:(\d+)$/.exec(withoutScheme);
+  if (ipv6WithPort) return { scheme, host: ipv6WithPort[1], port: parseInt(ipv6WithPort[2], 10) };
+
+  // IPv6 in brackets without port: [::1]
+  const ipv6NoPort = /^\[([^\]]+)\]$/.exec(withoutScheme);
+  if (ipv6NoPort) return { scheme, host: ipv6NoPort[1], port: defaultPort };
+
   // IPv4 or DNS with port: host:port
   const lastColon = withoutScheme.lastIndexOf(":");
   if (lastColon >= 0) {
     const maybePort = parseInt(withoutScheme.slice(lastColon + 1), 10);
     if (!isNaN(maybePort)) {
-      return { host: withoutScheme.slice(0, lastColon), port: maybePort };
+      return { scheme, host: withoutScheme.slice(0, lastColon), port: maybePort };
     }
   }
-  return { host: withoutScheme, port: 8000 };
+  return { scheme, host: withoutScheme, port: defaultPort };
 }
 
 function parseIPv4(host: string): number[] | null {
@@ -78,8 +95,31 @@ function parseIPv6(host: string): number[] | null {
   return bytes;
 }
 
+/**
+ * Returns the canonical form of a server URL:
+ *   - Strips trailing slashes
+ *   - Adds "http://" if no scheme is present
+ *   - Lowercases the scheme
+ *   - Infers scheme from well-known ports: port 80 → http, port 443 → https
+ *   - Strips the port when it matches the scheme default (80 for http, 443 for https)
+ */
+export function normalizeServerURL(input: string): string {
+  const trimmed = input.replace(/\/+$/, "");
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  const parsed = parseServerURL(withScheme);
+  const { host, port } = parsed;
+  // Infer scheme from well-known ports so http://host:443 becomes https://host
+  const scheme = port === 443 ? "https" : port === 80 ? "http" : parsed.scheme;
+  const isIPv6 = parseIPv6(host) !== null;
+  const hostStr = isIPv6 ? `[${host}]` : host;
+  if (port === schemeDefaultPort(scheme)) {
+    return `${scheme}://${hostStr}`;
+  }
+  return `${scheme}://${hostStr}:${port}`;
+}
+
 export function encodeHostID(server: string): string {
-  const { host, port } = parseServerURL(server);
+  const { host, port } = parseServerURL(normalizeServerURL(server));
   const portHi = (port >> 8) & 0xff;
   const portLo = port & 0xff;
 
@@ -106,7 +146,7 @@ export function decodeHostID(encoded: string): string {
     if (bytes.length < 6) throw new Error("Invalid IPv4 host ID");
     const ip = `${bytes[0]}.${bytes[1]}.${bytes[2]}.${bytes[3]}`;
     const port = (bytes[4] << 8) | bytes[5];
-    return `http://${ip}:${port}`;
+    return normalizeServerURL(`http://${ip}:${port}`);
   }
 
   if (type === "6") {
@@ -117,11 +157,11 @@ export function decodeHostID(encoded: string): string {
       groups.push(((bytes[i] << 8) | bytes[i + 1]).toString(16));
     }
     const port = (bytes[16] << 8) | bytes[17];
-    return `http://[${groups.join(":")}]:${port}`;
+    return normalizeServerURL(`http://[${groups.join(":")}]:${port}`);
   }
 
   if (type === "_") {
-    return `http://${decodeURI(payload)}`;
+    return normalizeServerURL(`http://${decodeURI(payload)}`);
   }
 
   throw new Error(`Unknown host ID type: ${JSON.stringify(type)}`);

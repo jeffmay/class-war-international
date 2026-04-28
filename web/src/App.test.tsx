@@ -64,11 +64,17 @@ describe("SetupScreen", () => {
     expect(screen.getByRole("button", { name: /Connect to Lobby/i })).toBeInTheDocument();
   });
 
-  test("shows Choose Player section with Host Address and Port fields", () => {
+  test("shows Choose Player section with Server URL field", () => {
     renderApp();
     expect(screen.getByText("Choose Player")).toBeInTheDocument();
-    expect(screen.getByLabelText(/Host Address/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Port/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Server URL/i)).toBeInTheDocument();
+  });
+
+  test("pre-populates Server URL from ?server= query param", () => {
+    history.pushState({}, "", "?server=http%3A%2F%2Fgame.example.com%3A9001");
+    renderApp();
+    expect(screen.getByDisplayValue("http://game.example.com:9001")).toBeInTheDocument();
+    history.pushState({}, "", "/");
   });
 
   test("Connect to Lobby is disabled when no player is selected", () => {
