@@ -41,7 +41,12 @@ describe('DealResultModal', () => {
 
   test('shows "Sent to Dustbin" section title when cards are theorized', () => {
     render(<DealResultModal {...baseProps} theorizedCards={[cashierCard]} />);
-    expect(screen.getByText('Sent to Dustbin')).toBeInTheDocument();
+    expect(screen.getByText('Sent to Dustbin', { selector: '.deal-result-section-title' })).toBeInTheDocument();
+  });
+
+  test('shows "Sent to Dustbin" status banner on each theorized card', () => {
+    render(<DealResultModal {...baseProps} theorizedCards={[cashierCard]} />);
+    expect(screen.getByText('Sent to Dustbin', { selector: '.card-status-banner-line1' })).toBeInTheDocument();
   });
 
   test('shows "No Cards Theorized" when theorized list is empty', () => {

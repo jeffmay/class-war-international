@@ -1,6 +1,6 @@
 /**
  * Tests for Group 7: Tactic Out-of-Conflict Moves
- * playRestructure, playAutomate, playMafiaHit, playArson
+ * playRestructure, playAutomate, playMafiaHit, playArson, playGeneralStrike
  */
 
 import { SocialClass } from '@shared/types/cards';
@@ -255,5 +255,97 @@ describe('playArson', () => {
     client.moves.playArson(0, 0);
     const state = client.getStateOrThrow();
     expect(state.G.players[SocialClass.CapitalistClass].hand).toContain('arson');
+  });
+});
+
+// ── playGeneralStrike ─────────────────────────────────────────────────────────
+
+describe('playGeneralStrike', () => {
+  test('removes card from hand and sets generalStrikeActive', () => {
+    const G = makeActionPhaseState({
+      hand: ['general_strike', 'cashier', 'agitator', 'nurse'],
+      wealth: 20,
+    });
+    const client = clientFromFixture(G);
+
+    client.moves.playGeneralStrike(0);
+    const state = client.getStateOrThrow();
+    expect(state.G.players[SocialClass.WorkingClass].hand).not.toContain('general_strike');
+    expect(state.G.players[SocialClass.WorkingClass].dustbin).toContain('general_strike');
+    expect(state.G.players[SocialClass.WorkingClass].generalStrikeActive).toBe(true);
+  });
+
+  test('grants WC an extra turn when reproduction ends', () => {
+    const G = makeActionPhaseState({
+      hand: ['general_strike', 'cashier', 'agitator', 'nurse'],
+      deck: [],
+      wealth: 20,
+    });
+    const client = clientFromFixture(G);
+
+    client.moves.playGeneralStrike(0);
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase();
+
+    // WC should still be the current player (bonus turn)
+    const state = client.getStateOrThrow();
+    expect(state.ctx.currentPlayer).toBe('0');
+    expect(state.G.generalStrikeBonusTurn).toBe(true);
+  });
+
+  test('bonus turn does not collect wages in Production phase', () => {
+    const G = makeActionPhaseState({
+      hand: ['general_strike', 'cashier', 'agitator', 'nurse'],
+      deck: [],
+      wealth: 20,
+    });
+    const client = clientFromFixture(G);
+
+    client.moves.playGeneralStrike(0);
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase();
+
+    const wealthBeforeBonus = client.getStateOrThrow().G.players[SocialClass.WorkingClass].wealth;
+    client.moves.collectProduction();
+    const wealthAfterBonus = client.getStateOrThrow().G.players[SocialClass.WorkingClass].wealth;
+
+    // No wages collected during bonus production
+    expect(wealthAfterBonus).toBe(wealthBeforeBonus);
+    expect(client.getStateOrThrow().G.generalStrikeBonusTurn).toBeUndefined();
+  });
+
+  test('bonus turn clears generalStrikeBonusTurn flag after normal end', () => {
+    const G = makeActionPhaseState({
+      hand: ['general_strike', 'cashier', 'agitator', 'nurse'],
+      deck: [],
+      wealth: 20,
+    });
+    const client = clientFromFixture(G);
+
+    // Play general strike and complete the bonus turn
+    client.moves.playGeneralStrike(0);
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase();
+    client.moves.collectProduction();
+    client.moves.endActionPhase();
+    client.moves.endReproductionPhase();
+
+    // After bonus turn ends normally, it's CC's turn
+    const state = client.getStateOrThrow();
+    expect(state.ctx.currentPlayer).toBe('1');
+    expect(state.G.generalStrikeBonusTurn).toBeUndefined();
+  });
+
+  test('only WC can play general_strike', () => {
+    const G = makeActionPhaseState(
+      undefined,
+      { hand: ['general_strike', 'manager', 'hire_scabs', 'restructure'], deck: [], wealth: 20 - DEFAULT_CC_INCOME_FROM_WORKPLACES },
+    );
+    const client = advanceToCCAction(G);
+
+    client.moves.playGeneralStrike(0);
+    const state = client.getStateOrThrow();
+    expect(state.G.players[SocialClass.CapitalistClass].hand).toContain('general_strike');
+    expect(state.G.players[SocialClass.WorkingClass].generalStrikeActive).toBeFalsy();
   });
 });
