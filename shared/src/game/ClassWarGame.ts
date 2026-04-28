@@ -525,30 +525,36 @@ export const Moves = {
 
     clearUndo(G, 'Cannot undo after collecting production');
 
-    // Collect wages (Working Class) or profits (Capitalist Class) from all workplaces
-    let totalIncome = 0;
-    G.workplaces.forEach((workplace) => {
-      if (workplace === WorkplaceForSale) {
-        return; // Skip empty slots
-      }
-      if (currentClass === SocialClass.WorkingClass) {
-        totalIncome += workplace.wages;
-      } else {
-        // nationalization: CC cannot collect profits from WC-owned workplaces
-        if (workplace.ownedBy === SocialClass.WorkingClass) return;
-        totalIncome += workplace.profits;
-      }
-    });
+    // general_strike bonus turn: skip income collection
+    const isGeneralStrikeBonus = G.generalStrikeBonusTurn === true;
+    G.generalStrikeBonusTurn = undefined;
 
-    player.wealth += totalIncome;
+    if (!isGeneralStrikeBonus) {
+      // Collect wages (Working Class) or profits (Capitalist Class) from all workplaces
+      let totalIncome = 0;
+      G.workplaces.forEach((workplace) => {
+        if (workplace === WorkplaceForSale) {
+          return; // Skip empty slots
+        }
+        if (currentClass === SocialClass.WorkingClass) {
+          totalIncome += workplace.wages;
+        } else {
+          // nationalization: CC cannot collect profits from WC-owned workplaces
+          if (workplace.ownedBy === SocialClass.WorkingClass) return;
+          totalIncome += workplace.profits;
+        }
+      });
 
-    // Apply wealth_tax law: if a class has >$20, they give half to the bank
-    if (G.laws.includes('wealth_tax')) {
-      const WEALTH_TAX_THRESHOLD = 20;
-      for (const sc of [SocialClass.WorkingClass, SocialClass.CapitalistClass] as const) {
-        const p = G.players[sc];
-        if (p.wealth > WEALTH_TAX_THRESHOLD) {
-          p.wealth = Math.floor(p.wealth / 2);
+      player.wealth += totalIncome;
+
+      // Apply wealth_tax law: if a class has >$20, they give half to the bank
+      if (G.laws.includes('wealth_tax')) {
+        const WEALTH_TAX_THRESHOLD = 20;
+        for (const sc of [SocialClass.WorkingClass, SocialClass.CapitalistClass] as const) {
+          const p = G.players[sc];
+          if (p.wealth > WEALTH_TAX_THRESHOLD) {
+            p.wealth = Math.floor(p.wealth / 2);
+          }
         }
       }
     }
@@ -1697,6 +1703,27 @@ export const Moves = {
   },
 
   /**
+   * general_strike: WC plays from hand; take an extra turn after this one.
+   * During the bonus turn's Production phase, WC does not collect wages.
+   */
+  playGeneralStrike: ({ G, ctx }, handIndex: number) => {
+    if (G.turnPhase !== TurnPhase.Action) return;
+    const currentClass = ctx.currentPlayer === '0' ? SocialClass.WorkingClass : SocialClass.CapitalistClass;
+    if (currentClass !== SocialClass.WorkingClass) return;
+    const player = G.players[currentClass];
+    if (handIndex < 0 || handIndex >= player.hand.length) return;
+    if (player.hand[handIndex] !== 'general_strike') {
+      G.errorMessage = 'Must play general_strike from hand.';
+      return;
+    }
+    saveUndo(G, 'General Strike');
+    player.hand.splice(handIndex, 1);
+    player.dustbin.push('general_strike');
+    player.generalStrikeActive = true;
+    G.errorMessage = undefined;
+  },
+
+  /**
    * nationalization: WC picks a unionized workplace to nationalize.
    * Doubles wages, zeroes profits, marks ownedBy WorkingClass.
    */
@@ -1858,6 +1885,15 @@ export const Moves = {
         office.electionCooldownTurnsRemaining -= 1;
       }
     });
+
+    // general_strike: grant WC an extra turn (no wages during its Production phase)
+    const hadGeneralStrike = player.generalStrikeActive;
+    player.generalStrikeActive = undefined;
+    if (hadGeneralStrike) {
+      G.generalStrikeBonusTurn = true;
+      events?.endTurn?.({ next: ctx.currentPlayer });
+      return;
+    }
 
     // Turn number increments after both players complete their turns (at the end of CC's turn)
     if (ctx.currentPlayer === '1') {

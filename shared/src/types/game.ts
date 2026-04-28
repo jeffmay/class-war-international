@@ -24,6 +24,7 @@ export interface PlayerState {
   theorizeLimit: number;
   playedWorkplaceThisTurn: boolean;
   figurePlayedThisTurn: boolean;
+  generalStrikeActive?: boolean;
 }
 
 export type UndoState =
@@ -70,6 +71,9 @@ export interface GameState {
 
   // Activation state: requires player follow-up before next action
   pendingActivation?: PendingActivation;
+
+  // General Strike: true during WC's bonus turn (skip wage collection)
+  generalStrikeBonusTurn?: boolean;
 
   // Game state
   gameStarted: boolean;
