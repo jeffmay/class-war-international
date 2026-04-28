@@ -26,3 +26,7 @@ services:
     name: class-war-international-host
     build_command: npm install
     run_command: npm run server
+    envs:
+      - key: ORIGINS
+        scope: RUN_TIME
+        value: https://class-war-international.netlify.app, http://localhost:5173
