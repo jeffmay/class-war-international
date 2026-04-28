@@ -5,12 +5,12 @@ on:
     paths:
       - "docs/cards.tsv"
       - "scripts/generate-cards.ts"
-      - "web/src/data/cards.ts"
+      - "shared/src/data/cards.ts"
   pull_request:
     paths:
       - "docs/cards.tsv"
       - "scripts/generate-cards.ts"
-      - "web/src/data/cards.ts"
+      - "shared/src/data/cards.ts"
 
 jobs:
   validate:
@@ -29,12 +29,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate src/data/cards.ts from docs/cards.tsv
+      - name: Generate shared/src/data/cards.ts from docs/cards.tsv
         run: npm run generate
 
       - name: Fail if generated file differs from committed file
         run: |
-          if ! git diff --exit-code src/data/cards.ts; then
-            echo "::error file=src/data/cards.ts::Generated cards.ts differs from committed version. Run 'npm run generate' and commit the result."
+          if ! git diff --exit-code shared/src/data/cards.ts; then
+            echo "::error file=shared/src/data/cards.ts::Generated cards.ts differs from committed version. Run 'npm run generate' and commit the result."
             exit 1
           fi
