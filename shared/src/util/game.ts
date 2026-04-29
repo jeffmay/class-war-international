@@ -1,5 +1,6 @@
 import { AnyWorkplaceCardID, CardID, DefaultWorkplaceID, DemandCardID, FigureCardID, InstitutionCardID, TacticCardID, WorkplaceCardID, allCards, anyWorkplaceCardById, defaultWorkplaceCardById, demandCardById, figureCardById, institutionCardById, tacticCardById, workplaceCardById } from "../data/cards";
-import { CardType, DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay, TacticCardInPlay, WorkplaceCardInPlay } from "../types/cards";
+import { CardType, DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay, SocialClass, TacticCardInPlay, WorkplaceCardInPlay } from "../types/cards";
+import { GameState } from "../types/game";
 
 export function isDemandCardID(cardId: string): cardId is DemandCardID {
   return cardId in demandCardById
@@ -83,4 +84,50 @@ export function isAnyWorkplaceCardID(cardId: string): cardId is AnyWorkplaceCard
 
 export function isCardID(cardId: string): cardId is CardID {
   return cardId in allCards
+}
+
+/**
+ * Compute the established power a demand card contributes to a legislation conflict.
+ * The `demand_power_basis` field on each demand card describes what to count.
+ */
+export function computeDemandPower(
+  G: GameState,
+  demandId: DemandCardID,
+  proposingClass: SocialClass,
+): number {
+  const demandData = demandCardById[demandId];
+  const basis = demandData.demand_power_basis;
+
+  if (basis === "Number of your hero Figures in play.") {
+    const heroesInFigures = G.players[proposingClass].figures.filter(
+      f => figureCardById[f.id].hero,
+    ).length;
+    const heroesInOffices = G.politicalOffices.filter(office => {
+      if (office.card_type !== CardType.Figure) return false;
+      const data = figureCardById[office.id];
+      return data.hero && data.social_class === proposingClass;
+    }).length;
+    return heroesInFigures + heroesInOffices;
+  }
+
+  if (basis === "Number of your elected Figures.") {
+    return G.politicalOffices.filter(office => {
+      if (office.card_type !== CardType.Figure) return false;
+      return figureCardById[office.id].social_class === proposingClass;
+    }).length;
+  }
+
+  if (basis === "Number of Workplaces with wages at $1.") {
+    return G.workplaces.filter(
+      (w): w is WorkplaceCardInPlay => typeof w !== "string" && w.wages === 1,
+    ).length;
+  }
+
+  if (basis === "Number of unionized Workplaces.") {
+    return G.workplaces.filter(
+      (w): w is WorkplaceCardInPlay => typeof w !== "string" && w.unionized,
+    ).length;
+  }
+
+  return 0;
 }

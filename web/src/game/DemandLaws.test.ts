@@ -29,6 +29,7 @@ describe('jobs_program - on law pass', () => {
       demandCardId: 'jobs_program',
       demandSlotIndex: 0,
       proposingOfficeIndex: 0,
+      demandPower: 0,
       workingClassCards: [{ ...playFigureCard('cashier', { in_training: false }), card_type: CardType.Figure as const, in_play: true as const }],
       capitalistCards: [],
       active: true,
@@ -125,6 +126,7 @@ describe('anti_corruption', () => {
       demandCardId: 'wealth_tax',
       demandSlotIndex: 0,
       proposingOfficeIndex: 0, // populist
+      demandPower: 0,
       workingClassCards: [{ ...wcFigure }],
       capitalistCards: [],
       active: true,
@@ -171,6 +173,7 @@ describe('nationalization', () => {
       demandCardId: 'nationalization',
       demandSlotIndex: 0,
       proposingOfficeIndex: 0,
+      demandPower: 0,
       workingClassCards: [{ ...wcFigure }],
       capitalistCards: [],
       active: true,

@@ -61,6 +61,8 @@ export interface LegislationConflictState extends BaseConflictState {
   demandSlotIndex: number;
   /** Office index from which this legislation is being proposed */
   proposingOfficeIndex: number;
+  /** Established power contributed by the demand card based on current game state */
+  demandPower: number;
 }
 
 export type ConflictState = StrikeConflictState | ElectionConflictState | LegislationConflictState;

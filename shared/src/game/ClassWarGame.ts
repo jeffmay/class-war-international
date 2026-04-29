@@ -8,7 +8,7 @@ import { buildDeck, defaultStateFigureCardById, DefaultStateFigureID, getAnyCard
 import { CardType, ConflictType, type DefaultStateFigureCardInPlay, type FigureCardInPlay, SocialClass, WorkplaceCardInPlay, WorkplaceForSale } from '../types/cards';
 import { ConflictCardInPlay, ConflictPhase, type ElectionConflictState, type LegislationConflictState, type PowerStats, type StrikeConflictState } from '../types/conflicts';
 import { type GameState, type PlayerState, TurnPhase } from '../types/game';
-import { isAnyWorkplaceCardID, isDefaultWorkplaceCard, isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard, playWorkplaceCard } from '../util/game';
+import { computeDemandPower, isAnyWorkplaceCardID, isDefaultWorkplaceCard, isDemandCardID, isFigureCardID, isInstitutionCardID, isTacticCardID, isWorkplaceCardID, playDemandCard, playFigureCard, playInstitutionCard, playTacticCard, playWorkplaceCard } from '../util/game';
 import { type StrictGameOf } from '../util/typedboardgame';
 
 const MIN_WAGE = 1;
@@ -851,11 +851,13 @@ export const Moves = {
     // Exhaust the proposing office
     office.exhausted = true;
 
+    const demandPower = computeDemandPower(G, demandCardId, currentClass);
     const conflictState: LegislationConflictState = {
       conflictType: ConflictType.Legislation,
       demandCardId,
       demandSlotIndex,
       proposingOfficeIndex: officeIndex,
+      demandPower,
       workingClassCards,
       capitalistCards,
       active: true,
@@ -1381,6 +1383,13 @@ export const Moves = {
 
     } else {
       // Legislation
+      // Add the demand card's established power to the proposing class
+      if (conflict.initiatingClass === SocialClass.WorkingClass) {
+        wcEstablished += conflict.demandPower;
+      } else {
+        ccEstablished += conflict.demandPower;
+      }
+
       // workers_party / capitalist_party: add their established_power in legislation
       for (const [socialClass, partyId] of [[SocialClass.WorkingClass, 'workers_party'], [SocialClass.CapitalistClass, 'capitalist_party']] as const) {
         if (G.players[socialClass].institutions.some(i => i?.id === partyId)) {

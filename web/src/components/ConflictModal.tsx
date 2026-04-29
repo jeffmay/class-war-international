@@ -51,7 +51,7 @@ function renderPowerBreakdown(
   diceCount: number,
   establishedPower: number,
   label: string,
-  extras?: { workplacePower?: number; incumbentPower?: number },
+  extras?: { workplacePower?: number; incumbentPower?: number; demandPower?: number },
 ): React.ReactNode {
   const sources: string[] = [];
   for (const card of cards) {
@@ -69,7 +69,8 @@ function renderPowerBreakdown(
   }
   const totalEstablished = establishedPower
     + (extras?.workplacePower ?? 0)
-    + (extras?.incumbentPower ?? 0);
+    + (extras?.incumbentPower ?? 0)
+    + (extras?.demandPower ?? 0);
   return (
     <div className="conflict-modal-power-breakdown">
       <div className="conflict-modal-power-label">{label}</div>
@@ -84,6 +85,11 @@ function renderPowerBreakdown(
       {extras?.incumbentPower !== undefined && extras.incumbentPower > 0 && (
         <div className="conflict-modal-power-source">
           Incumbent: {extras.incumbentPower} ⚫
+        </div>
+      )}
+      {extras?.demandPower !== undefined && extras.demandPower > 0 && (
+        <div className="conflict-modal-power-source">
+          Demand Card: {extras.demandPower} ⚫
         </div>
       )}
       {sources.length > 0 && (
@@ -507,9 +513,9 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
     </>
   );
 
-  // ── Legislation layout (unchanged) ───────────────────────────────────────────
+  // ── Legislation layout ────────────────────────────────────────────────────────
 
-  const renderLegislationLayout = () => (
+  const renderLegislationLayout = (demandPower: number) => (
     <>
       <div className="conflict-modal-target">
         <div className="conflict-modal-section-label">Demand</div>
@@ -535,6 +541,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
             conflict.workingClassPower.diceCount,
             conflict.workingClassPower.establishedPower,
             "WC Power",
+            { demandPower: conflict.initiatingClass === SocialClass.WorkingClass ? demandPower : undefined },
           )}
           {renderEffectsSection(wcColumnEffects)}
         </div>
@@ -557,6 +564,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
             conflict.capitalistPower.diceCount,
             conflict.capitalistPower.establishedPower,
             "CC Power",
+            { demandPower: conflict.initiatingClass === SocialClass.CapitalistClass ? demandPower : undefined },
           )}
           {renderEffectsSection(ccColumnEffects)}
         </div>
@@ -590,7 +598,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
 
         {conflict.conflictType === ConflictType.Strike && renderStrikeSides()}
         {conflict.conflictType === ConflictType.Election && renderElectionLayout()}
-        {conflict.conflictType === ConflictType.Legislation && renderLegislationLayout()}
+        {conflict.conflictType === ConflictType.Legislation && renderLegislationLayout(conflict.demandPower)}
 
         {renderAvailableCards()}
 
