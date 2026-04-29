@@ -1,0 +1,36 @@
+name: Lint and Test
+
+on:
+  workflow_call:
+
+jobs:
+  test-and-lint:
+    name: Type-check, Test & Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: |
+          echo "::add-matcher::.github/problem-matchers/tsc.json"
+          npm run typecheck
+          echo "::remove-matcher owner=tsc::"
+
+      - name: Test
+        run: CI=true npm test
+
+      - name: Lint
+        run: |
+          echo "::add-matcher::.github/problem-matchers/eslint.json"
+          npm run lint
+          echo "::remove-matcher owner=eslint::"

@@ -29,4 +29,4 @@ services:
     envs:
       - key: ORIGINS
         scope: RUN_TIME
-        value: https://class-war-international.netlify.app, http://localhost:5173
+        value: /localhost:\d+/, /https?:\/\/.*-?-?class-war-international.netlify.app/
