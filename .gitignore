@@ -20,8 +20,11 @@ dist/
 playwright-report/
 .playwright-mcp/
 
-# misc
+# mac os
 .DS_Store
+*.numbers
+
+# dot env
 .env.local
 .env.development.local
 .env.test.local
