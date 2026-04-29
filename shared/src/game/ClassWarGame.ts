@@ -166,7 +166,7 @@ function canUnionize(G: GameState): boolean {
  * - free_health_care: all figures cost $2 less
  * - trust_fund_kid: costs 0 if a workplace was played this turn by the current class
  */
-function effectiveCost(G: GameState, cardData: ReturnType<typeof getAnyCardData>, currentClass?: SocialClass): number {
+export function effectiveCost(G: GameState, cardData: ReturnType<typeof getAnyCardData>, currentClass?: SocialClass): number {
   if (cardData.id === 'trust_fund_kid' && currentClass !== undefined) {
     if (G.players[currentClass].playedWorkplaceThisTurn) return 0;
   }

@@ -15,6 +15,7 @@ import { TurnStartModal, WaitingInterstitial } from './components/StartGameScree
 import { anyWorkplaceCardById, DeckCardID, getAnyCardData, getAnyStateFigureDataById, getAnyWorkplaceCardData, getFigureDataById } from '@shared/data/cards';
 import { CardSlotEntity, CardType, FigureCardInPlay, SocialClass, WorkplaceForSale } from '@shared/types/cards';
 import { ConflictPhase, ConflictType } from '@shared/types/conflicts';
+import { effectiveCost } from '@shared/game/ClassWarGame';
 import { GameState, TurnPhase } from '@shared/types/game';
 import { filterMap } from './util/fun';
 import { STATUS_TEXT_ID, setStatusText } from './util/statusText';
@@ -271,11 +272,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       const options: MenuOption[] = [];
 
       if (card.card_type === CardType.Figure) {
-        const canAfford = myPlayer.wealth >= card.cost;
+        const cost = effectiveCost(G, card, myClass);
+        const canAfford = myPlayer.wealth >= cost;
+        const costLabel = cost === 0 ? "FREE" : `$${cost}`;
         if (canAfford) {
-          options.push([`Train ($${card.cost})`, () => { moves.playCardFromHand(idx, 'figures[-1]'); handleCloseInspector(); }]);
+          options.push([`Train (${costLabel})`, () => { moves.playCardFromHand(idx, 'figures[-1]'); handleCloseInspector(); }]);
         } else {
-          options.push([`Cannot Afford ($${card.cost})`, undefined]);
+          options.push([`Cannot Afford ($${cost})`, undefined]);
         }
       } else if (card.card_type === CardType.Demand) {
         const slot0 = myPlayer.demands[0];
@@ -293,36 +296,38 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
       } else if (card.card_type === CardType.Institution) {
         const slot0 = myPlayer.institutions[0];
         const slot1 = myPlayer.institutions[1];
-        const canAfford = myPlayer.wealth >= card.cost;
+        const cost = effectiveCost(G, card, myClass);
+        const canAfford = myPlayer.wealth >= cost;
         if (!canAfford) {
-          options.push([`Cannot Afford ($${card.cost})`, undefined]);
+          options.push([`Cannot Afford ($${cost})`, undefined]);
         } else {
           const hasEmptySlot = slot0 === null || slot1 === null;
           if (hasEmptySlot) {
-            options.push([`Build New Institution ($${card.cost})`, () => { moves.playCardFromHand(idx, 'institutions[-1]'); handleCloseInspector(); }]);
+            options.push([`Build New Institution ($${cost})`, () => { moves.playCardFromHand(idx, 'institutions[-1]'); handleCloseInspector(); }]);
           }
           if (slot0 !== null) {
-            options.push([`Replace ${getAnyCardData(slot0.id).name} ($${card.cost})`, () => { moves.playCardFromHand(idx, 'institutions[0]'); handleCloseInspector(); }]);
+            options.push([`Replace ${getAnyCardData(slot0.id).name} ($${cost})`, () => { moves.playCardFromHand(idx, 'institutions[0]'); handleCloseInspector(); }]);
           }
           if (slot1 !== null) {
-            options.push([`Replace ${getAnyCardData(slot1.id).name} ($${card.cost})`, () => { moves.playCardFromHand(idx, 'institutions[1]'); handleCloseInspector(); }]);
+            options.push([`Replace ${getAnyCardData(slot1.id).name} ($${cost})`, () => { moves.playCardFromHand(idx, 'institutions[1]'); handleCloseInspector(); }]);
           }
         }
       } else if (card.card_type === CardType.Workplace) {
-        const canAfford = myPlayer.wealth >= card.cost;
+        const cost = effectiveCost(G, card, myClass);
+        const canAfford = myPlayer.wealth >= cost;
         if (!canAfford) {
-          options.push([`Cannot Afford ($${card.cost})`, undefined]);
+          options.push([`Cannot Afford ($${cost})`, undefined]);
         } else {
           const hasEmptySlot = G.workplaces.some(w => w === WorkplaceForSale);
           if (hasEmptySlot) {
-            options.push([`Open New Workplace ($${card.cost})`, () => { moves.playCardFromHand(idx, 'workplaces[-1]'); handleCloseInspector(); }]);
+            options.push([`Open New Workplace ($${cost})`, () => { moves.playCardFromHand(idx, 'workplaces[-1]'); handleCloseInspector(); }]);
           }
           G.workplaces.forEach((wp, wpIdx) => {
             if (wp === WorkplaceForSale) return;
             const wpData = getAnyWorkplaceCardData(wp.id);
-            options.push([`Replace ${wpData.name} ($${card.cost})`, () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]`); handleCloseInspector(); }]);
+            options.push([`Replace ${wpData.name} ($${cost})`, () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]`); handleCloseInspector(); }]);
             if (wp.id === card.id) {
-              options.push([`Expand ${wpData.name} ($${card.cost})`, () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]/expand`); handleCloseInspector(); }]);
+              options.push([`Expand ${wpData.name} ($${cost})`, () => { moves.playCardFromHand(idx, `workplaces[${wpIdx}]/expand`); handleCloseInspector(); }]);
             }
           });
         }
@@ -334,12 +339,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           if (validWps.length === 0) {
             options.push(['No valid workplaces to Restructure', undefined]);
           } else {
+            const cost = effectiveCost(G, card, myClass);
+            const canAfford = myPlayer.wealth >= cost;
             G.workplaces.forEach((wp, wpIdx) => {
               if (wp === WorkplaceForSale || wp.unionized || wp.wages <= 1) return;
               const wpData = getAnyWorkplaceCardData(wp.id);
-              const canAfford = myPlayer.wealth >= card.cost;
               options.push([
-                canAfford ? `Restructure ${wpData.name} ($${card.cost})` : `Cannot Afford ($${card.cost})`,
+                canAfford ? `Restructure ${wpData.name} ($${cost})` : `Cannot Afford ($${cost})`,
                 canAfford ? () => { moves.playRestructure(idx, wpIdx); handleCloseInspector(); } : undefined,
               ]);
             });
@@ -349,12 +355,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           if (validWps.length === 0) {
             options.push(['No valid workplaces to Automate', undefined]);
           } else {
+            const cost = effectiveCost(G, card, myClass);
+            const canAfford = myPlayer.wealth >= cost;
             G.workplaces.forEach((wp, wpIdx) => {
               if (wp === WorkplaceForSale || wp.unionized) return;
               const wpData = getAnyWorkplaceCardData(wp.id);
-              const canAfford = myPlayer.wealth >= card.cost;
               options.push([
-                canAfford ? `Automate ${wpData.name} ($${card.cost})` : `Cannot Afford ($${card.cost})`,
+                canAfford ? `Automate ${wpData.name} ($${cost})` : `Cannot Afford ($${cost})`,
                 canAfford ? () => { moves.playAutomate(idx, wpIdx); handleCloseInspector(); } : undefined,
               ]);
             });
@@ -364,22 +371,24 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
           if (targets.length === 0) {
             options.push(['No WC figures to target', undefined]);
           } else {
+            const cost = effectiveCost(G, card, myClass);
+            const canAfford = myPlayer.wealth >= cost;
             targets.forEach(fig => {
               const figData = getAnyCardData(fig.id);
-              const canAfford = myPlayer.wealth >= card.cost;
               options.push([
-                canAfford ? `Hit ${figData.name} ($${card.cost})` : `Cannot Afford ($${card.cost})`,
+                canAfford ? `Hit ${figData.name} ($${cost})` : `Cannot Afford ($${cost})`,
                 canAfford ? () => { moves.playMafiaHit(idx, fig.id); handleCloseInspector(); } : undefined,
               ]);
             });
           }
         } else if (card.id === 'arson') {
-          const canAfford = myPlayer.wealth >= card.cost;
+          const cost = effectiveCost(G, card, myClass);
+          const canAfford = myPlayer.wealth >= cost;
           G.workplaces.forEach((wp, wpIdx) => {
             if (wp === WorkplaceForSale) return;
             const wpData = getAnyWorkplaceCardData(wp.id);
             options.push([
-              canAfford ? `Arson: ${wpData.name} ($${card.cost})` : `Cannot Afford ($${card.cost})`,
+              canAfford ? `Arson: ${wpData.name} ($${cost})` : `Cannot Afford ($${cost})`,
               canAfford ? () => { moves.playArson(idx, wpIdx, undefined); handleCloseInspector(); } : undefined,
             ]);
           });
@@ -387,7 +396,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             if (!inst) return;
             const instData = getAnyCardData(inst.id);
             options.push([
-              canAfford ? `Arson: ${instData.name} ($${card.cost})` : `Cannot Afford ($${card.cost})`,
+              canAfford ? `Arson: ${instData.name} ($${cost})` : `Cannot Afford ($${cost})`,
               canAfford ? () => { moves.playArson(idx, undefined, instIdx); handleCloseInspector(); } : undefined,
             ]);
           });
@@ -395,9 +404,10 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             options.push(['No valid targets for Arson', undefined]);
           }
         } else if (card.id === 'general_strike') {
-          const canAfford = myPlayer.wealth >= card.cost;
+          const cost = effectiveCost(G, card, myClass);
+          const canAfford = myPlayer.wealth >= cost;
           options.push([
-            canAfford ? `General Strike ($${card.cost})` : `Cannot Afford ($${card.cost})`,
+            canAfford ? `General Strike ($${cost})` : `Cannot Afford ($${cost})`,
             canAfford ? () => { moves.playGeneralStrike(idx); handleCloseInspector(); } : undefined,
           ]);
         } else {
@@ -432,7 +442,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         .map((cardId, handIdx) => ({ cardId, handIdx, card: getAnyCardData(cardId) }))
         .filter(({ card }) => card.card_type === CardType.Institution);
       const options: MenuOption[] = institutionHandCards.map(({ card, handIdx }) => {
-        const cost = (card as { cost: number }).cost;
+        const cost = effectiveCost(G, card, myClass);
         const canAfford = myPlayer.wealth >= cost;
         const label = institution
           ? `Replace with ${card.name} ($${cost})`
@@ -478,7 +488,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         .map((cardId, handIdx) => ({ cardId, handIdx, card: getAnyCardData(cardId) }))
         .filter(({ card }) => card.card_type === CardType.Workplace);
       const options: MenuOption[] = workplaceHandCards.map(({ card, handIdx }) => {
-        const cost = (card as { cost: number }).cost;
+        const cost = effectiveCost(G, card, myClass);
         const canAfford = myPlayer.wealth >= cost;
         const isForSale = workplace === WorkplaceForSale;
         const isExpansion = !isForSale && workplace.id === card.id;
