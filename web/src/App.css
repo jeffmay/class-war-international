@@ -930,6 +930,12 @@ body {
   font-size: 0.9em;
 }
 
+.workplace-starting-value {
+  opacity: 0.65;
+  font-size: 0.85em;
+  font-weight: normal;
+}
+
 /* Workplace profit/wage indicator colors */
 .workplace-profits {
   background-color: #619ed4;

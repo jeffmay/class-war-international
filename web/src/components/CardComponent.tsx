@@ -199,19 +199,26 @@ export const CardComponent: React.FC<CardComponentProps> = ({
       {/* Bottom block */}
       <div className="card-bottom-block">
         {/* Workplace: wages/profits panel */}
-        {cardProps?.card_type === CardType.Workplace && (
-          <div className="card-workplace-revenue-container">
-            <div className="workplace-wages">
-              <div>Wages: ${cardProps.wages}</div>
+        {cardProps?.card_type === CardType.Workplace && (() => {
+          const wpData = cardData.card_type === CardType.Workplace ? cardData : undefined;
+          const startWages = wpData?.starting_wages;
+          const startProfits = wpData?.starting_profits;
+          const wagesChanged = startWages !== undefined && startWages !== cardProps.wages;
+          const profitsChanged = startProfits !== undefined && startProfits !== cardProps.profits;
+          return (
+            <div className="card-workplace-revenue-container">
+              <div className="workplace-wages">
+                <div>Wages: ${cardProps.wages}{wagesChanged && <span className="workplace-starting-value"> (${startWages})</span>}</div>
+              </div>
+              <div className="workplace-profits">
+                <div>Profits: ${cardProps.profits}{profitsChanged && <span className="workplace-starting-value"> (${startProfits})</span>}</div>
+              </div>
+              {cardProps.unionized && (
+                <div className="workplace-unionized-badge">🦺 Unionized</div>
+              )}
             </div>
-            <div className="workplace-profits">
-              <div>Profits: ${cardProps.profits}</div>
-            </div>
-            {cardProps.unionized && (
-              <div className="workplace-unionized-badge">🦺 Unionized</div>
-            )}
-          </div>
-        )}
+          );
+        })()}
         {/* Quote and rules for non-workplace cards */}
         {cardData.card_type !== CardType.Workplace && cardData.quote && (
           <div className="card-quote">{cardData.quote}</div>
