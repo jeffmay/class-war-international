@@ -938,7 +938,12 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             conflictPhase === ConflictPhase.Responding ||
             conflictPhase === ConflictPhase.Resolving
           );
-        const needsMultiplayerWait = !!playerID && !isMyTurn && !handoffDismissed && boardState.mode !== 'showingDealtCards';
+        // In local pass-and-play mode (onHandoff defined), conflict sub-phases can hand off to the
+        // other class even though ctx.currentPlayer hasn't changed. Use the conflict's activeConflictPlayer
+        // to determine who should be acting, not just the boardgame.io turn owner.
+        const isMyConflictTurn = !G.activeConflict || G.activeConflict.activeConflictPlayer === myClass;
+        const isEffectivelyMyTurn = (onHandoff && G.activeConflict) ? isMyConflictTurn : isMyTurn;
+        const needsMultiplayerWait = !!playerID && !isEffectivelyMyTurn && !handoffDismissed && boardState.mode !== 'showingDealtCards';
 
         if (needsLocalHandoff) {
           // The "waiting class" is whoever is handing off the device
