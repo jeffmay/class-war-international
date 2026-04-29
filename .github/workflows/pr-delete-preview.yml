@@ -1,4 +1,4 @@
-name: Delete Preview App
+name: Delete Preview Deploys
 
 on:
   pull_request:

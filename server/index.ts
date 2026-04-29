@@ -25,11 +25,22 @@ import { ClassWarGame } from "../shared/src/game/ClassWarGame";
 const PORT = parseInt(process.env["PORT"] ?? "8000", 10);
 const DB_DIR = process.env["DB_DIR"] ?? "./data";
 
-const rawOrigins = process.env["ORIGINS"];
-const extraOrigins: string[] = rawOrigins?.split(",")?.map((s) => s.trim()) ?? [];
+const rawOrigins = process.env["ORIGINS"]?.split(",")?.map((s) => s.trim()) ?? [];
+const extraOrigins: (string | RegExp)[] = rawOrigins.map((origin) => {
+  if (origin.startsWith("/") && origin.endsWith("/")) {
+    // Interpret as regex if wrapped in slashes, e.g. /https?:\/\/.*\.example\.com/
+    const pattern = origin.slice(1, -1);
+    return new RegExp(pattern);
+  } else {
+    // Otherwise treat as literal string origin
+    return origin;
+  }
+});
 
 // Always allow localhost dev origins; append any extra origins from env var.
 const origins = [Origins.LOCALHOST_IN_DEVELOPMENT, ...extraOrigins];
+
+export const TODO_REMOVE = "TODO: Remove this trigger server deploy"
 
 const server = Server({
   games: [ClassWarGame],

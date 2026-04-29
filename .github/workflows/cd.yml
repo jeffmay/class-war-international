@@ -3,7 +3,8 @@ name: Deploy Main Branch
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -14,7 +15,29 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Get version name
+        env:
+          BRANCH: ${{ github.ref_name }}
+        id: git-version
+        run: echo "::set-output name=version_name::main branch (${GITHUB_SHA:0:7})"
       - name: Deploy the app
         uses: digitalocean/app_action/deploy@v2
         with:
           token: ${{ secrets.DO_API_TOKEN_DEPLOY_PROD }}
+      - name: Build the app
+        run: npm ci --workspace=web && npm run build --workspace=web
+      - name: Deploy to Netlify
+        id: deploy-web-preview
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: "./web/dist"
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "🚀 Deployed ${{ steps.git-version.outputs.version_name }}."
+          enable-pull-request-comment: false
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_API_TOKEN_DEPLOY_PROD }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_PROJECT_ID_PROD }}
+        timeout-minutes: 1

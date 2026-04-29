@@ -1,49 +1,187 @@
-name: Build and Test
+name: CI
 
 on:
   push:
     branches:
       - main
-    paths:
-      - "**/*.ts"
-      - "**/*.tsx"
-      - "**/*.css"
-      - "**/*.html"
   pull_request:
     paths:
+      - ".github/workflows/*"
+      - "**/eslint*"
       - "**/*.ts"
       - "**/*.tsx"
       - "**/*.css"
       - "**/*.html"
+      - "**/*.json"
+
+permissions:
+  contents: read
+  pull-requests: write
+  deployments: write
 
 jobs:
-  ci:
-    name: Type-check, Test & Lint
+
+  test-and-lint:
+    name: Test and Lint
+    uses: ./test-and-lint.yml
+
+  deploy-web-preview:
+    name: Web
+    needs:
+      - test-and-lint
     runs-on: ubuntu-latest
-
+    outputs:
+      deployed: ${{ steps.check-web-code.outputs.changed }}
+      web_url: ${{ steps.deploy-web-preview.outputs.deploy-url || 'https://class-war-international.netlify.app' }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
         with:
-          node-version: "22"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Type-check
+          fetch-depth: 0
+      - name: Check for Web App changes
+        id: check-web-code
         run: |
-          echo "::add-matcher::.github/problem-matchers/tsc.json"
-          npm run typecheck
-          echo "::remove-matcher owner=tsc::"
+          echo "Checking for Web App changes..."
+          git fetch origin main
+          if git diff --name-only origin/main...HEAD | grep -E '^(shared|web)/'; then
+            echo "Web App changes detected."
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No Web App changes detected."
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Build the app
+        if: steps.check-web-code.outputs.changed == 'true'
+        run: npm ci --workspace=web && npm run build --workspace=web
+      - name: Deploy to Netlify
+        if: steps.check-web-code.outputs.changed == 'true'
+        id: deploy-web-preview
+        uses: nwtgck/actions-netlify@v3.0
+        with:
+          publish-dir: "./web/dist"
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: ${{ github.event.pull_request.title }}
+          enable-pull-request-comment: false
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_API_TOKEN_DEPLOY_PROD }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_PROJECT_ID_PROD }}
+        timeout-minutes: 1
 
-      - name: Test
-        run: CI=true npm test
-
-      - name: Lint
+  deploy-api-preview:
+    name: API
+    needs:
+      - test-and-lint
+      - deploy-web-preview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Check for API changes
+        id: check-server-code
         run: |
-          echo "::add-matcher::.github/problem-matchers/eslint.json"
-          npm run lint
-          echo "::remove-matcher owner=eslint::"
+          echo "Checking for API changes..."
+          git fetch origin main
+          if git diff --name-only origin/main...HEAD | grep -E '^(shared|server|.do)/'; then
+            echo "API changes detected."
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No API changes detected."
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Deploy API
+        if: steps.check-server-code.outputs.changed == 'true'
+        id: deploy-server-preview
+        uses: digitalocean/app_action/deploy@v2
+        with:
+          deploy_pr_preview: "true"
+          token: ${{ secrets.DO_API_TOKEN_DEPLOY_PROD }}
+      - name: Deployment comment for preview Web App and Server
+        if: steps.check-server-code.outputs.changed == 'true' && needs.deploy-web-preview.outputs.deployed == 'true'
+        uses: actions/github-script@v7
+        env:
+          BUILD_LOGS: ${{ steps.deploy-server-preview.outputs.build_logs }}
+          DEPLOY_LOGS: ${{ steps.deploy-server-preview.outputs.deploy_logs }}
+        with:
+          script: |
+            const { BUILD_LOGS, DEPLOY_LOGS, GITHUB_SHA } = process.env
+            const VERSION = GITHUB_SHA.substring(0, 7)
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 The [Preview Web App and Server](${{ needs.deploy-web-preview.outputs.web_url }}?server=${{ fromJson(steps.deploy-server-preview.outputs.app).live_url }}) were successfully deployed for ${VERSION}!`
+            })
+      - name: Deployment comment for preview Web App only
+        if: steps.check-server-code.outputs.changed != 'true' && needs.deploy-web-preview.outputs.deployed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { GITHUB_SHA } = process.env
+            const VERSION = GITHUB_SHA.substring(0, 7)
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 The [Preview Web App](${{ needs.deploy-web-preview.outputs.web_url }}) was successfully deployed for ${VERSION}! No Server changes detected.`
+            })
+      - name: Deployment comment for preview Server only
+        if: steps.check-server-code.outputs.changed == 'true' && needs.deploy-web-preview.outputs.deployed != 'true'
+        uses: actions/github-script@v7
+        env:
+          BUILD_LOGS: ${{ steps.deploy-server-preview.outputs.build_logs }}
+          DEPLOY_LOGS: ${{ steps.deploy-server-preview.outputs.deploy_logs }}
+        with:
+          script: |
+            const { BUILD_LOGS, DEPLOY_LOGS, GITHUB_SHA } = process.env
+            const VERSION = GITHUB_SHA.substring(0, 7)
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 The [Preview Server](${{ needs.deploy-web-preview.outputs.web_url }}?server=${{ fromJson(steps.deploy-server-preview.outputs.app).live_url }}) was successfully deployed for ${VERSION}! No Web App changes detected.`
+            })
+      - name: No deployment comment
+        if: steps.check-server-code.outputs.changed != 'true' && needs.deploy-web-preview.outputs.deployed != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { GITHUB_SHA } = process.env
+            const VERSION = GITHUB_SHA.substring(0, 7)
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Skipped deployment of ${VERSION}. No Web App or Server changes detected.`
+            })
+      - name: Create failure comment
+        if: failure() && steps.check-server-code.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        env:
+          BUILD_LOGS: ${{ steps.deploy-server-preview.outputs.build_logs }}
+          DEPLOY_LOGS: ${{ steps.deploy-server-preview.outputs.deploy_logs }}
+        with:
+          script: |
+            const { BUILD_LOGS, DEPLOY_LOGS, GITHUB_SHA } = process.env
+            const VERSION = GITHUB_SHA.substring(0, 7)
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `The Server failed to deploy for ${VERSION}. Logs can be found [here](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+              ## Logs
+              <details>
+              <summary>Build logs</summary> [2]
+              \`\\
+              ${BUILD_LOGS}
+              \`\\
+              </details>
+              <details>
+              <summary>Deploy logs</summary> [3]
+              \`\\
+              ${DEPLOY_LOGS}
+              \`\\
+              </details>`
+            })
