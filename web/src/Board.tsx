@@ -914,6 +914,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
             activeConflictPlayer={G.activeConflict.activeConflictPlayer}
             players={G.players}
             targetCard={conflictTargetCard}
+            laws={G.laws}
             onClose={() => setConflictModalMinimized(true)}
             onCancel={() => moves.cancelConflict()}
             onInitiate={() => { moves.initiateConflict(); setConflictModalMinimized(true); }}

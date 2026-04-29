@@ -11,7 +11,7 @@
 
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { figureCardById, getAnyCardData } from "@shared/data/cards";
+import { DemandCardID, figureCardById } from "@shared/data/cards";
 import { CardType, ConflictType, SocialClass } from "@shared/types/cards";
 import { ConflictPhase, StrikeConflictState, ElectionConflictState } from "@shared/types/conflicts";
 import { PlayerState } from "@shared/types/game";
@@ -95,6 +95,7 @@ const baseProps = {
   viewingClass: SocialClass.WorkingClass,
   activeConflictPlayer: SocialClass.WorkingClass,
   players,
+  laws: [] as DemandCardID[],
   onClose: vi.fn(),
   onCancel: vi.fn(),
   onInitiate: vi.fn(),
@@ -242,23 +243,40 @@ describe("ConflictModal: Election layout", () => {
 // ─── Effects list ─────────────────────────────────────────────────────────────
 
 describe("ConflictModal: Effects list", () => {
-  test("renders WC Effects section when WC cards have rules text", () => {
-    const cashierData = getAnyCardData(cashierCard.id);
-    if (!cashierData.rules) return; // skip if this card has no rules text
+  const agitatorCard = figureCardById.agitator;
+  const agitatorInPlay = { id: agitatorCard.id, card_type: agitatorCard.card_type, in_play: true as const, exhausted: false, in_training: false };
+  const conflictWithAgitator: StrikeConflictState = {
+    ...baseStrikeConflict,
+    workingClassCards: [agitatorInPlay],
+  };
+
+  test("renders Effects section when WC card has a registered conflict effect", () => {
     render(
       <ConflictModal
         {...baseProps}
-        conflict={baseStrikeConflict}
+        conflict={conflictWithAgitator}
         targetCard={cornerStoreTarget}
       />
     );
-    expect(screen.getByText("WC Effects")).toBeInTheDocument();
+    expect(screen.getByText("Effects")).toBeInTheDocument();
   });
 
-  test("does not render effects section when cards have no rules text", () => {
-    // Build a conflict with a card that has no rules (cashier has no rules based on type)
-    const cashierData = getAnyCardData(cashierCard.id);
-    if (cashierData.rules) return; // skip if cashier actually has rules
+  test("renders effect card name for agitator in the effects section", () => {
+    render(
+      <ConflictModal
+        {...baseProps}
+        conflict={conflictWithAgitator}
+        targetCard={cornerStoreTarget}
+      />
+    );
+    const effectNames = screen.getAllByText(agitatorCard.name);
+    // appears at minimum in the effects entry (may also appear on the card itself)
+    expect(effectNames.length).toBeGreaterThanOrEqual(1);
+    const effectEntry = effectNames.find(el => el.classList.contains("conflict-effect-card-name"));
+    expect(effectEntry).toBeInTheDocument();
+  });
+
+  test("does not render Effects section when no cards have registered effects", () => {
     render(
       <ConflictModal
         {...baseProps}
@@ -266,6 +284,6 @@ describe("ConflictModal: Effects list", () => {
         targetCard={cornerStoreTarget}
       />
     );
-    expect(screen.queryByText("WC Effects")).not.toBeInTheDocument();
+    expect(screen.queryByText("Effects")).not.toBeInTheDocument();
   });
 });
