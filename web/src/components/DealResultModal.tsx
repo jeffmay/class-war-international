@@ -46,7 +46,7 @@ export const DealResultModal: React.FC<DealResultModalProps> = ({
             {theorizedCards.length > 0 ? (
               <div className="deal-result-card-row">
                 {theorizedCards.map((card, i) => (
-                  <CardComponent key={i} card={card} borderVariant="other" />
+                  <CardComponent key={i} card={card} borderVariant="cannot-use" statusBanner={{ line1: "Sent to Dustbin" }} />
                 ))}
               </div>
             ) : (
