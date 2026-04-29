@@ -176,6 +176,18 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         ? SocialClass.CapitalistClass
         : currentClass;
 
+  // Auto-reopen conflict modal when the active conflict player switches to this viewer's class.
+  // In local mode the board remounts fresh (not minimized) after each handoff; this effect handles
+  // multiplayer where both players keep a live board and the modal may have been minimized.
+  const prevActiveConflictPlayerRef = React.useRef<SocialClass | undefined>(undefined);
+  React.useEffect(() => {
+    const activePlayer = G.activeConflict?.activeConflictPlayer;
+    if (activePlayer === myClass && prevActiveConflictPlayerRef.current !== myClass) {
+      setConflictModalMinimized(false);
+    }
+    prevActiveConflictPlayerRef.current = activePlayer;
+  }, [G.activeConflict?.activeConflictPlayer, myClass]);
+
   // Get player states
   const myPlayer = G.players[myClass];
   const myClassKey = myClass === SocialClass.WorkingClass ? 'wc' : 'cc';
@@ -264,8 +276,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   // --- Pre-compute slot data ---
   const slotData = new Map<string, SlotData>();
 
-  if (G.turnPhase === TurnPhase.Action && isMyTurn) {
-    // Hand cards: action options
+  if (G.turnPhase === TurnPhase.Action && isMyTurn && !G.activeConflict) {
+    // Hand cards: action options (disabled while a conflict is active)
     myPlayer.hand.forEach((cardId, idx) => {
       const card = getAnyCardData(cardId);
       const slotId = `hand-${myClassKey}-${idx}`;
