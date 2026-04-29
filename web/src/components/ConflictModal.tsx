@@ -15,8 +15,9 @@ import React, { useState } from 'react';
 import { CardSlotEntity, CardType, ConflictType, SocialClass } from '@shared/types/cards';
 import { ConflictCardInPlay, ConflictPhase, ConflictState } from '@shared/types/conflicts';
 import { PlayerState } from '@shared/types/game';
-import { getAnyCardData, getTacticDataById } from '@shared/data/cards';
+import { DemandCardID, getAnyCardData, getTacticDataById } from '@shared/data/cards';
 import { isTacticCardID } from '@shared/util/game';
+import { ConflictEffect, getConflictCardEffects, getConflictLawEffects, getEffectsForColumn } from '../util/conflictEffects';
 import { CardComponent } from './CardComponent';
 
 interface ConflictModalProps {
@@ -29,6 +30,8 @@ interface ConflictModalProps {
   players: { [SocialClass.WorkingClass]: PlayerState; [SocialClass.CapitalistClass]: PlayerState };
   /** The card being contested (workplace, office, or demand) */
   targetCard: CardSlotEntity;
+  /** Active laws that may modify conflict rules */
+  laws: DemandCardID[];
   onClose: () => void;
   onCancel: () => void;
   onInitiate: () => void;
@@ -55,8 +58,13 @@ function renderPowerBreakdown(
     const data = getAnyCardData(card.id);
     if (data.card_type === CardType.Figure && data.dice > 0) {
       sources.push(`${data.name}: ${data.dice} 🎲`);
-    } else if (data.card_type === CardType.Tactic && data.dice) {
-      sources.push(`${data.name}: ${data.dice} 🎲`);
+    } else if (data.card_type === CardType.Tactic) {
+      if (data.dice) {
+        sources.push(`${data.name}: ${data.dice} 🎲`);
+      }
+      if (data.established_power) {
+        sources.push(`${data.name}: +${data.established_power} ⚫`);
+      }
     }
   }
   const totalEstablished = establishedPower
@@ -87,19 +95,33 @@ function renderPowerBreakdown(
   );
 }
 
-function renderEffectsList(cards: ConflictCardInPlay[], label: string): React.ReactNode {
-  const effects = cards
-    .map(card => ({ name: getAnyCardData(card.id).name, rules: getAnyCardData(card.id).rules }))
-    .filter(({ rules }) => rules);
+function renderEffectEntry(effect: ConflictEffect): React.ReactNode {
+  const classKey = effect.ownerClass === SocialClass.WorkingClass ? "wc" : "cc";
+  const deltaParts: string[] = [];
+  if (effect.diceDelta !== undefined) {
+    deltaParts.push(`${effect.diceDelta > 0 ? "+" : ""}${effect.diceDelta} 🎲`);
+  }
+  if (effect.powerDelta !== undefined) {
+    deltaParts.push(`${effect.powerDelta > 0 ? "+" : ""}${effect.powerDelta} ⚫`);
+  }
+  return (
+    <div key={effect.cardId} className={`conflict-effect conflict-effect-${classKey}`}>
+      <span className="conflict-effect-card-name">{effect.cardName}</span>
+      {deltaParts.length > 0 && (
+        <span className="conflict-effect-delta">{deltaParts.join(", ")}</span>
+      )}
+      <span className="conflict-effect-summary">{effect.summary}</span>
+      {effect.isAbility && <span className="conflict-effect-ability-tag">Ability</span>}
+    </div>
+  );
+}
+
+function renderEffectsSection(effects: ConflictEffect[]): React.ReactNode {
   if (effects.length === 0) return null;
   return (
     <div className="conflict-modal-effects-list">
-      <div className="conflict-modal-section-label">{label} Effects</div>
-      <ul>
-        {effects.map(({ name, rules }, i) => (
-          <li key={i}><strong>{name}:</strong> {rules}</li>
-        ))}
-      </ul>
+      <div className="conflict-modal-section-label">Effects</div>
+      {effects.map(effect => renderEffectEntry(effect))}
     </div>
   );
 }
@@ -110,6 +132,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   activeConflictPlayer,
   players,
   targetCard,
+  laws,
   onClose,
   onCancel,
   onInitiate,
@@ -170,6 +193,14 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
   const incumbentDefendingClass = conflict.conflictType === ConflictType.Election
     ? (conflict.initiatingClass === SocialClass.WorkingClass ? SocialClass.CapitalistClass : SocialClass.WorkingClass)
     : undefined;
+
+  // Compute effects for each side's column using the conflict cards and active laws.
+  const wcCardEffects = getConflictCardEffects(conflict.workingClassCards, SocialClass.WorkingClass);
+  const ccCardEffects = getConflictCardEffects(conflict.capitalistCards, SocialClass.CapitalistClass);
+  const lawEffects = getConflictLawEffects(laws, conflict.conflictType);
+  const allEffects = [...wcCardEffects, ...ccCardEffects, ...lawEffects];
+  const wcColumnEffects = getEffectsForColumn(SocialClass.WorkingClass, allEffects);
+  const ccColumnEffects = getEffectsForColumn(SocialClass.CapitalistClass, allEffects);
 
   // During Responding, hide the responding class's addedThisStep cards from the opponent.
   const shouldHideCard = (card: ConflictCardInPlay, ownerClass: SocialClass): boolean =>
@@ -410,7 +441,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
             conflict.workingClassPower.establishedPower,
             "WC Power",
           )}
-          {renderEffectsList(conflict.workingClassCards, "WC")}
+          {renderEffectsSection(wcColumnEffects)}
         </div>
         <div className="conflict-modal-side">
           <div className="conflict-modal-side-title">Capitalist Class</div>
@@ -435,7 +466,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
             "CC Power",
             { workplacePower: conflict.targetWorkplace.established_power },
           )}
-          {renderEffectsList(conflict.capitalistCards, "CC")}
+          {renderEffectsSection(ccColumnEffects)}
         </div>
       </div>
     </>
@@ -458,7 +489,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
             "WC Power",
             { incumbentPower: incumbentDefendingClass === SocialClass.WorkingClass ? incumbentPower : undefined },
           )}
-          {renderEffectsList(conflict.workingClassCards, "WC")}
+          {renderEffectsSection(wcColumnEffects)}
         </div>
         <div className="conflict-modal-side">
           <div className="conflict-modal-side-title">Capitalist Class Supporters</div>
@@ -470,7 +501,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
             "CC Power",
             { incumbentPower: incumbentDefendingClass === SocialClass.CapitalistClass ? incumbentPower : undefined },
           )}
-          {renderEffectsList(conflict.capitalistCards, "CC")}
+          {renderEffectsSection(ccColumnEffects)}
         </div>
       </div>
     </>
@@ -505,7 +536,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
             conflict.workingClassPower.establishedPower,
             "WC Power",
           )}
-          {renderEffectsList(conflict.workingClassCards, "WC")}
+          {renderEffectsSection(wcColumnEffects)}
         </div>
         <div className="conflict-modal-side">
           <div className="conflict-modal-side-title">Capitalist Class</div>
@@ -527,7 +558,7 @@ export const ConflictModal: React.FC<ConflictModalProps> = ({
             conflict.capitalistPower.establishedPower,
             "CC Power",
           )}
-          {renderEffectsList(conflict.capitalistCards, "CC")}
+          {renderEffectsSection(ccColumnEffects)}
         </div>
       </div>
     </>
