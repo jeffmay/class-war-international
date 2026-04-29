@@ -153,6 +153,7 @@ describe('capitalist_party established power in legislation', () => {
       demandCardId: 'wealth_tax',
       demandSlotIndex: 0,
       proposingOfficeIndex: 0,
+      demandPower: 0,
       workingClassCards: [{ ...G.politicalOffices[0] }],
       capitalistCards: [],
       active: true,
