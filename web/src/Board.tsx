@@ -744,13 +744,15 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 .map(([, handler]) => handler)
                 .filter((h): h is () => void => h !== undefined) ?? [];
               const handleDoubleClick = enabledHandlers.length === 1 ? enabledHandlers[0] : undefined;
+              const handBorderVariant = slot === undefined ? 'other'
+                : enabledHandlers.length > 0 ? 'actionable' : 'cannot-use';
               return (
                 <CardComponent
                   key={idx}
                   card={card}
-                  onClick={() => handleSelectSlot(slotId)}
+                  onClick={slot !== undefined ? () => handleSelectSlot(slotId) : undefined}
                   onDoubleClick={handleDoubleClick}
-                  borderVariant="actionable"
+                  borderVariant={handBorderVariant}
                 />
               );
             })}
@@ -771,7 +773,8 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                 : figure.exhausted
                   ? { line1: 'Exhausted', line2: '(until next turn)' }
                   : undefined;
-              const borderVariant = (figure.in_training || figure.exhausted) ? 'cannot-use' as const
+              const borderVariant = G.turnPhase !== TurnPhase.Action || !isMyTurn ? 'other' as const
+                : (figure.in_training || figure.exhausted) ? 'cannot-use' as const
                 : 'actionable' as const;
               return (
                 <CardComponent
@@ -1198,7 +1201,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                             card={office}
                             statusBanner={statusBanner}
                             effects={effects}
-                            borderVariant={office.card_type === CardType.Figure ? "actionable" : "other"}
+                            borderVariant={office.card_type === CardType.Figure ? (office.exhausted ? "cannot-use" : "actionable") : "other"}
                           />
                         </div>
                       </div>
