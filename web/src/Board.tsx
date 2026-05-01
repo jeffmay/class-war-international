@@ -40,6 +40,7 @@ type BoardState =
   | { mode: 'selectStrikeTarget'; figure: FigureCardInPlay }
   | { mode: 'selectOfficeTarget'; figure: FigureCardInPlay }
   | { mode: 'selectLegislationOffice'; demandSlotIndex: number }
+  | { mode: 'selectDemandForLegislation'; officeIndex: number }
   | { mode: 'showingDealtCards'; theorizedCardIds: DeckCardID[]; newCardIds: DeckCardID[]; modalDismissed: boolean };
 
 interface SlotData {
@@ -239,6 +240,13 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
   const handleSelectLegislationOffice = (officeIndex: number) => {
     if (boardState.mode !== 'selectLegislationOffice') return;
     moves.planLegislation(officeIndex, boardState.demandSlotIndex);
+    setBoardState({ mode: 'normal', selectedSlotId: null });
+  };
+
+  // Confirm demand for office-first legislation
+  const handleSelectDemandForLegislation = (demandSlotIndex: number) => {
+    if (boardState.mode !== 'selectDemandForLegislation') return;
+    moves.planLegislation(boardState.officeIndex, demandSlotIndex);
     setBoardState({ mode: 'normal', selectedSlotId: null });
   };
 
@@ -623,6 +631,9 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
     }
     if (G.turnPhase === TurnPhase.Action && boardState.mode === 'selectLegislationOffice') {
       return 'Select the office from which to propose legislation';
+    }
+    if (G.turnPhase === TurnPhase.Action && boardState.mode === 'selectDemandForLegislation') {
+      return 'Select a demand to propose as legislation';
     }
     if (G.turnPhase === TurnPhase.Reproduction && theorizeSelectedIndexes.length === 0) {
       return 'Select cards to send to the Dustbin';
@@ -1083,6 +1094,29 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
         />
       )}
 
+      {/* Demand Selector for office-first legislation — merged into ActionMenuBar */}
+      {boardState.mode === 'selectDemandForLegislation' && (
+        <ActionMenuBar
+          title="Choose a demand to propose"
+          options={(() => {
+            const demandOptions = filterMap(myPlayer.demands, (demand, i) => {
+              if (!demand || G.laws.includes(demand.id)) return undefined;
+              const card = getAnyCardData(demand.id);
+              return [
+                card.name,
+                () => handleSelectDemandForLegislation(i),
+                <CardComponent key={i} card={card} borderVariant="actionable" />,
+              ] as const satisfies MenuOption;
+            });
+            return demandOptions.length > 0
+              ? demandOptions
+              : [['No demands available', undefined] as const satisfies MenuOption];
+          })()}
+          playerClass={myClass}
+          onClose={handleCloseInspector}
+        />
+      )}
+
       {/* Top Bar */}
       <div className="game-top-controls">
         <div className="game-top-controls-left">
@@ -1222,6 +1256,11 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                       effects.push(`🔒 Safe for ${pluralize(cooldown, 'turn')}`);
                     }
                     const statusBanner = office.card_type === CardType.Figure && office.exhausted ? { line1: 'Exhausted' } : undefined;
+                    const canProposeFromOffice = boardState.mode === 'normal'
+                      && G.turnPhase === TurnPhase.Action && isMyTurn && !G.activeConflict
+                      && office.card_type === CardType.Figure
+                      && !office.exhausted
+                      && getFigureDataById(office.id).social_class === myClass;
                     return (
                       <div key={index} className="office-container">
                         <div className="card-slot">
@@ -1230,6 +1269,7 @@ export const ClassWarBoard: React.FC<ClassWarBoardProps> = ({ G, ctx, moves, pla
                             statusBanner={statusBanner}
                             effects={effects}
                             borderVariant={office.card_type === CardType.Figure ? (office.exhausted ? "cannot-use" : "actionable") : "other"}
+                            onClick={canProposeFromOffice ? () => setBoardState({ mode: 'selectDemandForLegislation', officeIndex: index }) : undefined}
                           />
                         </div>
                       </div>
