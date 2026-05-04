@@ -23,7 +23,7 @@ jobs:
 
   test-and-lint:
     name: Test and Lint
-    uses: ./test-and-lint.yml
+    uses: ./.github/workflows/test-and-lint.yml
 
   deploy-web-preview:
     name: Web

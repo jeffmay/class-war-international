@@ -7,7 +7,11 @@
     "erasableSyntaxOnly": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
-  "include": ["scripts"]
+  "include": [
+    "."
+  ]
 }
