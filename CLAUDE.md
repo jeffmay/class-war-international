@@ -24,6 +24,7 @@ The app is running at http://localhost:5173, and you can use the Playwright MCP 
 
 ## Important Notes
 - MUST ALWAYS run `npm run typecheck`, then `npm test`, and then `npm run lint` for all files before commiting code changes.
+- MUST ALWAYS commit changes to a feature branch and submit all changes as a github pull request.
 - MUST ALWAYS commit all completed work with a comprehensive git commit message using [gitmoji](https://gitmoji.dev/) where applicable.
 - MUST ALWAYS keep PROJECT_SUMMARY.md up-to-date with any changes to completed features, testing architecture, file structure, and future development goals.
 - MUST ALWAYS write unit tests for all significant game logic changes.
