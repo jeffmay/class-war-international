@@ -1,0 +1,282 @@
+{
+    "nodes": [
+        {
+            "id": "readme_class_war_international",
+            "label": "Class War: International",
+            "file_type": "concept",
+            "source_file": "README.md",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        },
+        {
+            "id": "readme_working_class",
+            "label": "Working Class",
+            "file_type": "concept",
+            "source_file": "README.md",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        },
+        {
+            "id": "readme_capitalist_class",
+            "label": "Capitalist Class",
+            "file_type": "concept",
+            "source_file": "README.md",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        },
+        {
+            "id": "readme_turn_structure",
+            "label": "Turn Structure",
+            "file_type": "concept",
+            "source_file": "README.md",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        },
+        {
+            "id": "readme_production_phase",
+            "label": "Production Phase",
+            "file_type": "concept",
+            "source_file": "README.md",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        },
+        {
+            "id": "readme_action_phase",
+            "label": "Action Phase",
+            "file_type": "concept",
+            "source_file": "README.md",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        },
+        {
+            "id": "readme_reproduction_phase",
+            "label": "Reproduction Phase",
+            "file_type": "concept",
+            "source_file": "README.md",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        },
+        {
+            "id": "readme_lobby_system",
+            "label": "Lobby System",
+            "file_type": "concept",
+            "source_file": "README.md",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        },
+        {
+            "id": "readme_player_id_vs_social_class",
+            "label": "Player ID vs Social Class",
+            "file_type": "concept",
+            "source_file": "README.md",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        },
+        {
+            "id": "readme_multiplayer_server",
+            "label": "Online Multiplayer Server",
+            "file_type": "concept",
+            "source_file": "README.md",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        }
+    ],
+    "edges": [
+        {
+            "source": "readme_class_war_international",
+            "target": "readme_turn_structure",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_class_war_international",
+            "target": "readme_working_class",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_class_war_international",
+            "target": "readme_capitalist_class",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_turn_structure",
+            "target": "readme_production_phase",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_turn_structure",
+            "target": "readme_action_phase",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_turn_structure",
+            "target": "readme_reproduction_phase",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_lobby_system",
+            "target": "readme_player_id_vs_social_class",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_lobby_system",
+            "target": "readme_multiplayer_server",
+            "relation": "conceptually_related_to",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_production_phase",
+            "target": "project_summary_production_phase",
+            "relation": "semantically_similar_to",
+            "confidence": "INFERRED",
+            "confidence_score": 0.95,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_action_phase",
+            "target": "project_summary_action_phase",
+            "relation": "semantically_similar_to",
+            "confidence": "INFERRED",
+            "confidence_score": 0.95,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_reproduction_phase",
+            "target": "project_summary_reproduction_phase",
+            "relation": "semantically_similar_to",
+            "confidence": "INFERRED",
+            "confidence_score": 0.95,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_lobby_system",
+            "target": "project_summary_lobby_system",
+            "relation": "semantically_similar_to",
+            "confidence": "INFERRED",
+            "confidence_score": 0.95,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_working_class",
+            "target": "project_summary_strike_conflict",
+            "relation": "conceptually_related_to",
+            "confidence": "INFERRED",
+            "confidence_score": 0.75,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_capitalist_class",
+            "target": "project_summary_tactic_effects",
+            "relation": "conceptually_related_to",
+            "confidence": "INFERRED",
+            "confidence_score": 0.65,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "readme_class_war_international",
+            "target": "project_summary_core_game_engine",
+            "relation": "semantically_similar_to",
+            "confidence": "INFERRED",
+            "confidence_score": 0.85,
+            "source_file": "README.md",
+            "source_location": null,
+            "weight": 1.0
+        }
+    ],
+    "hyperedges": [
+        {
+            "id": "turn_phase_cycle",
+            "label": "Three-Phase Turn Cycle",
+            "nodes": [
+                "readme_production_phase",
+                "readme_action_phase",
+                "readme_reproduction_phase",
+                "readme_turn_structure"
+            ],
+            "relation": "participate_in",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": "README.md"
+        }
+    ]
+}

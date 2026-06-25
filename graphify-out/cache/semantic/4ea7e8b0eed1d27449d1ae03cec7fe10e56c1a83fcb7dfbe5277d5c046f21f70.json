@@ -1,0 +1,128 @@
+{
+    "nodes": [
+        {
+            "id": "workflows_ci_ci",
+            "label": "CI Workflow",
+            "file_type": "code",
+            "source_file": ".github/workflows/ci.yml",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        },
+        {
+            "id": "workflows_ci_deploy_web_preview",
+            "label": "deploy-web-preview Job",
+            "file_type": "code",
+            "source_file": ".github/workflows/ci.yml",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        },
+        {
+            "id": "workflows_ci_deploy_api_preview",
+            "label": "deploy-api-preview Job",
+            "file_type": "code",
+            "source_file": ".github/workflows/ci.yml",
+            "source_location": null,
+            "source_url": null,
+            "captured_at": null,
+            "author": null,
+            "contributor": null
+        }
+    ],
+    "edges": [
+        {
+            "source": "workflows_ci_ci",
+            "target": "workflows_test_and_lint_lint_and_test",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": ".github/workflows/ci.yml",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "workflows_ci_ci",
+            "target": "workflows_ci_deploy_web_preview",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": ".github/workflows/ci.yml",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "workflows_ci_ci",
+            "target": "workflows_ci_deploy_api_preview",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": ".github/workflows/ci.yml",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "workflows_ci_deploy_web_preview",
+            "target": "workflows_test_and_lint_lint_and_test",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": ".github/workflows/ci.yml",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "workflows_ci_deploy_api_preview",
+            "target": "workflows_ci_deploy_web_preview",
+            "relation": "references",
+            "confidence": "EXTRACTED",
+            "confidence_score": 1.0,
+            "source_file": ".github/workflows/ci.yml",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "workflows_ci_deploy_api_preview",
+            "target": "do_app_spec",
+            "relation": "references",
+            "confidence": "INFERRED",
+            "confidence_score": 0.85,
+            "source_file": ".github/workflows/ci.yml",
+            "source_location": null,
+            "weight": 1.0
+        },
+        {
+            "source": "workflows_ci_deploy_web_preview",
+            "target": "index_html_web_entry",
+            "relation": "conceptually_related_to",
+            "confidence": "INFERRED",
+            "confidence_score": 0.75,
+            "source_file": ".github/workflows/ci.yml",
+            "source_location": null,
+            "weight": 1.0
+        }
+    ],
+    "hyperedges": [
+        {
+            "id": "cd_deployment_pipeline",
+            "label": "CI/CD Deployment Pipeline",
+            "nodes": [
+                "workflows_ci_ci",
+                "workflows_test_and_lint_lint_and_test",
+                "workflows_ci_deploy_web_preview",
+                "workflows_ci_deploy_api_preview",
+                "workflows_cd_deploy_main",
+                "workflows_pr_delete_preview_delete_preview",
+                "do_app_spec"
+            ],
+            "relation": "form",
+            "confidence": "INFERRED",
+            "confidence_score": 0.85,
+            "source_file": ".github/workflows/ci.yml"
+        }
+    ]
+}

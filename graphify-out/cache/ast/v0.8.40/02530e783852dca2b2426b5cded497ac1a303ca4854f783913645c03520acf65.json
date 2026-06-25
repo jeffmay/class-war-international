@@ -1,0 +1,251 @@
+{
+    "nodes": [
+        {
+            "id": "package",
+            "label": "package.json",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L1"
+        },
+        {
+            "id": "package_name",
+            "label": "name",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L2"
+        },
+        {
+            "id": "package_version",
+            "label": "version",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L3"
+        },
+        {
+            "id": "package_private",
+            "label": "private",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L4"
+        },
+        {
+            "id": "package_workspaces",
+            "label": "workspaces",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L5"
+        },
+        {
+            "id": "package_scripts",
+            "label": "scripts",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L10"
+        },
+        {
+            "id": "package_scripts_web",
+            "label": "web",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L11"
+        },
+        {
+            "id": "package_scripts_server",
+            "label": "server",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L12"
+        },
+        {
+            "id": "package_scripts_generate",
+            "label": "generate",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L13"
+        },
+        {
+            "id": "package_scripts_test",
+            "label": "test",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L14"
+        },
+        {
+            "id": "package_scripts_test_watch",
+            "label": "test:watch",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L15"
+        },
+        {
+            "id": "package_scripts_test_e2e",
+            "label": "test:e2e",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L16"
+        },
+        {
+            "id": "package_scripts_typecheck",
+            "label": "typecheck",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L17"
+        },
+        {
+            "id": "package_scripts_lint",
+            "label": "lint",
+            "file_type": "code",
+            "source_file": "package.json",
+            "source_location": "L18"
+        }
+    ],
+    "edges": [
+        {
+            "source": "package",
+            "target": "package_name",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L2",
+            "weight": 1.0
+        },
+        {
+            "source": "package",
+            "target": "package_version",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L3",
+            "weight": 1.0
+        },
+        {
+            "source": "package",
+            "target": "package_private",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L4",
+            "weight": 1.0
+        },
+        {
+            "source": "package",
+            "target": "package_workspaces",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L5",
+            "weight": 1.0
+        },
+        {
+            "source": "package_workspaces",
+            "target": "ref_server",
+            "relation": "extends",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L5",
+            "weight": 1.0,
+            "context": "import"
+        },
+        {
+            "source": "package_workspaces",
+            "target": "ref_shared",
+            "relation": "extends",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L5",
+            "weight": 1.0,
+            "context": "import"
+        },
+        {
+            "source": "package_workspaces",
+            "target": "ref_web",
+            "relation": "extends",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L5",
+            "weight": 1.0,
+            "context": "import"
+        },
+        {
+            "source": "package",
+            "target": "package_scripts",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L10",
+            "weight": 1.0
+        },
+        {
+            "source": "package_scripts",
+            "target": "package_scripts_web",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L11",
+            "weight": 1.0
+        },
+        {
+            "source": "package_scripts",
+            "target": "package_scripts_server",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L12",
+            "weight": 1.0
+        },
+        {
+            "source": "package_scripts",
+            "target": "package_scripts_generate",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L13",
+            "weight": 1.0
+        },
+        {
+            "source": "package_scripts",
+            "target": "package_scripts_test",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L14",
+            "weight": 1.0
+        },
+        {
+            "source": "package_scripts",
+            "target": "package_scripts_test_watch",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L15",
+            "weight": 1.0
+        },
+        {
+            "source": "package_scripts",
+            "target": "package_scripts_test_e2e",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L16",
+            "weight": 1.0
+        },
+        {
+            "source": "package_scripts",
+            "target": "package_scripts_typecheck",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L17",
+            "weight": 1.0
+        },
+        {
+            "source": "package_scripts",
+            "target": "package_scripts_lint",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "package.json",
+            "source_location": "L18",
+            "weight": 1.0
+        }
+    ]
+}

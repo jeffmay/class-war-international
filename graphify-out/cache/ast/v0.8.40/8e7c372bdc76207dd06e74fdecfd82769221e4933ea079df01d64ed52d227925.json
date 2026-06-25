@@ -1,0 +1,281 @@
+{
+    "nodes": [
+        {
+            "id": "shared_package",
+            "label": "package.json",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L1"
+        },
+        {
+            "id": "shared_package_name",
+            "label": "name",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L2"
+        },
+        {
+            "id": "shared_package_version",
+            "label": "version",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L3"
+        },
+        {
+            "id": "shared_package_private",
+            "label": "private",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L4"
+        },
+        {
+            "id": "shared_package_scripts",
+            "label": "scripts",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L5"
+        },
+        {
+            "id": "shared_package_scripts_typecheck",
+            "label": "typecheck",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L6"
+        },
+        {
+            "id": "shared_package_dependencies",
+            "label": "dependencies",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L8"
+        },
+        {
+            "id": "shared_package_dependencies_boardgame_io",
+            "label": "boardgame.io",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L9"
+        },
+        {
+            "id": "shared_package_dependencies_lodash",
+            "label": "lodash",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L10"
+        },
+        {
+            "id": "shared_package_dependencies_ts_brand",
+            "label": "ts-brand",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L11"
+        },
+        {
+            "id": "shared_package_devdependencies",
+            "label": "devDependencies",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L13"
+        },
+        {
+            "id": "shared_package_devdependencies_types_lodash",
+            "label": "@types/lodash",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L14"
+        },
+        {
+            "id": "shared_package_devdependencies_types_node",
+            "label": "@types/node",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L15"
+        },
+        {
+            "id": "shared_package_devdependencies_typescript",
+            "label": "typescript",
+            "file_type": "code",
+            "source_file": "shared/package.json",
+            "source_location": "L16"
+        }
+    ],
+    "edges": [
+        {
+            "source": "shared_package",
+            "target": "shared_package_name",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L2",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package",
+            "target": "shared_package_version",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L3",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package",
+            "target": "shared_package_private",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L4",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package",
+            "target": "shared_package_scripts",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L5",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package_scripts",
+            "target": "shared_package_scripts_typecheck",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L6",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package",
+            "target": "shared_package_dependencies",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L8",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package_dependencies",
+            "target": "shared_package_dependencies_boardgame_io",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L9",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package_dependencies_boardgame_io",
+            "target": "boardgame_io",
+            "relation": "imports",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L9",
+            "weight": 1.0,
+            "context": "import"
+        },
+        {
+            "source": "shared_package_dependencies",
+            "target": "shared_package_dependencies_lodash",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L10",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package_dependencies_lodash",
+            "target": "lodash",
+            "relation": "imports",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L10",
+            "weight": 1.0,
+            "context": "import"
+        },
+        {
+            "source": "shared_package_dependencies",
+            "target": "shared_package_dependencies_ts_brand",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L11",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package_dependencies_ts_brand",
+            "target": "ts_brand",
+            "relation": "imports",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L11",
+            "weight": 1.0,
+            "context": "import"
+        },
+        {
+            "source": "shared_package",
+            "target": "shared_package_devdependencies",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L13",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package_devdependencies",
+            "target": "shared_package_devdependencies_types_lodash",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L14",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package_devdependencies_types_lodash",
+            "target": "types_lodash",
+            "relation": "imports",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L14",
+            "weight": 1.0,
+            "context": "import"
+        },
+        {
+            "source": "shared_package_devdependencies",
+            "target": "shared_package_devdependencies_types_node",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L15",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package_devdependencies_types_node",
+            "target": "types_node",
+            "relation": "imports",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L15",
+            "weight": 1.0,
+            "context": "import"
+        },
+        {
+            "source": "shared_package_devdependencies",
+            "target": "shared_package_devdependencies_typescript",
+            "relation": "contains",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L16",
+            "weight": 1.0
+        },
+        {
+            "source": "shared_package_devdependencies_typescript",
+            "target": "typescript",
+            "relation": "imports",
+            "confidence": "EXTRACTED",
+            "source_file": "shared/package.json",
+            "source_location": "L16",
+            "weight": 1.0,
+            "context": "import"
+        }
+    ]
+}
