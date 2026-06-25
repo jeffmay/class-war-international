@@ -1,0 +1,30 @@
+# graphify-out is committed so developers share the portable cache:
+#   cache/ast/**, cache/semantic/** - content-hashed, store relative source paths
+#   graph.json, manifest.json, GRAPH_REPORT.md, *.labels - all relative
+# The files below are machine-specific local state and must NOT be shared.
+
+# Absolute path to the local Python interpreter (differs per machine).
+.graphify_python
+
+# Local scan-root pointer (regenerated on every run).
+.graphify_root
+
+# Local rebuild flag.
+.needs_update
+
+# Stat cache: keyed by absolute path with per-machine mtimes. It is a local
+# rehashing optimization only - the tool looks it up by resolved absolute path,
+# so it can never be portable. The shareable caches live under cache/ast and
+# cache/semantic; this file regenerates itself locally.
+cache/stat-index.json
+
+# Temporary pipeline artifacts (normally cleaned up at end of a run).
+.graphify_detect.json
+.graphify_extract.json
+.graphify_ast.json
+.graphify_semantic.json
+.graphify_semantic_new.json
+.graphify_cached.json
+.graphify_uncached.txt
+.graphify_analysis.json
+.graphify_chunk_*.json
