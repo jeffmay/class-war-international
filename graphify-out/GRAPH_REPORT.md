@@ -1,16 +1,16 @@
-# Graph Report - class-war-international  (2026-06-25)
+# Graph Report - class-war-international  (2026-06-26)
 
 ## Corpus Check
-- 79 files · ~63,127 words
+- 80 files · ~63,105 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 749 nodes · 1321 edges · 51 communities (44 shown, 7 thin omitted)
+- 750 nodes · 1320 edges · 53 communities (46 shown, 7 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 27 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f3859805`
+- Built from commit: `ff03b0d1`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -55,10 +55,13 @@
 - [[_COMMUNITY_Community 42|Community 42]]
 - [[_COMMUNITY_Community 43|Community 43]]
 - [[_COMMUNITY_Community 44|Community 44]]
+- [[_COMMUNITY_Community 45|Community 45]]
 - [[_COMMUNITY_Community 46|Community 46]]
 - [[_COMMUNITY_Community 48|Community 48]]
 - [[_COMMUNITY_Community 49|Community 49]]
 - [[_COMMUNITY_Community 50|Community 50]]
+- [[_COMMUNITY_Community 51|Community 51]]
+- [[_COMMUNITY_Community 52|Community 52]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `SocialClass` - 42 edges
@@ -98,55 +101,55 @@
 - **Level 2 New Table Elements** — docs_original_rulebook_platform_tile, docs_original_rulebook_institution_tile, docs_original_rulebook_bigger_bank, docs_original_rulebook_third_workplace_tile [EXTRACTED 1.00]
 - **State Figures: Centrist, Opportunist, Populist** — docs_original_rulebook_centrist, docs_original_rulebook_opportunist, docs_original_rulebook_populist, docs_original_rulebook_state_figure [EXTRACTED 1.00]
 
-## Communities (51 total, 7 thin omitted)
+## Communities (53 total, 7 thin omitted)
 
 ### Community 0 - "Core Game Engine & State"
-Cohesion: 0.06
-Nodes (55): ClassWarGame, createPlayerState(), DIE_FACES, effectiveCost(), advanceToCCActionPhase(), PluginAPIs, setup(), SetupContext (+47 more)
+Cohesion: 0.10
+Nodes (18): createPlayerState(), DIE_FACES, PluginAPIs, setup(), SetupContext, shuffleArray(), triggerFigureActivation(), triggerInstitutionActivation() (+10 more)
 
 ### Community 1 - "Game UI Components"
-Cohesion: 0.14
-Nodes (16): MenuOption, useGameNav(), BoardState, ClassWarBoard(), ClassWarBoardProps, HamburgerMenu(), SelectedSlotID, SlotData (+8 more)
+Cohesion: 0.06
+Nodes (38): ActionMenuBar(), ActionMenuBarProps, MenuOption, CardBorderVariant, CardComponent(), CardComponentProps, ConflictModalProps, DealResultModal() (+30 more)
 
 ### Community 2 - "Web App Dependencies"
 Cohesion: 0.05
-Nodes (41): dependencies, boardgame.io, lodash, react, react-dom, ts-brand, devDependencies, eslint (+33 more)
+Nodes (40): dependencies, boardgame.io, lodash, react, react-dom, ts-brand, devDependencies, eslint (+32 more)
 
 ### Community 3 - "Lobby & Routing"
-Cohesion: 0.08
-Nodes (16): App(), findMatchCredentials(), getMatchCredentials(), LobbyRouteProps, LobbyStatus, LocalGameManagerProps, LocalGameRouteProps, matchCredentialsKey() (+8 more)
+Cohesion: 0.05
+Nodes (42): App(), findMatchCredentials(), getMatchCredentials(), lobbyHash(), LobbyRouteProps, LobbyStatus, LocalGameManagerProps, LocalGameRouteProps (+34 more)
 
 ### Community 4 - "Card Type Definitions"
-Cohesion: 0.14
-Nodes (20): AnyCard, AnyCardData, AnyCardInPlay, BaseBoardCardData, BaseCard, BaseCardData, BaseDeckCardData, BaseStateFigureInPlay (+12 more)
+Cohesion: 0.16
+Nodes (18): AnyCard, AnyCardData, AnyCardInPlay, BaseBoardCardData, BaseCard, BaseCardData, BaseDeckCardData, CardInPlay (+10 more)
 
 ### Community 5 - "Conflict Modal & Effects"
 Cohesion: 0.11
-Nodes (20): ConflictModal(), baseElectionConflict, baseProps, baseStrikeConflict, cashierInPlay, cornerStoreTarget, emptyPlayer, nurseInPlay (+12 more)
+Nodes (19): ConflictModal(), baseElectionConflict, baseProps, baseStrikeConflict, cashierInPlay, cornerStoreTarget, emptyPlayer, nurseInPlay (+11 more)
 
 ### Community 6 - "Conventions & Deployment"
-Cohesion: 0.12
-Nodes (20): class-war-international-host Service, ORIGINS Environment Variable, DigitalOcean App Spec, Web App HTML Entry Point, Architecture, File Structure, Lobby System and Persistent Match Storage, Technology Stack (+12 more)
+Cohesion: 0.29
+Nodes (8): class-war-international-host Service, ORIGINS Environment Variable, DigitalOcean App Spec, Development UI, Online Multiplayer Server, Running the App, deploy-api-prod Job, Deploy Main Branch Workflow (CD)
 
 ### Community 7 - "Card Generation Script"
 Cohesion: 0.10
 Nodes (23): buildCardProps(), byClass, CardRow, cards, cardTypeExpr(), defaultCards, defaultStateFigures, defaultWorkplaces (+15 more)
 
 ### Community 8 - "Game Mechanics Overview"
-Cohesion: 0.05
-Nodes (47): Action Phase, Completed Card Effects, Conflict Leader Row & Leader Switching, Conflict System, Core Game Engine (boardgame.io), Demand Law Effects, Die Mechanics, Election Conflict (+39 more)
+Cohesion: 0.17
+Nodes (14): Action Phase, Core Game Engine (boardgame.io), Figure Activation Effects, Institution Effects, Production Phase, Reproduction Phase, Theorize Mechanic, Action Phase (+6 more)
 
 ### Community 9 - "Server Dependencies"
-Cohesion: 0.09
-Nodes (21): dependencies, boardgame.io, node-persist, tsx, devDependencies, eslint, @eslint/js, globals (+13 more)
+Cohesion: 0.10
+Nodes (20): dependencies, boardgame.io, node-persist, tsx, devDependencies, eslint, @eslint/js, globals (+12 more)
 
 ### Community 10 - "TypeScript Config (Web)"
 Cohesion: 0.10
 Nodes (20): compilerOptions, allowJs, allowSyntheticDefaultImports, esModuleInterop, forceConsistentCasingInFileNames, isolatedModules, jsx, lib (+12 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.18
-Nodes (12): ActionMenuBar(), ActionMenuBarProps, CardBorderVariant, CardComponent(), CardComponentProps, ConflictModalProps, ConflictOutcomeModal(), ConflictOutcomeModalProps (+4 more)
+Cohesion: 0.16
+Nodes (15): exhaustedWcFigure, inTrainingWcFigure, makeWcLegislationFixture(), readyCcFigure, readyWcFigure, makeStrikeInitiating(), makeStrikeResolving(), makeStrikeResponding() (+7 more)
 
 ### Community 12 - "Capitalist Actions & Setup"
 Cohesion: 0.18
@@ -157,8 +160,8 @@ Cohesion: 0.12
 Nodes (16): compilerOptions, allowJs, allowSyntheticDefaultImports, esModuleInterop, forceConsistentCasingInFileNames, isolatedModules, lib, module (+8 more)
 
 ### Community 14 - "Typed boardgame.io Wrappers"
-Cohesion: 0.15
-Nodes (12): assertDefined(), DropFirst, StrictBoardProps, StrictBoardPropsOf, StrictClientOf, StrictClientOpts, StrictGame, StrictGameOf (+4 more)
+Cohesion: 0.08
+Nodes (21): ClassWarGame, extraOrigins, origins, PORT, server, assertDefined(), assertEqual(), AssertionError (+13 more)
 
 ### Community 15 - "Money, Tiles & Win Conditions"
 Cohesion: 0.17
@@ -173,8 +176,8 @@ Cohesion: 0.22
 Nodes (14): Corner Store (starter Workplace), Example Strike (Cleaning Crew vs Parts Producer), Minimum Wage ($1 floor), Parts Producer (starter Workplace), Profits, Restructure (Tactic), Starter Workplaces (Corner Store and Parts Producer), Strike (Workers conflict) (+6 more)
 
 ### Community 18 - "Monorepo Root Config"
-Cohesion: 0.13
-Nodes (14): name, private, scripts, format, generate, lint, server, test (+6 more)
+Cohesion: 0.14
+Nodes (13): name, private, scripts, generate, lint, server, test, test:e2e (+5 more)
 
 ### Community 19 - "Shared Package Dependencies"
 Cohesion: 0.14
@@ -197,16 +200,16 @@ Cohesion: 0.18
 Nodes (10): compilerOptions, erasableSyntaxOnly, module, moduleResolution, noEmit, skipLibCheck, strict, target (+2 more)
 
 ### Community 25 - "Community 25"
-Cohesion: 0.22
-Nodes (16): BaseCardInPlay, DemandCardInPlay, InstitutionCardInPlay, StateFigureCardInPlay, TacticCardInPlay, WorkplaceCardInPlay, BaseConflictState, ConflictState (+8 more)
+Cohesion: 0.17
+Nodes (21): BaseCardInPlay, BaseStateFigureInPlay, ConflictType, DefaultStateFigureCardInPlay, DemandCardInPlay, FigureCardInPlay, InstitutionCardInPlay, StateFigureCardInPlay (+13 more)
 
 ### Community 26 - "Turn Structure & Exhaustion"
 Cohesion: 0.24
 Nodes (10): Action Phase, Activate an Institution (action), Active Figure, Conflict, Conflict Actions, Exhausted Figure, Exhaustion and Defense, Production Phase (+2 more)
 
 ### Community 27 - "Status Text & Error Log"
-Cohesion: 0.29
-Nodes (6): _errorLog, ErrorLogEntry, getErrorLog(), logError(), setStatusText(), StatusType
+Cohesion: 0.22
+Nodes (11): Conflict Leader Row & Leader Switching, Conflict System, Demand Law Effects, Die Mechanics, Election Conflict, Legislation Conflict, Strike Conflict, Tactic Effects (+3 more)
 
 ### Community 28 - "Web App Manifest (PWA)"
 Cohesion: 0.25
@@ -217,56 +220,68 @@ Cohesion: 0.40
 Nodes (6): About Jacobin, Appendix, Class War: The Jacobin Board Game, Credits, Further Reading, Game Overview
 
 ### Community 30 - "Community 30"
-Cohesion: 0.28
-Nodes (14): lobbyHash(), matchHash(), parseHash(), decodeHostID(), encodeHostID(), expandIPv6Groups(), fromBase64Url(), normalizeServerURL() (+6 more)
+Cohesion: 0.20
+Nodes (10): Completed Card Effects, Group 1: Demand Law Enforcement, Group 2: Complex Demand Laws, Group 3: Figure Activation Effects, Group 4: Figure Strike Leader Effects, Group 5: Figure Passive Effects, Group 6: Institution Effects, Group 7: Tactic Out-of-Conflict Moves (+2 more)
 
 ### Community 31 - "Community 31"
-Cohesion: 0.26
-Nodes (9): Die(), dieFace(), DieProps, TurnStartModal(), TurnStartModalProps, WAITING_MESSAGES, WaitingInterstitial(), WaitingInterstitialProps (+1 more)
+Cohesion: 0.35
+Nodes (8): ConflictOutcomeModal(), ConflictOutcomeModalProps, Die(), dieFace(), DieProps, sideToValue(), SocialClass, ConflictOutcome
 
 ### Community 32 - "Docs Package Config"
-Cohesion: 0.33
-Nodes (5): devDependencies, @types/node, scripts, format, type
+Cohesion: 0.50
+Nodes (3): devDependencies, @types/node, type
 
 ### Community 33 - "Future Win Conditions"
 Cohesion: 0.04
 Nodes (44): 10. React UI Foundation, 11. Escape Key Closes ActionMenuBar (`src/Board.tsx`), 12. "Activated Figures" Rename (`src/Board.tsx`), 13. Card Slot Labels and `demands[-1]` / `institutions[-1]` Support, 14. Status Banners on Figure Cards (`src/components/CardComponent.tsx`), 15. Turn Counter and Current Player in Top Bar (`src/Board.tsx`), 16. Redesigned Control Bar (`src/Board.tsx`), 17. Left Sidebar Replaces Opposing Player Area (`src/Board.tsx`) (+36 more)
 
 ### Community 40 - "Community 40"
-Cohesion: 0.26
-Nodes (6): withCardsInHand(), WorkplaceForSale, TurnPhase, assertEqual(), AssertionError, assertNotEqual()
+Cohesion: 0.18
+Nodes (16): advanceToCCActionPhase(), readyCashier, readyCleaningCrew, advanceToCCAction(), clientFromFixture(), makeActionPhaseState(), makeCCActionPhaseClient(), makePlayerState() (+8 more)
 
 ### Community 41 - "Community 41"
-Cohesion: 0.31
-Nodes (7): BgioMetadata, deleteLocalGame(), getMostRecentLocalGame(), listLocalGames(), LocalGameEntry, readBgioEntries(), writeBgioEntries()
+Cohesion: 0.47
+Nodes (6): Web App HTML Entry Point, CI Workflow, deploy-api-preview Job, deploy-web-preview Job, Delete Preview Deploys Workflow, Lint and Test Reusable Workflow
 
 ### Community 42 - "Community 42"
 Cohesion: 0.29
 Nodes (6): Code Conventions, Common Development Tasks, graphify, Important Notes, Project: Class War: International, Project Description
 
 ### Community 43 - "Community 43"
+Cohesion: 0.33
+Nodes (6): Architecture, File Structure, Lobby System and Persistent Match Storage, Technology Stack, Lobby System, Player ID vs Social Class
+
+### Community 44 - "Community 44"
 Cohesion: 0.40
-Nodes (4): LobbyJoinResponse, LobbyMatch, LobbyMatchList, LobbyPlayer
+Nodes (5): Flow, How the Lobby Works, Player IDs vs Social Class, Player Name, Rejoining a Match
+
+### Community 45 - "Community 45"
+Cohesion: 0.50
+Nodes (4): Commands, Development, Project Structure, Testing Philosophy
+
+### Community 52 - "Community 52"
+Cohesion: 0.67
+Nodes (3): Completed, Features, In Progress / Future
 
 ## Knowledge Gaps
-- **317 isolated node(s):** `graphify`, `Project Description`, `Code Conventions`, `Common Development Tasks`, `Important Notes` (+312 more)
+- **316 isolated node(s):** `$schema`, `plugin`, `@opencode-ai/plugin`, `name`, `version` (+311 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SocialClass` connect `Community 31` to `Core Game Engine & State`, `Game UI Components`, `Card Type Definitions`, `Conflict Modal & Effects`, `Community 40`, `Community 11`, `Community 25`?**
+- **Why does `SocialClass` connect `Community 31` to `Core Game Engine & State`, `Game UI Components`, `Card Type Definitions`, `Conflict Modal & Effects`, `Community 40`, `Community 11`, `Typed boardgame.io Wrappers`, `Community 25`?**
   _High betweenness centrality (0.015) - this node is a cross-community bridge._
-- **Why does `Class War: International - Project Summary` connect `Future Win Conditions` to `Game Mechanics Overview`, `Conventions & Deployment`?**
+- **Why does `Class War: International - Project Summary` connect `Future Win Conditions` to `Community 43`, `Community 30`?**
   _High betweenness centrality (0.013) - this node is a cross-community bridge._
-- **Why does `Completed Card Effects` connect `Game Mechanics Overview` to `Future Win Conditions`?**
+- **Why does `Completed Card Effects` connect `Community 30` to `Future Win Conditions`, `Status Text & Error Log`?**
   _High betweenness centrality (0.011) - this node is a cross-community bridge._
-- **What connects `graphify`, `Project Description`, `Code Conventions` to the rest of the system?**
-  _317 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **What connects `$schema`, `plugin`, `@opencode-ai/plugin` to the rest of the system?**
+  _316 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Core Game Engine & State` be split into smaller, more focused modules?**
-  _Cohesion score 0.05651176133103844 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.10037878787878787 - nodes in this community are weakly interconnected._
 - **Should `Game UI Components` be split into smaller, more focused modules?**
-  _Cohesion score 0.13852813852813853 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05909090909090909 - nodes in this community are weakly interconnected._
 - **Should `Web App Dependencies` be split into smaller, more focused modules?**
-  _Cohesion score 0.047619047619047616 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.04878048780487805 - nodes in this community are weakly interconnected._

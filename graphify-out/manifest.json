@@ -1,6 +1,6 @@
 {
   ".claude/settings.json": {
-    "mtime": 1782427145.239494,
+    "mtime": 1782430981.7247603,
     "ast_hash": "205c6f17863172a965dfac0345db67a3",
     "semantic_hash": ""
   },
@@ -15,8 +15,8 @@
     "semantic_hash": "748db93cd0137ea186d655d5d8fe021e"
   },
   "package.json": {
-    "mtime": 1782427940.6553884,
-    "ast_hash": "78fb7fbf0e42d51d1b9e235851cb49a0",
+    "mtime": 1782494106.068558,
+    "ast_hash": "6a2a6f1ed6a859852c769c3ed376ab85",
     "semantic_hash": ""
   },
   "scripts/generate-cards.ts": {
@@ -25,8 +25,8 @@
     "semantic_hash": "9796c266675ab8505500e55c46d5b1df"
   },
   "scripts/package.json": {
-    "mtime": 1782428010.910016,
-    "ast_hash": "79205d4e6ccea6302b53573efa3980a8",
+    "mtime": 1782494106.068721,
+    "ast_hash": "f2ffd40fa7eb117ec6ef755873038f47",
     "semantic_hash": ""
   },
   "scripts/tsconfig.json": {
@@ -45,8 +45,8 @@
     "semantic_hash": "ca480862e61b50c16e7f63d34ee5d380"
   },
   "server/package.json": {
-    "mtime": 1782428005.1437218,
-    "ast_hash": "d18454281d232ddc808cebddd865d75a",
+    "mtime": 1782494106.068849,
+    "ast_hash": "af4b463266fbef77ef03f9b897dbba05",
     "semantic_hash": ""
   },
   "server/tsconfig.json": {
@@ -110,8 +110,8 @@
     "semantic_hash": "b166416cfb3f54be39bc6913b1039dc2"
   },
   "web/package.json": {
-    "mtime": 1782427895.1484017,
-    "ast_hash": "6d4aa2ba9996fcbbf963a57ccfb9df76",
+    "mtime": 1782494106.068955,
+    "ast_hash": "ab6ec8d199851bea6ec5d8c344389159",
     "semantic_hash": ""
   },
   "web/playwright.config.ts": {
@@ -395,7 +395,7 @@
     "semantic_hash": "5894dddef84b5012bd189105de58bb62"
   },
   "CLAUDE.md": {
-    "mtime": 1782427145.239075,
+    "mtime": 1782430981.7266946,
     "ast_hash": "f42b297800e46d8c4897fea91cca965c",
     "semantic_hash": ""
   },
@@ -425,18 +425,23 @@
     "semantic_hash": "f0f4362e3a7576834af364542f8bdea6"
   },
   ".opencode/opencode.json": {
-    "mtime": 1782427214.5832567,
-    "ast_hash": "abcc8b9dcd80bca5f9dde6d9f0c3ae79",
+    "mtime": 1782540988.4406784,
+    "ast_hash": "e5f74d14a81702b55bdf53b33ec991d7",
     "semantic_hash": ""
   },
   ".opencode/plugins/graphify.js": {
-    "mtime": 1782427214.5831542,
+    "mtime": 1782430981.725808,
     "ast_hash": "64ccd3c03dbfe0980b6095766f5c4e52",
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1782427214.582923,
+    "mtime": 1782430981.7262967,
     "ast_hash": "62c05a2bf20bf036a0b2633478663e64",
+    "semantic_hash": ""
+  },
+  ".opencode/package.json": {
+    "mtime": 1782539748.0312834,
+    "ast_hash": "24478eaec7f80842193599e20ed2e5ae",
     "semantic_hash": ""
   }
 }
