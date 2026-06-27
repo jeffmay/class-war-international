@@ -20,11 +20,6 @@ dist/
 playwright-report/
 .playwright-mcp/
 
-# graphify
-graphify-out/cost.json
-graphify-out/cache/
-graphify-out/[0-9-]*/
-
 # mac os
 .DS_Store
 *.numbers
