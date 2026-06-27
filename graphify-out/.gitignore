@@ -18,6 +18,9 @@
 # cache/semantic; this file regenerates itself locally.
 cache/stat-index.json
 
+# Only keep this locally
+cost.json
+
 # Temporary pipeline artifacts (normally cleaned up at end of a run).
 .graphify_detect.json
 .graphify_extract.json
