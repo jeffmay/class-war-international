@@ -12,14 +12,18 @@
 # Local rebuild flag.
 .needs_update
 
+# Only use local file
+cost.json
+
+# Remove the cache (it's too noisy on changes)
+cache/
+[0-9-]*/
+
 # Stat cache: keyed by absolute path with per-machine mtimes. It is a local
 # rehashing optimization only - the tool looks it up by resolved absolute path,
 # so it can never be portable. The shareable caches live under cache/ast and
 # cache/semantic; this file regenerates itself locally.
 cache/stat-index.json
-
-# Only keep this locally
-cost.json
 
 # Temporary pipeline artifacts (normally cleaned up at end of a run).
 .graphify_detect.json
